@@ -13,6 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   every word of the text, for the commands and the autocompleter (the Photon API keeps the partial
   matches, as Photon). `geo:search` shows the words each suggestion matched ("Match") and takes
   `--complete-only` / `--no-complete-only`.
+- The service `geo.geocoder.status_provider` (alias
+  `Tito10047\Geocoder\Status\GeocoderStatusProviderInterface`): the live index and the live build
+  for health checks, "not configured" while the Meilisearch URL is empty; not registered without a
+  `url`.
+- `geo.geocoder.meilisearch.index` accepts an environment variable (`%env(GEO_INDEX)%`); the uid is
+  validated when the services using it are created.
+- Docs: "API keys", the minimal key definitions (indexes pattern and actions) for importing,
+  publishing, the status and searching, checked against Meilisearch 1.35.1; the order of a
+  publication and how to recover from a failed one.
 
 ### Changed
 
@@ -20,6 +29,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `RoutingNotConfiguredException` (subclasses of the `…UnavailableException` thrown before, so
   existing catch blocks still work): an empty URL can be told from a service that is down.
   `geo:search`, `geo:route`, `geo:matrix` and `geo:route:status` add a hint to set the URL.
+- `geo:status` reads `GeocoderStatusProviderInterface` (its constructor takes it instead of the
+  index manager, the uid and the importer): it prints the live build also while Meilisearch is
+  down, and fails when the live index does not exist.
+- `geo:publish <uid>` run again after a failed or interrupted publication finishes it, also once
+  the tables of the build are live already.
+
+### Fixed
+
+- `geo:publish` (and `geo:import`) with a key restricted to the indexes of the geocoder no longer
+  fails after the swap with "Meilisearch does not know the task N", leaving the new index live with
+  the old tables (see the changelog of tito10047/geocoder).
+- `geo:download` no longer creates world-writable dumps when the console runs in debug mode
+  (umask 0000): 0644 files, 0755 directories.
+- An environment variable as `geo.geocoder.meilisearch.index` was rejected when the container was
+  built ("cannot contain an environment variable").
 
 ## [0.2.1] - 2026-10-23
 

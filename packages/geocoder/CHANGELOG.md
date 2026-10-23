@@ -21,6 +21,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `maxMatchingWords`.
 - `Exception\GeocoderNotConfiguredException`, a `GeocoderUnavailableException` for a geocoder
   switched off by the configuration rather than down.
+- `Status\GeocoderStatusProviderInterface` and `Status\GeocoderStatusProvider`: the state of the
+  live index (`IndexStatus`, Meilisearch version) and of the live build (`Build`: data timestamps
+  per country, counts) as a `Status\GeocoderStatus`, without throwing on an outage:
+  `Status\GeocoderState` `Ready`, `NoIndex`, `Unreachable` or `NotConfigured` (an index manager
+  throwing `GeocoderNotConfiguredException`); the build is read independently, with its own error.
+- `IndexManagerInterface::fingerprint()` (what tells an index apart and moves with it on a swap:
+  the creation time in Meilisearch) and `IndexManagerInterface::version()`.
+- `Index\Exception\TaskNotFoundException`: Meilisearch does not return an enqueued task (deleted,
+  or hidden from the API key).
+- `IndexPublisher::swapIn()`, `swapBack()` and `removeReplaced()`, the steps of `publish()`.
+- `BuildStorageInterface::recordPublication()` / `recordedPublication()`: the fingerprint of the
+  build index, recorded in the metadata of its tables when its publication starts.
+- `HttpDumpDownloader` sets the permissions of what it creates, `$fileMode` (0644) and
+  `$directoryMode` (0755), whatever the umask.
+
+### Changed
+
+- `Importer::publish()` is resumable: it records the fingerprint of the build index, swaps only
+  while the live index is not that one, undoes the swap of the run when the tables cannot be
+  published, and deletes the replaced index only once the tables are live. Running it again with
+  the same build — or with the live build once the tables are live — converges to a consistent
+  state from wherever a former run stopped. `Importer::build()` also returns a build whose index was
+  swapped in already (its publication stopped before the tables).
+- `MeilisearchIndexManager::swap()` reads the creation times of both indexes first and fails with
+  `MeilisearchException` when the build index does not exist (instead of a failed task).
+- An unknown task is a `TaskNotFoundException` (was a `MeilisearchException`; both are
+  `RuntimeException`s).
+- **BC break for implementers** of `IndexManagerInterface` (`fingerprint()`, `version()`) and
+  `BuildStorageInterface` (`recordPublication()`, `recordedPublication()`).
+
+### Fixed
+
+- Publishing with an API key restricted to the indexes of the geocoder (`"indexes":
+  ["tankovac_geo*"]`) failed with "Meilisearch does not know the task N" after the swap had taken
+  effect, leaving the new index live with the old tables: Meilisearch hides the tasks of no index
+  (swaps, snapshots) from such a key. The swap is now confirmed from the indexes, polled with the
+  task timeout; a snapshot followed by such a key fails with the key it needs (`"indexes": ["*"]`).
 
 ## [0.2.0] - 2026-10-23
 

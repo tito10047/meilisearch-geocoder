@@ -50,7 +50,8 @@ geo:
             # The bundle builds the search client and the HTTP layer of the index manager from it.
             # Resolving to an empty value at runtime switches the geocoder off (see below).
             url: null                   # e.g. '%env(MEILISEARCH_URL)%'
-            # A search key is enough for searching; the index manager needs the master key or an admin key.
+            # A search key is enough for searching; the index manager needs a key allowed on "<index>*"
+            # with the actions listed in "API keys" (never the master key needed).
             # Empty: no Authorization header, for an instance without a master key only.
             api_key: null               # e.g. '%env(MEILISEARCH_API_KEY)%'
             # An existing Meilisearch\Client service used for searching instead of one built from "url".
@@ -64,6 +65,7 @@ geo:
             # Whether to accept gzip answers (the default HTTP client only), see "HTTP clients".
             compression: false
             # The uid of the live index searched; an import builds "<index>_<timestamp>" and swaps it in.
+            # May be an environment variable ('%env(GEO_INDEX)%'): it is then validated at runtime.
             index: geo
             # The snapshot directory of the instance (MEILI_SNAPSHOT_DIR) as a local path: the artifact
             # command picks the snapshot up there. Without it no artifact can be built.
@@ -165,7 +167,52 @@ geo:
 
 The values are validated when the container is built: country codes in upper case, languages in
 lower case, limits and ranks in their ranges, valid index uids and table names, and the combinations
-(`url` or `client`, `dsn` or `connection`, …).
+(`url` or `client`, `dsn` or `connection`, …). An environment variable given as the `index` is
+validated when the services using it are created (an invalid uid is an
+`InvalidArgumentException` then).
+
+### API keys
+
+On a Meilisearch shared with other applications, give the bundle a key restricted to the indexes
+of the geocoder: the live index and its builds, `<index>` and `<index>_<timestamp>`, so the pattern
+`<index>*` (e.g. `tankovac_geo*` for `index: tankovac_geo`). Create the keys with the master key
+(`POST /keys`); these are the minimal actions, each one checked against Meilisearch 1.35.1:
+
+```console
+# import, publish, clean up and status (geo:import, geo:publish, geo:cleanup, geo:status)
+$ curl -X POST "$MEILISEARCH_URL/keys" -H "Authorization: Bearer $MEILI_MASTER_KEY" -H 'Content-Type: application/json' --data '{
+    "description": "tankovac geocoder: import and status",
+    "indexes": ["tankovac_geo*"],
+    "actions": ["indexes.create", "indexes.get", "indexes.delete", "indexes.swap", "indexes.compact",
+                "settings.get", "settings.update", "documents.add", "tasks.get", "stats.get", "version"],
+    "expiresAt": null
+  }'
+
+# searching (the geocoder, the address lookup, the autocompleter, the Photon API)
+$ curl -X POST "$MEILISEARCH_URL/keys" -H "Authorization: Bearer $MEILI_MASTER_KEY" -H 'Content-Type: application/json' --data '{
+    "description": "tankovac geocoder: search",
+    "indexes": ["tankovac_geo*"],
+    "actions": ["search", "documents.get"],
+    "expiresAt": null
+  }'
+```
+
+| Actions | Needed by |
+|---|---|
+| `indexes.create`, `settings.update`, `documents.add`, `indexes.compact`, `tasks.get`, `indexes.get` | `geo:import` (a build) |
+| `indexes.swap`, `indexes.get`, `tasks.get`, `indexes.delete` | `geo:publish` (and `geo:import` without `--no-publish`), `geo:cleanup`, removing a failed build |
+| `indexes.get`, `stats.get`, `settings.get`, `version` | `geo:status`, `GeocoderStatusProviderInterface` |
+| `search`, `documents.get` | searching, `findByReference()` |
+
+`["*"]` as the actions works too. The bundle uses a single `api_key` for searching and indexing: give
+it the union of both lists (or `["*"]`) when the same application imports and searches.
+
+Meilisearch does not show a key restricted to some indexes the tasks of no index — the index swaps
+and the snapshots: "task not found", whatever its actions. The index manager then confirms a swap
+from the indexes themselves (their creation times move with them), polling with the task timeout.
+A snapshot cannot be confirmed that way: `geo:artifact` needs a key allowed on every index
+(`"indexes": ["*"]`, with `snapshots.create`), which is also why artifacts are built on an instance
+dedicated to the geocoder.
 
 ### Switching the geocoder or routing off by environment
 
@@ -413,6 +460,29 @@ The core of the API is framework-free (`Tito10047\Geocoder\Photon\PhotonQuery::f
 `PhotonSearchInterface`, `FeatureFactoryInterface`): the services
 `geo.geocoder.photon_api.search` and `….feature_factory` can be decorated or replaced.
 
+### Status and health checks
+
+`GeocoderStatusProviderInterface::status()` never throws because of an outage: it tells the state
+of the live index and the live build, each read on its own, for a health endpoint or a status page.
+
+```php
+use Tito10047\Geocoder\Status\GeocoderState;
+use Tito10047\Geocoder\Status\GeocoderStatusProviderInterface;
+
+$status = $statusProvider->status();
+match ($status->state) {
+    GeocoderState::Ready => $status->index->documents,      // Meilisearch answers, the live index exists
+    GeocoderState::NoIndex => 'nothing published yet',       // Meilisearch answers ($status->meilisearchVersion)
+    GeocoderState::Unreachable => $status->error,           // Meilisearch down or refusing the key: alert
+    GeocoderState::NotConfigured => $status->error,         // switched off by an empty URL: do not alert
+};
+$status->liveBuild?->dataTimestamps();  // ['SK' => DateTimeImmutable, …], null when none was published
+$status->liveBuild?->counts();          // places, streets, points of interest, house numbers
+$status->buildError;                    // why the live build cannot be read (the database), or null
+```
+
+`geo:status` prints the same; the routing has `RoutingStatusProviderInterface` (`geo:route:status`).
+
 ### Services
 
 Every service is private, with an id prefixed by `geo.`, and aliased to its interface for
@@ -440,6 +510,7 @@ replace it (e.g. `#[AsDecorator('geo.geocoder.label_formatter')]`).
 | | `geo.geocoder.search_options` | `SearchOptions`: the configured defaults |
 | | `geo.geocoder.selection_rules` | `Import\SelectionRules` |
 | `Geocoder\Import\ImporterInterface` | `geo.geocoder.importer` | `Importer` (with a `url` only) |
+| `Geocoder\Status\GeocoderStatusProviderInterface` | `geo.geocoder.status_provider` | `GeocoderStatusProvider`: the live index and the live build, for health checks (with a `url` only) |
 | `Geocoder\Import\ConverterInterface` | `geo.geocoder.import.converter` | `File\ExportAwareConverter`: exports through `…import.export_converter` (`FileExportConverter`), dumps through `…import.photon_converter` (`PhotonConverter` with the `import` rules) |
 | `Geocoder\Import\File\FileExporterInterface` | `geo.geocoder.file_exporter` | `FileExporter` |
 | `Geocoder\Import\ClockInterface` | `geo.geocoder.import.clock` | `SystemClock` (names the builds) |
@@ -510,7 +581,8 @@ $ php bin/console geo:search wien --country=AT --country=SK --limit=10
 $ php bin/console geo:search "Champs-Élysées, Paris" --complete-only
 
 # the live index (documents, sizes, indexing, settings, Meilisearch version) and the live build
-# (data timestamp of each country and dump, counts, schema version of the tables)
+# (data timestamp of each country and dump, counts, schema version of the tables); exit code 1
+# when Meilisearch is unreachable, the live index missing or the geocoder not configured
 $ php bin/console geo:status
 
 # routes through points: distance, duration, countries, tolls per country
@@ -542,7 +614,9 @@ https://download1.graphhopper.com/public/). A dump is downloaded beside the prev
 Photon header checked (a `.zst` is decompressed at its head only) and only then renamed over it:
 an interrupted or failed download leaves the old copy. The `ETag` and `Last-Modified` of each
 download are kept beside the dump (`slovakia.jsonl.zst.download.json`), so the next run asks the
-server only for a changed dump and skips an unchanged one. Run it from cron before the import,
+server only for a changed dump and skips an unchanged one. The dumps and their state files get
+the mode 0644 and the directories created for them 0755, whatever the umask (the console sets it
+to 0000 in debug mode). Run it from cron before the import,
 e.g. weekly (GraphHopper publishes new dumps about once a week):
 
 ```console
@@ -571,6 +645,24 @@ $ php bin/console geo:cleanup [--keep=geo_20261023120000]
 
 The import prints a progress bar per dump, then the build: its uid, the documents and house
 numbers, the data timestamp and countries of each dump.
+
+**Publication and recovery.** A publication changes two systems, Meilisearch and the database, so
+it goes in steps a later run can resume:
+
+1. the build is checked: its index, its tables and their metadata, the schema version;
+2. the fingerprint of the build index (its creation time) is recorded in the metadata of its tables;
+3. the build index is swapped in under the live uid (renamed on the very first publication), unless
+   the live index already has that fingerprint;
+4. the build tables are renamed to the live names; if that fails, the swap of step 3 is undone, so
+   that the live index and the live tables stay of one build;
+5. the replaced index (left under the build uid by the swap) is deleted;
+6. the builds started before this one are removed.
+
+If a publication fails or is interrupted anywhere (Meilisearch or the database down, a timeout, a
+killed process), **run `geo:publish <uid>` again**: it starts over from what is already done —
+it swaps only an index that is not live yet, publishes the tables if they are not, and finishes
+the clean-up when the tables are live already. `geo:status` shows the build of the live tables
+meanwhile.
 
 **Files only.** `--export=<dir>` converts the dumps into a directory (the documents in NDJSON and
 an SQLite database of the tables) without Meilisearch, e.g. on a machine with more memory; give

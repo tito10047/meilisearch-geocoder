@@ -36,7 +36,7 @@ return static function (DefinitionConfigurator $definition): void {
                                 ->defaultNull()
                             ->end()
                             ->scalarNode('api_key')
-                                ->info('The API key sent with every request: a search key is enough for searching, the index manager needs the master key or an admin key. Empty: no Authorization header, for an instance without a master key only.')
+                                ->info('The API key sent with every request: a search key is enough for searching; the index manager needs a key allowed on "<index>*" with the actions listed in the documentation ("API keys"), never the master key. Empty: no Authorization header, for an instance without a master key only.')
                                 ->example('%env(MEILISEARCH_API_KEY)%')
                                 ->defaultNull()
                             ->end()
