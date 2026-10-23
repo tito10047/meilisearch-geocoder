@@ -209,6 +209,48 @@ final class GeocoderTest extends TestCase
         $this->assertSame('094 01', $suggestions[2]->postcode, 'The postcode of the street when the house has none.');
     }
 
+    public function testSearchesTheWholeTextWhenNoStreetTakesTheNumber(): void
+    {
+        $backend = new FakeSearchBackend([Documents::create('R1', 'Praha 11', 'CZ', type: 'suburb')]);
+        $houseNumbers = new FakeHouseNumberStore();
+
+        $suggestions = $this->geocoder($backend, $houseNumbers)->suggest('Praha 11');
+
+        $this->assertSame(['Praha', 'Praha 11'], array_map(static fn (\Tito10047\Geocoder\Search\Backend\BackendQuery $query): string => $query->text, $backend->queries));
+        $this->assertSame(5, $backend->queries[1]->limit);
+        $this->assertSame(['R1'], $this->ids($suggestions));
+        $this->assertSame([], $houseNumbers->lookups);
+    }
+
+    public function testKeepsTheWholeTextInItsOrderForTheSecondSearch(): void
+    {
+        $backend = new FakeSearchBackend();
+
+        $this->geocoder($backend)->suggest('Wien 3, Landstraße', new SearchOptions(preferredCountry: 'AT', countries: ['AT']));
+
+        $this->assertSame(['Wien Landstraße', 'Wien 3 Landstraße'], array_map(static fn (\Tito10047\Geocoder\Search\Backend\BackendQuery $query): string => $query->text, $backend->queries));
+        $this->assertSame(['AT'], $backend->queries[1]->countries);
+        $this->assertSame(15, $backend->queries[1]->limit);
+    }
+
+    public function testDoesNotSearchAgainWhenAStreetWasFound(): void
+    {
+        $backend = new FakeSearchBackend([$this->hlavna()]);
+
+        $suggestions = $this->geocoder($backend)->suggest('Hlavná 999');
+
+        $this->assertCount(1, $backend->queries);
+        $this->assertSame(['s'.self::HLAVNA_KEY], $this->ids($suggestions));
+    }
+
+    public function testDoesNotSearchAgainWithoutAHouseNumber(): void
+    {
+        $backend = new FakeSearchBackend();
+
+        $this->assertSame([], $this->geocoder($backend)->suggest('Atlantis'));
+        $this->assertCount(1, $backend->queries);
+    }
+
     public function testSkipsTheHouseNumbersOfAStreetWithoutAKey(): void
     {
         $houseNumbers = new FakeHouseNumberStore();

@@ -28,7 +28,8 @@ use Tito10047\Geocoder\StreetKey;
  *     address is a street document): $limit of them, or $rerankWindow when a country is preferred,
  *     so that the reranker has candidates to promote;
  *  3. with a house number, the matching numbers of every street found become addresses, put right
- *     before their street;
+ *     before their street; when no street is found at all, the number is a part of the name
+ *     ("Praha 11", "Wien 3") and the whole text is searched again;
  *  4. every suggestion is named in the requested language (the translations of the document, the
  *     towns and regions from the name catalog) and labelled;
  *  5. the reranker reorders them (knowing the ranks of their documents) and the first $limit are
@@ -71,6 +72,11 @@ final readonly class Geocoder implements GeocoderInterface
         }
 
         $hits = $this->hits($query->text, $options);
+        if (null !== $query->houseNumber && !$this->hasStreet($hits)) {
+            // no street to take the number: it belongs to the name ("Praha 11", "Wien 3")
+            $query = new ParsedQuery($query->fullText);
+            $hits = $this->hits($query->text, $options);
+        }
 
         $candidates = [];
         foreach ($hits as $hit) {
@@ -193,6 +199,20 @@ final readonly class Geocoder implements GeocoderInterface
         return [] === $options->kinds
             || \in_array($kind, $options->kinds, true)
             || (Kind::Street === $kind && \in_array(Kind::Address, $options->kinds, true));
+    }
+
+    /**
+     * @param list<SearchHit> $hits
+     */
+    private function hasStreet(array $hits): bool
+    {
+        foreach ($hits as $hit) {
+            if (DocumentKind::Street === $hit->document->kind) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function length(ParsedQuery $query): int

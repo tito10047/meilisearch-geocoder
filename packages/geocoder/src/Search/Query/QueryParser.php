@@ -35,10 +35,11 @@ final class QueryParser implements QueryParserInterface
             return new ParsedQuery(implode(' ', $tokens));
         }
 
+        $fullText = implode(' ', $tokens);
         $houseNumber = $tokens[$houseNumberAt];
         unset($tokens[$houseNumberAt]);
 
-        return new ParsedQuery(implode(' ', $tokens), $houseNumber);
+        return new ParsedQuery(implode(' ', $tokens), $houseNumber, $fullText);
     }
 
     /**

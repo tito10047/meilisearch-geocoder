@@ -15,7 +15,10 @@ final class ParsedQueryTest extends TestCase
 
         $this->assertSame('Hlavná', $query->text);
         $this->assertSame('12', $query->houseNumber);
+        $this->assertSame('Hlavná 12', $query->fullText);
         $this->assertNull((new ParsedQuery('Košice'))->houseNumber);
+        $this->assertSame('Košice', (new ParsedQuery('Košice'))->fullText);
+        $this->assertSame('12 Hlavná', (new ParsedQuery('Hlavná', '12', '12 Hlavná'))->fullText);
     }
 
     #[DataProvider('provideInvalid')]

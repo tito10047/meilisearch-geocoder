@@ -44,6 +44,12 @@ final class QueryParserTest extends TestCase
         yield 'three parts are not a number' => ['Hlavná 1/2/3', 'Hlavná 1/2/3', null];
     }
 
+    public function testKeepsTheWholeText(): void
+    {
+        $this->assertSame('Wien 3 Landstraße', (new QueryParser())->parse(' Wien 3,  Landstraße')?->fullText);
+        $this->assertSame('Košice', (new QueryParser())->parse('Košice ')?->fullText);
+    }
+
     #[DataProvider('provideNothing')]
     public function testNothingToSearch(string $text): void
     {
