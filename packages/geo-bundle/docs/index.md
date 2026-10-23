@@ -52,7 +52,8 @@ tito10047_geo:
             # A search key is enough for searching; the index manager needs the master key or an admin key.
             api_key: null               # e.g. '%env(MEILISEARCH_API_KEY)%'
             # An existing Meilisearch\Client service used for searching instead of one built from "url".
-            # Without "url" the index manager (and the status command) is not available.
+            # Without "url" the index manager is not available, nor what needs it: importing into
+            # Meilisearch, publishing, artifacts, cleanup and status (exports and installing artifacts remain).
             client: null                # e.g. 'meilisearch.client'
             # A PSR-18 client service sending the requests built from "url", instead of the default one.
             http_client: null
@@ -62,6 +63,12 @@ tito10047_geo:
             compression: false
             # The uid of the live index searched; an import builds "<index>_<timestamp>" and swaps it in.
             index: geo
+            # The snapshot directory of the instance (MEILI_SNAPSHOT_DIR) as a local path: the artifact
+            # command picks the snapshot up there. Without it no artifact can be built.
+            snapshot_dir: null          # e.g. '%kernel.project_dir%/var/meilisearch/snapshots'
+            # The version of the instance an artifact is installed for; read from the running
+            # instance ("url") when null. Overridden by install-artifact --meilisearch-version.
+            version: null               # e.g. '1.35.1'
 
         # Give a "dsn" (connected lazily, on the first query), or the id of an existing PDO service as "connection".
         database:
@@ -76,6 +83,7 @@ tito10047_geo:
 
         # What an import of Photon dumps selects (SelectionRules of tito10047/geocoder).
         import:
+            # The dumps (*.jsonl.zst, *.jsonl) the import command imports when it is given none.
             dumps_dir: null             # e.g. '%kernel.project_dir%/var/geo/dumps'
             # ISO 639 codes (lower case) of the translations kept.
             languages: [sk, en, de, hu, cs, pl, hr, sl, it]
@@ -230,6 +238,16 @@ replace it (e.g. `#[AsDecorator('tito10047_geo.geocoder.label_formatter')]`).
 | | `tito10047_geo.geocoder.tables` | `Storage\TableNames` |
 | | `tito10047_geo.geocoder.search_options` | `SearchOptions`: the configured defaults |
 | | `tito10047_geo.geocoder.selection_rules` | `Import\SelectionRules` |
+| `Geocoder\Import\ImporterInterface` | `tito10047_geo.geocoder.importer` | `Importer` (with a `url` only) |
+| `Geocoder\Import\ConverterInterface` | `tito10047_geo.geocoder.import.converter` | `File\ExportAwareConverter`: exports through `…import.export_converter` (`FileExportConverter`), dumps through `…import.photon_converter` (`PhotonConverter` with the `import` rules) |
+| `Geocoder\Import\File\FileExporterInterface` | `tito10047_geo.geocoder.file_exporter` | `FileExporter` |
+| `Geocoder\Import\ClockInterface` | `tito10047_geo.geocoder.import.clock` | `SystemClock` (names the builds) |
+| `Geocoder\Storage\BuildStorageInterface` | `tito10047_geo.geocoder.build_storage` | `PdoBuildStorage` (lazy) |
+| `Geocoder\Storage\Pdo\Dialect\SqlDialectInterface` | `tito10047_geo.geocoder.sql_dialect` | by the driver of the connection (lazy) |
+| `Geocoder\Artifact\ArtifactBuilderInterface` | `tito10047_geo.geocoder.artifact_builder` | `ArtifactBuilder` (lazy; with a `url` and a `snapshot_dir` only) |
+| `Geocoder\Artifact\ArtifactInstallerInterface` | `tito10047_geo.geocoder.artifact_installer` | `ArtifactInstaller` (lazy) |
+| `GeoBundle\Artifact\ArtifactInstallerFactoryInterface` | `tito10047_geo.geocoder.artifact_installer_factory` | `ArtifactInstallerFactory`: the installer of a Meilisearch version |
+| | `tito10047_geo.geocoder.index_settings` | `Index\IndexSettings` of the builds |
 | | `tito10047_geo.geocoder.autocompleter` | `GeocoderAutocompleter` |
 | `Routing\RouterInterface` | `tito10047_geo.routing.router` | `Valhalla\ValhallaRouter` |
 | `Routing\Valhalla\RequestEncoderInterface` | `tito10047_geo.routing.request_encoder` | `RequestEncoder` |
@@ -242,9 +260,11 @@ replace it (e.g. `#[AsDecorator('tito10047_geo.geocoder.label_formatter')]`).
 | | `tito10047_geo.routing.http_client` | PSR-18 client of Valhalla |
 
 The database connection built from the `dsn` is a lazy service: PDO connects on the first query,
-not when the container builds the geocoder. `PdoNameCatalog` remembers the translations it read;
-a long-running worker (Messenger, RoadRunner, FrankenPHP) keeps them until it restarts, so restart
-the workers after publishing new data.
+not when the container builds the geocoder or a command; a database that cannot be reached is a
+`GeocoderUnavailableException`. The build storage, the SQL dialect and the artifact services are
+lazy too, as they ask the connection for its driver when they are built. `PdoNameCatalog`
+remembers the translations it read; it is tagged `kernel.reset`, so Symfony forgets them between
+the requests of a long-running worker (Messenger, RoadRunner, FrankenPHP).
 
 ### HTTP clients
 
@@ -271,7 +291,8 @@ The commands of a section are registered when the section is enabled.
 $ php bin/console tito10047-geo:geocoder:search "Hlavná 12 Košice" --locale=sk --preferred-country=SK
 $ php bin/console tito10047-geo:geocoder:search wien --country=AT --country=SK --limit=10
 
-# the live index: documents, sizes, whether it is being indexed, its settings, the Meilisearch version
+# the live index (documents, sizes, indexing, settings, Meilisearch version) and the live build
+# (data timestamp of each country and dump, counts, schema version of the tables)
 $ php bin/console tito10047-geo:geocoder:status
 
 # routes through points: distance, duration, countries, tolls per country
@@ -282,7 +303,117 @@ $ php bin/console tito10047-geo:routing:route 48.1486,17.1077 48.2082,16.3738 49
 $ php bin/console tito10047-geo:routing:status
 ```
 
-The import of the dumps and the publication of a built index come with the next version.
+Every command prints the OpenStreetMap attribution, and ends with a message and the exit code 1
+(no stack trace) when the search engine, the database, a dump or an artifact fails.
+
+### Importing the data
+
+An import never touches what searches use: it fills a new index `<index>_<timestamp>` and new
+tables `<table>_<timestamp>` (a *build*), and the publication swaps them in at once (Meilisearch
+swaps the indexes, the tables are renamed in one go), dropping the replaced ones and older builds.
+
+```console
+# the *.jsonl.zst and *.jsonl dumps of import.dumps_dir, published once built
+$ php bin/console tito10047-geo:geocoder:import
+# given dumps (a path, or php://stdin); .zst through ext-zstd or the zstd command
+$ php bin/console tito10047-geo:geocoder:import var/geo/dumps/slovakia.jsonl.zst var/geo/dumps/czechia.jsonl.zst
+
+# build only, check it, publish it later
+$ php bin/console tito10047-geo:geocoder:import --no-publish
+$ php bin/console tito10047-geo:geocoder:publish geo_20261023120000
+
+# remove the builds left by failed, abandoned or never published imports (never while an import runs)
+$ php bin/console tito10047-geo:geocoder:cleanup [--keep=geo_20261023120000]
+```
+
+The import prints a progress bar per dump, then the build: its uid, the documents and house
+numbers, the data timestamp and countries of each dump.
+
+**Files only.** `--export=<dir>` converts the dumps into a directory (the documents in NDJSON and
+an SQLite database of the tables) without Meilisearch, e.g. on a machine with more memory; give
+that directory to `import` on the machine with Meilisearch, like a dump:
+
+```console
+build-machine$ php bin/console tito10047-geo:geocoder:import --export=var/geo/export
+server$        php bin/console tito10047-geo:geocoder:import var/geo/export
+```
+
+## Deployment modes
+
+Meilisearch loads a snapshot only when it starts **without a database**, and only one made by **its
+own version**. Hence two ways to bring the data to a server:
+
+| Mode | When | How |
+|---|---|---|
+| **Separate instance + artifact** (recommended) | large regions, small server; Meilisearch dedicated to the geocoder | build on a strong machine, install the artifact on the server: a new data directory and a restart of Meilisearch |
+| Shared instance, indexing in place | 1–3 small countries, a Meilisearch shared with other projects | `import` (and `publish`) directly on the server |
+
+### Indexing in place
+
+Configure the geocoder on the server and run `tito10047-geo:geocoder:import` there (e.g. from a
+cron job once the new dumps are downloaded). Indexing takes the memory and CPU of the server while
+it runs; searches keep answering from the live index meanwhile.
+
+### Separate instance and artifacts
+
+An *artifact* is a directory with a snapshot of the Meilisearch instance, an SQLite copy of the
+live tables and a `manifest.json` (Meilisearch version, settings hash, schema version, data
+timestamps, counts, checksums).
+
+On the **build machine** (a Meilisearch holding the index of the geocoder only, as the snapshot
+holds every index; its snapshot directory reachable from the application):
+
+1. Configure `meilisearch.snapshot_dir`, e.g. with the instance in Docker:
+
+   ```console
+   $ docker run -d --name geo-build -p 127.0.0.1:7700:7700 -e MEILI_MASTER_KEY=… \
+       -v "$PWD/var/meilisearch/data:/meili_data" -v "$PWD/var/meilisearch/snapshots:/snapshots" \
+       -e MEILI_SNAPSHOT_DIR=/snapshots getmeili/meilisearch:v1.35.1
+   ```
+
+   ```yaml
+   tito10047_geo:
+       geocoder:
+           meilisearch:
+               url: 'http://127.0.0.1:7700'
+               snapshot_dir: '%kernel.project_dir%/var/meilisearch/snapshots'
+   ```
+
+2. Import and publish the dumps: `php bin/console tito10047-geo:geocoder:import`.
+3. Pack the live build: `php bin/console tito10047-geo:geocoder:artifact var/geo/artifact`.
+4. Copy the directory to the server (`rsync -a var/geo/artifact server:/srv/geo/`).
+
+On the **server** (Meilisearch of the same version, e.g. a container with its data directory
+mounted on `/meili_data`):
+
+5. Install the artifact into a new, empty data directory while the old instance keeps serving:
+
+   ```console
+   $ mkdir /srv/meili_data_new
+   $ php bin/console tito10047-geo:geocoder:install-artifact /srv/geo/artifact /srv/meili_data_new
+   ```
+
+   The command verifies the checksums and the versions, copies the snapshot into the data
+   directory (`geocoder.snapshot`) and makes the tables live in the database of the application.
+   The Meilisearch version is read from the running instance; give it with
+   `--meilisearch-version=1.35.1` (or `meilisearch.version`) when the instance is not reachable or
+   is upgraded at the same time.
+
+6. Restart Meilisearch on the new data directory with the snapshot, as the command prints, e.g.:
+
+   ```console
+   $ docker rm -f geo-meili
+   $ docker run -d --name geo-meili -p 127.0.0.1:7700:7700 -e MEILI_MASTER_KEY=… \
+       -v /srv/meili_data_new:/meili_data getmeili/meilisearch:v1.35.1 \
+       meilisearch --import-snapshot /meili_data/geocoder.snapshot
+   ```
+
+7. Check it with `php bin/console tito10047-geo:geocoder:status`, then delete the snapshot file and
+   the old data directory.
+
+Between the steps 5 and 6 the tables are already the new ones while the index is the old one:
+the suggestions keep working, house numbers and translations of changed streets may differ for
+that moment.
 
 ## OpenStreetMap attribution
 

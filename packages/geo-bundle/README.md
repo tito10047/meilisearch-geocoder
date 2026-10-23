@@ -2,8 +2,8 @@
 
 Self-hosted geocoding, address autocomplete and routing for Symfony: OpenStreetMap data on Meilisearch and Valhalla
 
-> Work in progress (0.1): searching addresses, routes, the commands and the UX Autocomplete
-> integration work; the import of the data comes with the next version.
+> Work in progress (0.1): searching addresses, importing the data, artifacts, routes, the
+> commands and the UX Autocomplete integration work; the API may still change.
 
 [![CI](https://github.com/tito10047/meilisearch-geocoder/actions/workflows/ci.yml/badge.svg)](https://github.com/tito10047/meilisearch-geocoder/actions/workflows/ci.yml)
 
@@ -80,6 +80,58 @@ or try them from the console:
 php bin/console tito10047-geo:geocoder:search "Hlavná 12 Košice" --locale=sk
 php bin/console tito10047-geo:routing:route 48.1486,17.1077 48.7164,21.2611
 ```
+
+## Commands
+
+```console
+# addresses: import the Photon dumps (of import.dumps_dir by default) and publish them
+php bin/console tito10047-geo:geocoder:import [dump…] [--no-publish] [--export=<dir>]
+php bin/console tito10047-geo:geocoder:publish <build-uid>
+php bin/console tito10047-geo:geocoder:cleanup [--keep=<build-uid>]
+php bin/console tito10047-geo:geocoder:artifact <dir>
+php bin/console tito10047-geo:geocoder:install-artifact <dir> <meilisearch-data-dir> [--meilisearch-version=1.35.1]
+php bin/console tito10047-geo:geocoder:status
+php bin/console tito10047-geo:geocoder:search "Hlavná 12 Košice" [--locale=sk] [--country=SK] [--preferred-country=SK] [--limit=5]
+
+# routes
+php bin/console tito10047-geo:routing:route 48.1486,17.1077 48.7164,21.2611 [--alternatives=3]
+php bin/console tito10047-geo:routing:status
+```
+
+An import builds a new index and new tables while searches keep using the live ones; the
+publication swaps them in at once. `--export` converts the dumps into files only (no Meilisearch),
+to be imported on another machine by giving that directory to `import`.
+
+## Deployment
+
+Meilisearch loads a snapshot only when it starts without a database, and only one of its own
+version. So there are two ways to bring the data to a server:
+
+| Mode | When | How |
+|---|---|---|
+| **Separate instance + artifact** (recommended) | large regions, small server | build on a strong machine; on the server a new data directory and a restart of Meilisearch |
+| Shared instance, indexing in place | 1–3 small countries, a Meilisearch shared with other projects | `tito10047-geo:geocoder:import` directly on the server |
+
+The artifact mode, step by step:
+
+1. **Build machine**: a Meilisearch holding the geocoder only (the snapshot holds every index),
+   its snapshot directory (`MEILI_SNAPSHOT_DIR`) configured as `geocoder.meilisearch.snapshot_dir`.
+2. `php bin/console tito10047-geo:geocoder:import` — imports and publishes the dumps.
+3. `php bin/console tito10047-geo:geocoder:artifact var/geo/artifact` — the snapshot, an SQLite
+   copy of the tables and a `manifest.json` (versions, data timestamps, checksums).
+4. Copy the directory to the server.
+5. **Server**: `php bin/console tito10047-geo:geocoder:install-artifact /srv/geo/artifact /srv/meili_data_new`
+   — verifies the artifact, copies the snapshot into the new, empty data directory and makes the
+   tables live. The Meilisearch version is read from the running instance (or give
+   `--meilisearch-version`).
+6. Restart Meilisearch (the same version) on the new data directory with
+   `--import-snapshot /meili_data/geocoder.snapshot` (the path the command prints, as the instance
+   sees it), e.g.
+   `docker run -v /srv/meili_data_new:/meili_data getmeili/meilisearch:v1.35.1 meilisearch --import-snapshot /meili_data/geocoder.snapshot`.
+7. `php bin/console tito10047-geo:geocoder:status`, then delete the snapshot file and the old data
+   directory.
+
+See [Deployment modes](docs/index.md#deployment-modes) for the details.
 
 ## Documentation
 
