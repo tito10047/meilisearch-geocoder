@@ -44,9 +44,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (umask 0000): 0644 files, 0755 directories.
 - An environment variable as `geo.geocoder.meilisearch.index` was rejected when the container was
   built ("cannot contain an environment variable").
-
-### Fixed
-
 - Wrong translations of towns in `geo_name` and the labels ("Staré Mesto, Bytča" for Bratislava
   in Slovak): `geo:import` translates each town as most of its addresses do (fixed in
   `tito10047/geocoder`). Import again to correct an existing build.
