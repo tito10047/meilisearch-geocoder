@@ -39,3 +39,16 @@ to the root `composer.json`.
 ## License
 
 Released under the MIT License, see the [LICENSE](LICENSE) file.
+
+## Publishing
+
+Each package is published from its own read-only repository (`tito10047/geocoder`,
+`tito10047/routing`, `tito10047/geo-bundle`), split from this one with `git subtree`
+(Fedora: `dnf install git-subtree`):
+
+```console
+bin/split                          # split/<package> branches
+bin/split --push --tag v0.1.0      # push them and the tag to the package repositories
+```
+
+Pushing is a manual step of the maintainer, never done by CI.

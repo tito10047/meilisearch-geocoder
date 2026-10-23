@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+#
+# Splits each package of the monorepo into its own branch, ready to be pushed to its read-only
+# repository. Pushing is a manual step of the maintainer, never done by CI.
+#
+#   bin/split                      split every package into split/<package>
+#   bin/split geocoder             split one package
+#   bin/split --push [package…]    also push each split branch to the main branch of its repository
+#   bin/split --push --tag v0.1.0  also push the tag (created on the split commit)
+#
+# Repositories: git@github.com:tito10047/<package>.git, override with SPLIT_REMOTE_PREFIX.
+
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+PACKAGES=(geocoder routing geo-bundle)
+REMOTE_PREFIX="${SPLIT_REMOTE_PREFIX:-git@github.com:tito10047/}"
+push=false
+tag=''
+selected=()
+
+while (($#)); do
+    case "$1" in
+        --push) push=true ;;
+        --tag) tag="${2:?--tag needs a version, e.g. v0.1.0}"; shift ;;
+        -h|--help) sed -n '3,12p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -*) echo "Unknown option $1" >&2; exit 2 ;;
+        *) selected+=("$1") ;;
+    esac
+    shift
+done
+((${#selected[@]})) || selected=("${PACKAGES[@]}")
+[[ -n $tag && $push == false ]] && { echo '--tag needs --push' >&2; exit 2; }
+
+[[ -x "$(git --exec-path)/git-subtree" ]] || { echo 'git subtree is not installed (Fedora: sudo dnf install git-subtree).' >&2; exit 1; }
+[[ -z $(git status --porcelain) ]] || { echo 'The working tree is not clean: commit or stash first.' >&2; exit 1; }
+
+for package in "${selected[@]}"; do
+    [[ " ${PACKAGES[*]} " == *" $package "* ]] || { echo "Unknown package $package (known: ${PACKAGES[*]})" >&2; exit 2; }
+
+    branch="split/$package"
+    echo "Splitting packages/$package into $branch"
+    commit=$(git subtree split --prefix="packages/$package" --branch="$branch")
+
+    if $push; then
+        remote="${REMOTE_PREFIX}${package}.git"
+        echo "Pushing $branch to $remote"
+        git push "$remote" "$branch:refs/heads/main"
+        if [[ -n $tag ]]; then
+            git push "$remote" "$commit:refs/tags/$tag"
+        fi
+    fi
+done

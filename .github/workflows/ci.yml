@@ -126,6 +126,51 @@ jobs:
           name: coverage
           path: ${{ runner.temp }}/clover.xml
 
+  # the tests needing Meilisearch (index management, import, publish, the bundle commands) against the
+  # version the ranking was tuned on; the search quality test skips itself without the full index, and
+  # Valhalla is tested locally only (VALHALLA_URL), its tiles are too large for CI
+  integration:
+    name: Integration (Meilisearch 1.35.1)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      meilisearch:
+        image: getmeili/meilisearch:v1.35.1
+        env:
+          MEILI_MASTER_KEY: ci-master-key
+          MEILI_NO_ANALYTICS: 'true'
+        ports:
+          - 7700:7700
+        options: >-
+          --health-cmd "curl -fs http://localhost:7700/health"
+          --health-interval 2s
+          --health-timeout 2s
+          --health-retries 30
+    env:
+      MEILISEARCH_URL: http://127.0.0.1:7700
+      MEILISEARCH_KEY: ci-master-key
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          coverage: none
+          tools: composer:v2
+          ini-values: zend.assertions=1
+
+      - name: Install dependencies
+        uses: ramsey/composer-install@v4
+        with:
+          dependency-versions: highest
+
+      - name: Run the tests with Meilisearch
+        run: composer test
+
   qa:
     name: Quality assurance
     runs-on: ubuntu-latest
