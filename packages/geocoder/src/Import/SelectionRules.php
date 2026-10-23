@@ -38,12 +38,26 @@ final readonly class SelectionRules
     public const DEFAULT_LANGUAGES = ['sk', 'en', 'de', 'hu', 'cs', 'pl', 'hr', 'sl', 'it'];
 
     /**
+     * The "highway" values of things along a road that are not a road: Photon exports them named
+     * ("Nová Sedlica, stred" is a bus stop), and as streets they would be found instead of the
+     * real ones. The named ones of the Slovak dump (2026-10): bus_stop 19 180, platform 364,
+     * motorway_junction 322, proposed 142, via_ferrata 54, services 45, rest_area 30, raceway 8,
+     * trailhead, speed_camera, traffic_signals 2 each, milestone, elevator, street_lamp 1 each;
+     * the others are common elsewhere. A street that has houses is still found through them.
+     */
+    public const DEFAULT_STREET_EXCLUDED_HIGHWAYS = ['bus_stop', 'platform', 'stop', 'crossing', 'traffic_signals',
+        'street_lamp', 'milestone', 'give_way', 'turning_circle', 'turning_loop', 'mini_roundabout', 'speed_camera',
+        'elevator', 'emergency_access_point', 'motorway_junction', 'rest_area', 'services', 'toll_gantry', 'trailhead',
+        'via_ferrata', 'raceway', 'proposed', 'emergency_bay', 'passing_place', 'stop_line', 'traffic_mirror'];
+
+    /**
      * @param array<string, int>          $placeTypes   OSM values of the key "place" that are places, with their base rank
      * @param array<string, list<string>> $pois         OSM key => its values that are points of interest
      * @param int                         $poiRank      the base rank of a point of interest
      * @param int                         $streetRank   the base rank of a street
      * @param list<string>                $languages    ISO 639-1: the translations kept in the documents and the catalog of names
      * @param float                       $placeDedupKm places of the same name and country closer than this are one place (the most important is kept)
+     * @param list<string>                $streetExcludedHighways the values of the OSM key "highway" that are not streets, even named
      *
      * @throws InvalidArgumentException when a value is invalid
      */
@@ -54,6 +68,7 @@ final readonly class SelectionRules
         public int $streetRank = 25,
         public array $languages = self::DEFAULT_LANGUAGES,
         public float $placeDedupKm = 5.0,
+        public array $streetExcludedHighways = self::DEFAULT_STREET_EXCLUDED_HIGHWAYS,
     ) {
         foreach ($placeTypes as $type => $rank) {
             if (!\is_string($type) || '' === $type || !\is_int($rank) || $rank < 0) {
@@ -75,6 +90,9 @@ final readonly class SelectionRules
         if (!is_finite($placeDedupKm) || $placeDedupKm < 0.0) {
             throw new InvalidArgumentException('The distance of duplicate places must not be negative.');
         }
+        if (!array_is_list($streetExcludedHighways) || [] !== array_filter($streetExcludedHighways, static fn (mixed $value): bool => !\is_string($value) || '' === $value)) {
+            throw new InvalidArgumentException('The highways that are not streets must be a list of OSM values.');
+        }
     }
 
     /**
@@ -83,6 +101,14 @@ final readonly class SelectionRules
     public function placeRank(string $osmValue): ?int
     {
         return $this->placeTypes[$osmValue] ?? null;
+    }
+
+    /**
+     * Whether a named object of the OSM key "highway" with this value is a street.
+     */
+    public function isStreet(string $highwayValue): bool
+    {
+        return !\in_array($highwayValue, $this->streetExcludedHighways, true);
     }
 
     public function isPoi(string $osmKey, string $osmValue): bool

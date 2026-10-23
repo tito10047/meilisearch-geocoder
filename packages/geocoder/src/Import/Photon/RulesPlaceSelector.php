@@ -7,7 +7,8 @@ use Tito10047\Geocoder\Import\SelectionRules;
 
 /**
  * Selects by the SelectionRules: named places of the listed types, named points of interest of
- * the listed tags, and every named highway as a street.
+ * the listed tags, and the named highways as streets, except those the rules exclude (bus stops,
+ * platforms, junctions, …).
  */
 final readonly class RulesPlaceSelector implements PlaceSelectorInterface
 {
@@ -24,7 +25,8 @@ final readonly class RulesPlaceSelector implements PlaceSelectorInterface
         if (null === $place->name()) {
             return null;
         }
-        if (self::STREET_KEY === $place->osmKey) {
+        // a highway that is not a road may still be a point of interest of the rules ("services")
+        if (self::STREET_KEY === $place->osmKey && $this->rules->isStreet($place->osmValue)) {
             return DocumentKind::Street;
         }
         if (self::PLACE_KEY === $place->osmKey && null !== $this->rules->placeRank($place->osmValue)) {
