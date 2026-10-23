@@ -32,8 +32,8 @@
         "symfony/http-foundation": "^7.4.17 || ^8.1.5",
         "symfony/http-kernel": "^7.4.17 || ^8.1.5",
         "symfony/routing": "^7.4.17 || ^8.1.5",
-        "tito10047/geocoder": "^0.2",
-        "tito10047/routing": "^0.2"
+        "tito10047/geocoder": "^0.3",
+        "tito10047/routing": "^0.3"
     },
     "suggest": {
         "ext-curl": "The HTTP client of Valhalla needs ext-curl or amphp/http-client",
@@ -46,7 +46,7 @@
     },
     "extra": {
         "branch-alias": {
-            "dev-main": "0.2.x-dev"
+            "dev-main": "0.3.x-dev"
         }
     }
 }
