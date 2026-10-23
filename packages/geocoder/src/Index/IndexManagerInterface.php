@@ -62,6 +62,10 @@ interface IndexManagerInterface
      * searches keep querying $liveUid. Afterwards $uid holds the former live index, or does not
      * exist when there was none (the index was renamed).
      *
+     * Returns once the swap took effect, also with an API key that may not read the swap itself
+     * (a key restricted to some indexes): its effect is then read from the fingerprints of the
+     * indexes.
+     *
      * @throws InvalidArgumentException when a uid is not a valid index uid or both are equal
      * @throws RuntimeException         when the indexes cannot be swapped
      */
@@ -82,6 +86,25 @@ interface IndexManagerInterface
     public function exists(string $uid): bool;
 
     /**
+     * A value telling the index apart from every other one, which moves with its documents when
+     * it is swapped or renamed: comparing it before and after tells whether a swap took effect,
+     * or which build a live index holds.
+     *
+     * @return string|null null when the index does not exist
+     *
+     * @throws InvalidArgumentException when the uid is not a valid index uid
+     * @throws RuntimeException         when the search engine cannot be asked
+     */
+    public function fingerprint(string $uid): ?string;
+
+    /**
+     * The version of the search engine ("1.35.1"); it also tells that the engine is reachable.
+     *
+     * @throws RuntimeException when the search engine cannot be asked
+     */
+    public function version(): string;
+
+    /**
      * The uids of every index of the search engine, the indexes of other applications included.
      *
      * @return list<string>
@@ -100,7 +123,10 @@ interface IndexManagerInterface
      * Creates a snapshot of the whole search engine (every index) in its snapshot directory, to
      * be loaded by a new instance of the same version.
      *
-     * @throws RuntimeException when the snapshot cannot be created
+     * Needs an API key allowed on every index: a key restricted to some indexes cannot follow the
+     * snapshot to its end.
+     *
+     * @throws RuntimeException when the snapshot cannot be created or followed
      */
     public function snapshot(): void;
 }

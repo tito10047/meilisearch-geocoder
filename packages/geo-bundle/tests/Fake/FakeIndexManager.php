@@ -8,7 +8,8 @@ use Tito10047\Geocoder\Index\IndexSettings;
 use Tito10047\Geocoder\Index\IndexStatus;
 
 /**
- * Answers the status and the index uids it is given; the bundle uses nothing else.
+ * Answers the status and the index uids it is given (an index exists when it has a status); the
+ * bundle uses nothing else.
  */
 final class FakeIndexManager implements IndexManagerInterface
 {
@@ -69,7 +70,25 @@ final class FakeIndexManager implements IndexManagerInterface
 
     public function exists(string $uid): bool
     {
+        if ($this->exception instanceof \Throwable) {
+            throw $this->exception;
+        }
+
+        return null !== $this->status;
+    }
+
+    public function fingerprint(string $uid): ?string
+    {
         throw new \LogicException('Not faked.');
+    }
+
+    public function version(): string
+    {
+        if ($this->exception instanceof \Throwable) {
+            throw $this->exception;
+        }
+
+        return $this->status->meilisearchVersion ?? '1.35.1';
     }
 
     public function indexUids(): array

@@ -98,6 +98,16 @@ final readonly class UnconfiguredMeilisearch implements GeocoderInterface, Addre
         throw $this->exception();
     }
 
+    public function fingerprint(string $uid): ?string
+    {
+        throw $this->exception();
+    }
+
+    public function version(): string
+    {
+        throw $this->exception();
+    }
+
     public function indexUids(): array
     {
         throw $this->exception();

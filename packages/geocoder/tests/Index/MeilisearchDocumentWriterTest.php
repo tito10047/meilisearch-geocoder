@@ -10,6 +10,7 @@ use Tito10047\Geocoder\Document\DocumentKind;
 use Tito10047\Geocoder\Exception\InvalidArgumentException;
 use Tito10047\Geocoder\Index\Exception\MeilisearchException;
 use Tito10047\Geocoder\Index\Exception\TaskFailedException;
+use Tito10047\Geocoder\Index\Exception\TaskNotFoundException;
 use Tito10047\Geocoder\Index\Exception\TaskTimeoutException;
 use Tito10047\Geocoder\Index\Exception\WriterClosedException;
 use Tito10047\Geocoder\Index\IndexingOptions;
@@ -125,8 +126,8 @@ final class MeilisearchDocumentWriterTest extends TestCase
         $writer = new MeilisearchDocumentWriter($http->meilisearch(), 'geo', new IndexingOptions(pollInterval: 0.0));
         $writer->write($this->document('a'));
 
-        $this->expectException(MeilisearchException::class);
-        $this->expectExceptionMessage('Meilisearch does not know the task 7.');
+        $this->expectException(TaskNotFoundException::class);
+        $this->expectExceptionMessage('Meilisearch does not know the task 7:');
 
         $writer->close();
     }
