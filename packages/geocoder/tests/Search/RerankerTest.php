@@ -19,11 +19,11 @@ final class RerankerTest extends TestCase
      * @param list<string>                                       $expected   the ids in the new order
      */
     #[DataProvider('provideRankedCases')]
-    public function testRerankRanked(array $candidates, ?string $preferredCountry, array $expected, int $maxRankGap = Reranker::DEFAULT_MAX_RANK_GAP): void
+    public function testRerank(array $candidates, ?string $preferredCountry, array $expected, int $maxRankGap = Reranker::DEFAULT_MAX_RANK_GAP): void
     {
         $ranked = array_map(fn (array $candidate): RankedSuggestion => new RankedSuggestion($this->suggestion($candidate[0], $candidate[1], $candidate[2], 'village', $candidate[4] ?? Kind::Place), $candidate[3]), $candidates);
 
-        $reranked = (new Reranker($maxRankGap))->rerankRanked($ranked, new SearchOptions(preferredCountry: $preferredCountry));
+        $reranked = (new Reranker($maxRankGap))->rerank($ranked, new SearchOptions(preferredCountry: $preferredCountry));
 
         $this->assertSame($expected, array_map(static fn (RankedSuggestion $candidate): string => $candidate->suggestion->id, $reranked));
         foreach ($reranked as $candidate) {
@@ -68,7 +68,7 @@ final class RerankerTest extends TestCase
     {
         $ranked = array_map(fn (array $candidate): RankedSuggestion => new RankedSuggestion($this->suggestion($candidate[0], 'Hlavná', $candidate[1], 'street', Kind::Street), 25000, $candidate[2]), $candidates);
 
-        $reranked = (new Reranker())->rerankRanked($ranked, new SearchOptions(preferredCountry: 'CZ'));
+        $reranked = (new Reranker())->rerank($ranked, new SearchOptions(preferredCountry: 'CZ'));
 
         $this->assertSame($expected, array_map(static fn (RankedSuggestion $candidate): string => $candidate->suggestion->id, $reranked));
     }
@@ -85,32 +85,9 @@ final class RerankerTest extends TestCase
         yield 'unknown for the home one' => [[['SK', 'SK', 2], ['CZ', 'CZ', null]], ['CZ', 'SK']];
     }
 
-    /**
-     * @param list<array{string, string, string}> $candidates id, country and type
-     * @param list<string>                        $expected
-     */
-    #[DataProvider('provideUnrankedCases')]
-    public function testRerankWithoutRanksComparesTheTypes(array $candidates, array $expected): void
+    public function testWithoutAPreferredCountryKeepsTheOrder(): void
     {
-        $suggestions = array_map(fn (array $candidate): Suggestion => $this->suggestion($candidate[0], 'Bystré', $candidate[1], $candidate[2]), $candidates);
-
-        $reranked = (new Reranker())->rerank($suggestions, new SearchOptions(preferredCountry: 'SK'));
-
-        $this->assertSame($expected, array_map(static fn (Suggestion $suggestion): string => $suggestion->id, $reranked));
-    }
-
-    /**
-     * @return iterable<string, array{list<array{string, string, string}>, list<string>}>
-     */
-    public static function provideUnrankedCases(): iterable
-    {
-        yield 'same type' => [[['CZ', 'CZ', 'village'], ['SK', 'SK', 'village']], ['SK', 'CZ']];
-        yield 'different type' => [[['CZ', 'CZ', 'town'], ['SK', 'SK', 'village']], ['CZ', 'SK']];
-    }
-
-    public function testRerankWithoutAPreferredCountryKeepsTheOrder(): void
-    {
-        $suggestions = [$this->suggestion('CZ', 'Bystré', 'CZ', 'village'), $this->suggestion('SK', 'Bystré', 'SK', 'village')];
+        $suggestions = [new RankedSuggestion($this->suggestion('CZ', 'Bystré', 'CZ', 'town'), 70000), new RankedSuggestion($this->suggestion('SK', 'Bystré', 'SK', 'village'), 50000)];
 
         $this->assertSame($suggestions, (new Reranker())->rerank($suggestions, new SearchOptions()));
     }

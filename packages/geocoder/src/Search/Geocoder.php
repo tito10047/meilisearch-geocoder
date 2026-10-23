@@ -31,8 +31,8 @@ use Tito10047\Geocoder\StreetKey;
  *     before their street;
  *  4. every suggestion is named in the requested language (the translations of the document, the
  *     towns and regions from the name catalog) and labelled;
- *  5. the reranker reorders them (with the ranks of the documents when it implements
- *     RankedRerankerInterface) and the first $limit are returned.
+ *  5. the reranker reorders them (knowing the ranks of their documents) and the first $limit are
+ *     returned.
  */
 final readonly class Geocoder implements GeocoderInterface
 {
@@ -70,8 +70,10 @@ final readonly class Geocoder implements GeocoderInterface
             return [];
         }
 
+        $hits = $this->hits($query->text, $options);
+
         $candidates = [];
-        foreach ($this->hits($query, $options) as $hit) {
+        foreach ($hits as $hit) {
             $document = $hit->document;
             $suggestion = $this->suggestion($document, $options->language());
             if (null !== $query->houseNumber && DocumentKind::Street === $document->kind) {
@@ -84,7 +86,9 @@ final readonly class Geocoder implements GeocoderInterface
 
         $candidates = array_values(array_filter($candidates, static fn (RankedSuggestion $candidate): bool => self::isRequested($candidate->suggestion->kind, $options)));
 
-        return \array_slice($this->rerank($candidates, $options), 0, $options->limit);
+        $reranked = $this->reranker->rerank($candidates, $options);
+
+        return array_map(static fn (RankedSuggestion $candidate): Suggestion => $candidate->suggestion, \array_slice($reranked, 0, $options->limit));
     }
 
     /**
@@ -98,9 +102,9 @@ final readonly class Geocoder implements GeocoderInterface
     /**
      * @return list<SearchHit>
      */
-    private function hits(ParsedQuery $query, SearchOptions $options): array
+    private function hits(string $text, SearchOptions $options): array
     {
-        $limit = null === $options->preferredCountry ? $this->limit($options) : max($this->limit($options), $this->rerankWindow);
+        $limit = null === $options->preferredCountry ? $options->limit : max($options->limit, $this->rerankWindow);
         $kinds = [];
         foreach ($options->kinds as $kind) {
             $documentKind = match ($kind) {
@@ -111,7 +115,7 @@ final readonly class Geocoder implements GeocoderInterface
             $kinds[$documentKind->value] = $documentKind;
         }
 
-        return $this->backend->search(new BackendQuery($query->text, $limit, $options->countries, array_values($kinds)));
+        return $this->backend->search(new BackendQuery($text, $limit, $options->countries, array_values($kinds)));
     }
 
     /**
@@ -141,7 +145,7 @@ final readonly class Geocoder implements GeocoderInterface
             postcode: $houseNumber->postcode ?? $street->postcode,
             street: $streetSuggestion->name,
             houseNumber: $houseNumber->number,
-        ), $options->language()), $this->houseNumbers->find($streetKey, $number, $this->limit($options)));
+        ), $options->language()), $this->houseNumbers->find($streetKey, $number, $options->limit));
     }
 
     private function suggestion(Document $document, ?string $language): Suggestion
@@ -182,20 +186,6 @@ final readonly class Geocoder implements GeocoderInterface
     }
 
     /**
-     * @param list<RankedSuggestion> $candidates
-     *
-     * @return list<Suggestion>
-     */
-    private function rerank(array $candidates, SearchOptions $options): array
-    {
-        if ($this->reranker instanceof RankedRerankerInterface) {
-            return array_map(static fn (RankedSuggestion $candidate): Suggestion => $candidate->suggestion, $this->reranker->rerankRanked($candidates, $options));
-        }
-
-        return $this->reranker->rerank(array_map(static fn (RankedSuggestion $candidate): Suggestion => $candidate->suggestion, $candidates), $options);
-    }
-
-    /**
      * Whether the kind was asked for; a street is kept with the addresses, as they are typed through it.
      */
     private static function isRequested(Kind $kind, SearchOptions $options): bool
@@ -203,16 +193,6 @@ final readonly class Geocoder implements GeocoderInterface
         return [] === $options->kinds
             || \in_array($kind, $options->kinds, true)
             || (Kind::Street === $kind && \in_array(Kind::Address, $options->kinds, true));
-    }
-
-    /**
-     * SearchOptions validates its limit (1 to 20) but does not declare it as a positive-int.
-     *
-     * @return positive-int
-     */
-    private function limit(SearchOptions $options): int
-    {
-        return max(1, $options->limit);
     }
 
     private function length(ParsedQuery $query): int

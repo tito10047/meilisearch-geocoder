@@ -2,9 +2,9 @@
 
 namespace Tito10047\Geocoder\Tests\Fake;
 
+use Tito10047\Geocoder\Search\RankedSuggestion;
 use Tito10047\Geocoder\Search\RerankerInterface;
 use Tito10047\Geocoder\Search\SearchOptions;
-use Tito10047\Geocoder\Search\Suggestion;
 
 /**
  * Reverses the order, to show that the geocoder applies it; remembers what it received.
@@ -12,7 +12,7 @@ use Tito10047\Geocoder\Search\Suggestion;
 final class ReversingReranker implements RerankerInterface
 {
     /**
-     * @var list<Suggestion>
+     * @var list<RankedSuggestion>
      */
     public array $received = [];
 

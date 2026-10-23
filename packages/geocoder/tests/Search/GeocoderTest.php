@@ -13,6 +13,7 @@ use Tito10047\Geocoder\Search\Backend\SearchHit;
 use Tito10047\Geocoder\Search\Geocoder;
 use Tito10047\Geocoder\Search\Kind;
 use Tito10047\Geocoder\Search\LabelFormatter;
+use Tito10047\Geocoder\Search\RankedSuggestion;
 use Tito10047\Geocoder\Search\Reranker;
 use Tito10047\Geocoder\Search\RerankerInterface;
 use Tito10047\Geocoder\Search\SearchOptions;
@@ -288,8 +289,10 @@ final class GeocoderTest extends TestCase
         $suggestions = $this->geocoder($backend, reranker: $reranker)->suggest('bystr', new SearchOptions(locale: 'sk'));
 
         $this->assertSame(['R2', 'R1'], $this->ids($suggestions));
-        $this->assertSame(['R1', 'R2'], $this->ids($reranker->received));
-        $this->assertSame('Bystré, Slovensko', $reranker->received[0]->label, 'The reranker receives complete suggestions.');
+        $received = array_map(static fn (RankedSuggestion $candidate): Suggestion => $candidate->suggestion, $reranker->received);
+        $this->assertSame(['R1', 'R2'], $this->ids($received));
+        $this->assertSame('Bystré, Slovensko', $received[0]->label, 'The reranker receives complete suggestions.');
+        $this->assertSame(50000, $reranker->received[0]->rank);
     }
 
     public function testGeocodeReturnsTheBestMatch(): void

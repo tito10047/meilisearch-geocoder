@@ -17,11 +17,8 @@ use Tito10047\Geocoder\Search\Text\NameNormalizerInterface;
  * the query: "hlavna kosice" for a Czech user stays the Hlavná of Košice, not a Czech Hlavná
  * found by its name alone. Nothing else moves. Without a preferred country the order is left as
  * it is.
- *
- * rerank() (without the ranks) cannot measure the gap: it lets the home suggestion jump only a
- * foreign one of the same type, a village over a village.
  */
-final readonly class Reranker implements RankedRerankerInterface
+final readonly class Reranker implements RerankerInterface
 {
     public const DEFAULT_MAX_RANK_GAP = 25000;
 
@@ -41,67 +38,41 @@ final readonly class Reranker implements RankedRerankerInterface
 
     public function rerank(array $suggestions, SearchOptions $options): array
     {
-        $candidates = array_map(static fn (Suggestion $suggestion): array => [$suggestion, null, null], $suggestions);
-
-        return array_map(static fn (int $i): Suggestion => $suggestions[$i], $this->reorder($candidates, $options));
-    }
-
-    public function rerankRanked(array $suggestions, SearchOptions $options): array
-    {
-        $candidates = array_map(static fn (RankedSuggestion $ranked): array => [$ranked->suggestion, $ranked->rank, $ranked->matchingWords], $suggestions);
-
-        return array_map(static fn (int $i): RankedSuggestion => $suggestions[$i], $this->reorder($candidates, $options));
-    }
-
-    /**
-     * @param list<array{Suggestion, int|null, int|null}> $candidates the suggestions, their ranks and matching words (null when unknown)
-     *
-     * @return list<int> the positions of the candidates in the new order
-     */
-    private function reorder(array $candidates, SearchOptions $options): array
-    {
         $home = $options->preferredCountry;
         if (null === $home) {
-            return array_keys($candidates);
+            return $suggestions;
         }
 
-        /** @var array<string, list<int>> $groups in the order of their first suggestion */
+        /** @var array<string, list<RankedSuggestion>> $groups in the order of their first suggestion */
         $groups = [];
-        foreach ($candidates as $position => [$suggestion]) {
-            $groups[$suggestion->kind->value."\0".$this->normalizer->normalize($suggestion->name)][] = $position;
+        foreach ($suggestions as $candidate) {
+            $groups[$candidate->suggestion->kind->value."\0".$this->normalizer->normalize($candidate->suggestion->name)][] = $candidate;
         }
 
-        $order = [];
+        $reranked = [];
         foreach ($groups as $group) {
-            foreach ($group as $i => $position) {
-                if ($candidates[$position][0]->countryCode !== $home) {
+            foreach ($group as $i => $candidate) {
+                if ($candidate->suggestion->countryCode !== $home) {
                     continue;
                 }
-                if ($i > 0 && $this->mayOvertake($candidates[$position], $candidates[$group[0]])) {
+                if ($i > 0 && $this->mayOvertake($candidate, $group[0])) {
                     unset($group[$i]);
-                    array_unshift($group, $position);
+                    array_unshift($group, $candidate);
                 }
                 break;
             }
-            array_push($order, ...$group);
+            array_push($reranked, ...$group);
         }
 
-        return $order;
+        return $reranked;
     }
 
-    /**
-     * @param array{Suggestion, int|null, int|null} $home
-     * @param array{Suggestion, int|null, int|null} $leader
-     */
-    private function mayOvertake(array $home, array $leader): bool
+    private function mayOvertake(RankedSuggestion $home, RankedSuggestion $leader): bool
     {
-        if (null !== $home[2] && null !== $leader[2] && $home[2] < $leader[2]) {
+        if (null !== $home->matchingWords && null !== $leader->matchingWords && $home->matchingWords < $leader->matchingWords) {
             return false;
         }
-        if (null === $home[1] || null === $leader[1]) {
-            return $home[0]->type === $leader[0]->type;
-        }
 
-        return $leader[1] - $home[1] <= $this->maxRankGap;
+        return $leader->rank - $home->rank <= $this->maxRankGap;
     }
 }
