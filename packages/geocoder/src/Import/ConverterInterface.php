@@ -21,6 +21,10 @@ interface ConverterInterface
      *
      * @param string $dump a file path or a stream URL ("php://stdin"); a ".zst" file is decompressed
      *
+     * @return non-empty-list<DumpSummary> what the dump contained: one summary for a dump, one per
+     *                                     original dump for what holds several converted dumps
+     *                                     (an export of FileExporter); named by DumpSummary::nameOf()
+     *
      * @throws InvalidArgumentException when the dump cannot be opened or is not a Photon dump
      * @throws RuntimeException         when reading the dump or writing its contents fails
      */
@@ -30,5 +34,5 @@ interface ConverterInterface
         HouseNumberWriterInterface $houseNumbers,
         TranslationWriterInterface $translations,
         ?ImportProgressInterface $progress = null,
-    ): DumpSummary;
+    ): array;
 }

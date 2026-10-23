@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `RoutingUnavailableException` is no longer final, so that `RoutingNotConfiguredException` can
   extend it (a catch of it still catches both).
+- `resources/docker/README.md` documents the memory and time of the tile build for a big region
+  (10 countries: ~6.4 GiB of anonymous memory and ~60 min with `VALHALLA_CONCURRENCY=4`; a lower
+  concurrency needs less memory and takes longer) and the naming of the Swiss regions (Geofabrik's
+  `europe/switzerland` and `europe/liechtenstein`, the Photon dump's
+  `europe/switzerland-liechtenstein`).
 
 ## [0.2.0] - 2026-10-23
 

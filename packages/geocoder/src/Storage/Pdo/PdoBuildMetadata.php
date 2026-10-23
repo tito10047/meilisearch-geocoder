@@ -197,7 +197,8 @@ final readonly class PdoBuildMetadata
     private function dump(DumpSummary $dump): array
     {
         return [
-            'dump' => $dump->dump,
+            // never a path of the machine that converted it, whatever the converter gave
+            'dump' => DumpSummary::nameOf($dump->dump),
             'data_timestamp' => $this->timestamp($dump->dataTimestamp),
             'countries' => $dump->countryCodes,
             'counts' => [

@@ -4,6 +4,8 @@ namespace Tito10047\Geocoder\Tests\Fake;
 
 use Tito10047\Geocoder\Document\Document;
 use Tito10047\Geocoder\Import\Workspace\ConversionWorkspaceInterface;
+use Tito10047\Geocoder\Import\Workspace\TranslationSource;
+use Tito10047\Geocoder\Name\Translation;
 
 /**
  * Delegates to a workspace and remembers whether it was closed.
@@ -45,6 +47,16 @@ final class TrackingWorkspace implements ConversionWorkspaceInterface
     public function streets(): iterable
     {
         return $this->workspace->streets();
+    }
+
+    public function voteForTranslation(Translation $translation, TranslationSource $source, int $votes = 1): void
+    {
+        $this->workspace->voteForTranslation($translation, $source, $votes);
+    }
+
+    public function translationCandidates(): iterable
+    {
+        return $this->workspace->translationCandidates();
     }
 
     public function close(): void

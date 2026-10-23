@@ -66,7 +66,7 @@ final readonly class FileExporter implements FileExporterInterface
             $translations = $storage->translationWriter($tables);
             $summaries = [];
             foreach ($dumps as $dump) {
-                $summaries[] = $this->converter->convert($dump, $documents, $houseNumbers, $translations, $progress);
+                array_push($summaries, ...$this->converter->convert($dump, $documents, $houseNumbers, $translations, $progress));
             }
             $documents->close();
             $houseNumbers->close();

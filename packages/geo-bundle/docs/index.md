@@ -610,7 +610,10 @@ $ php bin/console geo:download europe/slovakia europe/austria --force
 ```
 
 A region is the path of the download server (`europe/slovakia`, `europe/germany/bayern`; see
-https://download1.graphhopper.com/public/). A dump is downloaded beside the previous copy, its
+https://download1.graphhopper.com/public/). Its regions are not always those of Geofabrik:
+Switzerland is one dump with Liechtenstein, `europe/switzerland-liechtenstein` (saved as
+`switzerland-liechtenstein.jsonl.zst`), while Geofabrik's extracts for the routing tiles are
+`europe/switzerland` and `europe/liechtenstein`. A dump is downloaded beside the previous copy, its
 Photon header checked (a `.zst` is decompressed at its head only) and only then renamed over it:
 an interrupted or failed download leaves the old copy. The `ETag` and `Last-Modified` of each
 download are kept beside the dump (`slovakia.jsonl.zst.download.json`), so the next run asks the

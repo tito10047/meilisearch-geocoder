@@ -40,12 +40,12 @@ final class PhotonConverterTest extends TestCase
      */
     public function testConvertsTheSampleLikeThePrototype(): void
     {
-        $summary = (new PhotonConverter())->convert(self::FIXTURES.'/slovakia-sample.jsonl', $this->documents, $this->houseNumbers, $this->translations);
+        [$summary] = (new PhotonConverter())->convert(self::FIXTURES.'/slovakia-sample.jsonl', $this->documents, $this->houseNumbers, $this->translations);
 
         $this->assertSame($this->expectedDocuments(), $this->documentLines());
         $this->assertSame($this->expectedHouseNumbers(), $this->houseNumberRows());
 
-        $this->assertSame(self::FIXTURES.'/slovakia-sample.jsonl', $summary->dump);
+        $this->assertSame('slovakia-sample.jsonl', $summary->dump);
         $this->assertEquals(new \DateTimeImmutable('2026-10-17T23:02:06+00:00'), $summary->dataTimestamp);
         $this->assertSame(['SK'], $summary->countryCodes);
         $this->assertEquals(new ImportCounts(places: 4, streets: 13, pois: 4, houseNumbers: 134), $summary->counts);
@@ -69,7 +69,7 @@ final class PhotonConverterTest extends TestCase
 
     public function testConvertsACompressedDump(): void
     {
-        $summary = (new PhotonConverter())->convert(self::FIXTURES.'/slovakia-sample.jsonl.zst', $this->documents, $this->houseNumbers, $this->translations);
+        [$summary] = (new PhotonConverter())->convert(self::FIXTURES.'/slovakia-sample.jsonl.zst', $this->documents, $this->houseNumbers, $this->translations);
 
         $this->assertSame($this->expectedDocuments(), $this->documentLines());
         $this->assertSame(134, $summary->counts->houseNumbers);
@@ -94,11 +94,43 @@ final class PhotonConverterTest extends TestCase
         $this->assertArrayNotHasKey('SK|region|Košický kraj|ru', $translations);
     }
 
+    /**
+     * The regression of the first production import: a building in Bytča tagged
+     * "addr:city=Bratislava" comes first, with the translations of Bytča (Photon translates the
+     * town from the boundary the object lies in). The first translation written won, and
+     * Bratislava was "Bytča" in Slovak, "Bitsch" in German.
+     */
+    public function testTranslatesTheTownsAsTheirAddressesAgreeAndNotAsAMistaggedOne(): void
+    {
+        (new PhotonConverter())->convert(self::FIXTURES.'/mistagged-towns.jsonl', $this->documents, $this->houseNumbers, $this->translations);
+
+        $translations = $this->translations->map();
+        ksort($translations);
+        $this->assertSame([
+            // the houses of Bratislava agree; the one without translations does not vote
+            'SK|city|Bratislava|hu' => 'Pozsony',
+            'SK|city|Bratislava|pl' => 'Bratysława',
+            'SK|city|Bytča|de' => 'Bitsch',
+            'SK|city|Bytča|hu' => 'Nagybiccse',
+            // no address translates it: the record of the village does
+            'SK|city|Hliník nad Váhom|hu' => 'Vágagyagos',
+            // two villages of the name: the one with more addresses
+            'SK|city|Nová Ves|hu' => 'Tótújfalu',
+            'SK|country|SK|en' => 'Slovakia',
+            'SK|county|okres Bytča|hu' => 'Nagybiccsei járás',
+            'SK|region|Bratislavský kraj|hu' => 'Pozsonyi kerület',
+            'SK|region|Žilinský kraj|hu' => 'Zsolnai kerület',
+            'SK|suburb|Hliník nad Váhom|hu' => 'Vágagyagos',
+            // "Lehota" is not translated in one village of the name, "Szentlehota" in the other: a tie, no translation
+        ], $translations);
+        $this->assertCount(\count($translations), $this->translations->translations, 'Each translation is written once.');
+    }
+
     public function testFollowsTheRules(): void
     {
         $rules = new SelectionRules(placeTypes: ['village' => 50], pois: ['amenity' => ['restaurant']], languages: ['hu']);
 
-        $summary = (new PhotonConverter($rules))->convert(self::FIXTURES.'/slovakia-sample.jsonl', $this->documents, $this->houseNumbers, $this->translations);
+        [$summary] = (new PhotonConverter($rules))->convert(self::FIXTURES.'/slovakia-sample.jsonl', $this->documents, $this->houseNumbers, $this->translations);
 
         $this->assertSame(1, $summary->counts->places);
         // two restaurants "Zlatá putňa" at the same spot are one
@@ -124,7 +156,7 @@ final class PhotonConverterTest extends TestCase
             $place(4, 'highway', 'bus_stop', 'Horná'),
         ]).']}', '{"type":"Place","content":[{"object_type":"W","object_id":5,"osm_key":"building","osm_value":"yes","housenumber":"12","address":{"village":"Nová Sedlica","street":"Horná"},"country_code":"sk","centroid":[22.51,49.05]}]}'];
 
-        $summary = (new PhotonConverter(reader: new PhotonDumpReader(new InMemoryLineSource($lines))))
+        [$summary] = (new PhotonConverter(reader: new PhotonDumpReader(new InMemoryLineSource($lines))))
             ->convert('dump', $this->documents, $this->houseNumbers, $this->translations);
 
         $names = array_map(static fn (Document $document): string => $document->name, $this->documents->documents);

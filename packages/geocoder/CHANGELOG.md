@@ -35,6 +35,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   build index, recorded in the metadata of its tables when its publication starts.
 - `HttpDumpDownloader` sets the permissions of what it creates, `$fileMode` (0644) and
   `$directoryMode` (0755), whatever the umask.
+- `Import\DumpSummary::nameOf()`: the portable name of a dump (its file name, a `php://` stream as
+  it is).
+- `Import\Workspace\TranslationCandidate` and `TranslationSource`: the votes for the translations
+  of names, counted by the conversion workspace.
 
 ### Changed
 
@@ -50,6 +54,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `RuntimeException`s).
 - **BC break for implementers** of `IndexManagerInterface` (`fingerprint()`, `version()`) and
   `BuildStorageInterface` (`recordPublication()`, `recordedPublication()`).
+- **BC break:** `Import\ConverterInterface::convert()` returns a non-empty `list<DumpSummary>`
+  instead of one `DumpSummary`: one per dump read, so that a converter of something holding several
+  converted dumps can return each. `PhotonConverter` returns one; implementations must wrap theirs
+  in an array.
+- **BC break** for implementations: `ConversionWorkspaceInterface` has `voteForTranslation()` and
+  `translationCandidates()`; `AddressInterpreterInterface` has `catalogTranslations()`;
+  `TranslationExtractorInterface` has `fromOwnNames()`, and its `fromPlace()` gives candidates,
+  translations equal to the name included (see the fix of the town translations).
+- A build stores the file name of each dump (`DumpSummary::nameOf()`), never the path it had on
+  the machine that converted it: `PhotonConverter` names its summary so, and `PdoBuildMetadata`
+  writes so whatever a converter gives.
 
 ### Fixed
 
@@ -58,6 +73,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   effect, leaving the new index live with the old tables: Meilisearch hides the tasks of no index
   (swaps, snapshots) from such a key. The swap is now confirmed from the indexes, polled with the
   task timeout; a snapshot followed by such a key fails with the key it needs (`"indexes": ["*"]`).
+- Wrong translations of towns in the catalog of names (`geo_name`) and in the labels: Photon takes
+  the town of an address from the object's own `addr:city` but its translations (`city:xx`) from
+  the boundary the object lies in, and the first translation written won. A building in Bytča
+  tagged `addr:city=Bratislava` made Bratislava "Bytča" in Slovak; Praha was "Přezletice" in
+  Czech, Zürich "Andelfingen" in German and "Bazilej" in Slovak, Wien "Groß-Enzersdorf" and Graz
+  "Bad Loipersdorf" in German, Graz "Linz" in English. Now every address votes for the
+  translations of its town, part of the town, county and region (the name itself, i.e. no
+  translation, included), and once the dump is read each name gets, in each language, the
+  translation most addresses gave; the votes are summed in the SQLite workspace (memory stays
+  bounded). The addresses of a town or part of a town vote only when one of their translations,
+  in any language, is its local name (`PhotonAddressInterpreter::catalogTranslations()`). Where no
+  address translates a name in a language, the records of the towns and parts of towns of that
+  name (`place=city|town|village|…`) vote with their own `name:xx`. A tie goes to no translation.
+  Measured on the dumps of 2026-10-17 against 0.2.1 (town, part of a town; counties, regions and
+  countries are unchanged except one Swiss district):
+
+  | Country | Towns: kept / removed / changed / added | Parts of towns: kept / removed / changed / added |
+  |---|---|---|
+  | Slovakia | 3,098 / 699 / 51 / 0 | 3,136 / 573 / 66 / 243 |
+  | Czechia | 3,416 / 2,826 / 167 / 1,238 | 3,533 / 180 / 129 / 777 |
+  | Austria | 686 / 4,881 / 145 / 460 | 794 / 89 / 3 / 558 |
+  | Switzerland, Liechtenstein | 145 / 1,804 / 7 / 16 | 51 / 1 / 0 / 44 |
+
+  The removed ones are mostly translations of another town (a village translated as its
+  municipality, "Praha 9" as Praha, Wabern as Bern) and of misspelt names; the added ones come from
+  the records of the towns. The conversion takes about 20 % longer.
+- Importing an export (`File\FileExportConverter`, files-only mode) no longer records the absolute
+  path of the export directory as the one dump of the build with the oldest timestamp for every
+  country: it returns the summaries of the original dumps the export carries in its metadata (the
+  `dumps` of `geo_meta` in `geocoder.sqlite`: name, data timestamp, countries, counts), so the
+  published build's metadata, per-country data timestamps and counts equal those of importing the
+  dumps directly. Exports of 0.2 carry the same manifest under absolute paths: only the file names
+  are kept. An export whose files do not hold the counts of its manifest is refused as damaged.
 
 ## [0.2.0] - 2026-10-23
 
