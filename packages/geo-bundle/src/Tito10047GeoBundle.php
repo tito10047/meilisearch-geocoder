@@ -49,7 +49,7 @@ final class Tito10047GeoBundle extends AbstractBundle
     {
         $container->import('../config/services.php');
 
-        /** @var array{enabled: bool, meilisearch: array{url: ?string, api_key: ?string, client: ?string, http_client: ?string, timeout: float, compression: bool, index: string, snapshot_dir: ?string, version: ?string}, database: array{dsn: ?string, user: ?string, password: ?string, connection: ?string, tables: array{house_numbers: string, translations: string, metadata: string}}, import: array{dumps_dir: ?string, languages: list<string>, place_types: array<string, int>, pois: array<string, list<string>>, poi_rank: int, street_rank: int, place_dedup_km: float}, search: array{default_limit: int, preferred_country: ?string, max_rank_gap: int, rerank_window: int}, ux_autocomplete: array{enabled: bool|'auto', alias: string}, photon_api: array{enabled: bool, max_age: int}} $geocoder */
+        /** @var array{enabled: bool, meilisearch: array{url: ?string, api_key: ?string, client: ?string, http_client: ?string, timeout: float, compression: bool, index: string, snapshot_dir: ?string, version: ?string}, database: array{dsn: ?string, user: ?string, password: ?string, connection: ?string, tables: array{house_numbers: string, translations: string, metadata: string}}, import: array{dumps_dir: ?string, languages: list<string>, place_types: array<string, int>, pois: array<string, list<string>>, poi_rank: int, street_rank: int, place_dedup_km: float, street_excluded_highways: list<string>, reference_keys: array<string, string>, regions: list<string>, download_url: string, download_http_client: ?string}, search: array{default_limit: int, preferred_country: ?string, max_rank_gap: int, rerank_window: int}, ux_autocomplete: array{enabled: bool|'auto', alias: string}, photon_api: array{enabled: bool, max_age: int}} $geocoder */
         $geocoder = $config['geocoder'];
         if ($geocoder['enabled']) {
             $this->loadGeocoder($geocoder, $container, $builder);
@@ -64,7 +64,7 @@ final class Tito10047GeoBundle extends AbstractBundle
     }
 
     /**
-     * @param array{enabled: bool, meilisearch: array{url: ?string, api_key: ?string, client: ?string, http_client: ?string, timeout: float, compression: bool, index: string, snapshot_dir: ?string, version: ?string}, database: array{dsn: ?string, user: ?string, password: ?string, connection: ?string, tables: array{house_numbers: string, translations: string, metadata: string}}, import: array{dumps_dir: ?string, languages: list<string>, place_types: array<string, int>, pois: array<string, list<string>>, poi_rank: int, street_rank: int, place_dedup_km: float}, search: array{default_limit: int, preferred_country: ?string, max_rank_gap: int, rerank_window: int}, ux_autocomplete: array{enabled: bool|'auto', alias: string}, photon_api: array{enabled: bool, max_age: int}} $config
+     * @param array{enabled: bool, meilisearch: array{url: ?string, api_key: ?string, client: ?string, http_client: ?string, timeout: float, compression: bool, index: string, snapshot_dir: ?string, version: ?string}, database: array{dsn: ?string, user: ?string, password: ?string, connection: ?string, tables: array{house_numbers: string, translations: string, metadata: string}}, import: array{dumps_dir: ?string, languages: list<string>, place_types: array<string, int>, pois: array<string, list<string>>, poi_rank: int, street_rank: int, place_dedup_km: float, street_excluded_highways: list<string>, reference_keys: array<string, string>, regions: list<string>, download_url: string, download_http_client: ?string}, search: array{default_limit: int, preferred_country: ?string, max_rank_gap: int, rerank_window: int}, ux_autocomplete: array{enabled: bool|'auto', alias: string}, photon_api: array{enabled: bool, max_age: int}} $config
      *
      * @throws LogicException when the configuration asks for symfony/ux-autocomplete and it is missing
      */
@@ -137,8 +137,16 @@ final class Tito10047GeoBundle extends AbstractBundle
             $import['street_rank'],
             $import['languages'],
             $import['place_dedup_km'],
+            $import['street_excluded_highways'],
+            $import['reference_keys'],
         ]);
         $container->parameters()->set('tito10047_geo.geocoder.import.dumps_dir', $import['dumps_dir']);
+        $container->parameters()->set('tito10047_geo.geocoder.import.regions', $import['regions']);
+        $services->get('tito10047_geo.geocoder.import.region_url_resolver')->arg(0, $import['download_url']);
+        if (null !== $import['download_http_client']) {
+            $builder->removeDefinition('tito10047_geo.geocoder.import.download_http_client');
+            $services->alias('tito10047_geo.geocoder.import.download_http_client', $import['download_http_client']);
+        }
 
         $this->loadUxAutocomplete($config['ux_autocomplete'], $container);
 

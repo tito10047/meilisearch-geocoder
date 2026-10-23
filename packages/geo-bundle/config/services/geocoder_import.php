@@ -1,19 +1,26 @@
 <?php
 
+use Psr\Http\Client\ClientInterface;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Tito10047\GeoBundle\Artifact\ArtifactInstallerFactory;
 use Tito10047\GeoBundle\Artifact\ArtifactInstallerFactoryInterface;
 use Tito10047\GeoBundle\Command\GeocoderArtifactCommand;
 use Tito10047\GeoBundle\Command\GeocoderCleanupCommand;
+use Tito10047\GeoBundle\Command\GeocoderDownloadCommand;
 use Tito10047\GeoBundle\Command\GeocoderImportCommand;
 use Tito10047\GeoBundle\Command\GeocoderInstallArtifactCommand;
 use Tito10047\GeoBundle\Command\GeocoderPublishCommand;
+use Tito10047\GeoBundle\Http\HttpClientFactory;
 use Tito10047\Geocoder\Artifact\ArtifactBuilder;
 use Tito10047\Geocoder\Artifact\ArtifactBuilderInterface;
 use Tito10047\Geocoder\Artifact\ArtifactInstaller;
 use Tito10047\Geocoder\Artifact\ArtifactInstallerInterface;
 use Tito10047\Geocoder\Import\ClockInterface;
 use Tito10047\Geocoder\Import\ConverterInterface;
+use Tito10047\Geocoder\Import\Download\DumpDownloaderInterface;
+use Tito10047\Geocoder\Import\Download\GraphHopperRegionUrlResolver;
+use Tito10047\Geocoder\Import\Download\HttpDumpDownloader;
+use Tito10047\Geocoder\Import\Download\RegionUrlResolverInterface;
 use Tito10047\Geocoder\Import\File\ExportAwareConverter;
 use Tito10047\Geocoder\Import\File\FileExportConverter;
 use Tito10047\Geocoder\Import\File\FileExporter;
@@ -122,7 +129,31 @@ return static function (ContainerConfigurator $container): void {
             ->lazy(ArtifactInstallerInterface::class)
         ->alias(ArtifactInstallerInterface::class, 'tito10047_geo.geocoder.artifact_installer')
 
+        // the downloads of the dumps
+        ->set('tito10047_geo.geocoder.import.download_http_client', ClientInterface::class)
+            ->factory(HttpClientFactory::class.'::download')
+
+        ->set('tito10047_geo.geocoder.import.region_url_resolver', GraphHopperRegionUrlResolver::class)
+            ->args([abstract_arg('base URL of the dumps')])
+        ->alias(RegionUrlResolverInterface::class, 'tito10047_geo.geocoder.import.region_url_resolver')
+
+        ->set('tito10047_geo.geocoder.import.dump_downloader', HttpDumpDownloader::class)
+            ->args([
+                service('tito10047_geo.geocoder.import.download_http_client'),
+                service('tito10047_geo.psr17_factory'),
+                service('tito10047_geo.geocoder.import.region_url_resolver'),
+            ])
+        ->alias(DumpDownloaderInterface::class, 'tito10047_geo.geocoder.import.dump_downloader')
+
         // commands
+        ->set('tito10047_geo.geocoder.command.download', GeocoderDownloadCommand::class)
+            ->args([
+                service('tito10047_geo.geocoder.import.dump_downloader'),
+                param('tito10047_geo.geocoder.import.regions'),
+                param('tito10047_geo.geocoder.import.dumps_dir'),
+            ])
+            ->tag('console.command', ['command' => 'tito10047-geo:geocoder:download'])
+
         ->set('tito10047_geo.geocoder.command.import', GeocoderImportCommand::class)
             ->args([
                 service('tito10047_geo.geocoder.importer')->nullOnInvalid(),
