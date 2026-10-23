@@ -6,6 +6,7 @@ use Tito10047\Geocoder\Photon\FeatureFactory;
 use Tito10047\Geocoder\Photon\FeatureFactoryInterface;
 use Tito10047\Geocoder\Photon\PhotonSearch;
 use Tito10047\Geocoder\Photon\PhotonSearchInterface;
+use Tito10047\Geocoder\Search\SearchOptions;
 
 use function Symfony\Component\DependencyInjection\Loader\Configurator\abstract_arg;
 use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
@@ -20,11 +21,16 @@ return static function (ContainerConfigurator $container): void {
             ->args([service('geo.geocoder.name_catalog'), service('geo.geocoder.selection_rules')])
         ->alias(FeatureFactoryInterface::class, 'geo.geocoder.photon_api.feature_factory')
 
+        // the configured defaults, with the partial matches a Photon client expects
+        ->set('geo.geocoder.photon_api.search_options', SearchOptions::class)
+            ->factory([service('geo.geocoder.search_options'), 'withCompleteMatchesOnly'])
+            ->args([false])
+
         ->set('geo.geocoder.photon_api.search', PhotonSearch::class)
             ->args([
                 service('geo.geocoder'),
                 service('geo.geocoder.photon_api.feature_factory'),
-                service('geo.geocoder.search_options'),
+                service('geo.geocoder.photon_api.search_options'),
             ])
         ->alias(PhotonSearchInterface::class, 'geo.geocoder.photon_api.search')
 

@@ -92,7 +92,9 @@ tags as `toll=yes`: motorways with a vignette count as tolled as well.
 | 171 "No suitable edges near location" (a point outside the data), any other error, 5xx, an answer that is not a route, a network error or a timeout | `RoutingUnavailableException` |
 
 Every exception implements `Tito10047\Routing\Exception\ExceptionInterface`; the original
-exception of the HTTP client is kept as the previous one.
+exception of the HTTP client is kept as the previous one. `RoutingNotConfiguredException`, a
+`RoutingUnavailableException`, is for an implementation standing for a routing engine that is not
+configured (the bundle's, for an empty URL): catch it first to tell it from an outage.
 
 ### Distance matrix
 

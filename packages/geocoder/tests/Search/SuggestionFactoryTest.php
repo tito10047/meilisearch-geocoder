@@ -9,6 +9,7 @@ use Tito10047\Geocoder\Document\DocumentKind;
 use Tito10047\Geocoder\HouseNumber\HouseNumber;
 use Tito10047\Geocoder\Search\Kind;
 use Tito10047\Geocoder\Search\LabelFormatter;
+use Tito10047\Geocoder\Search\QueryMatch;
 use Tito10047\Geocoder\Search\SuggestionFactory;
 use Tito10047\Geocoder\StreetKey;
 use Tito10047\Geocoder\Tests\Fake\Documents;
@@ -51,7 +52,7 @@ final class SuggestionFactoryTest extends TestCase
     public function testSuggestsAnAddress(): void
     {
         $factory = $this->factory();
-        $street = $factory->fromDocument($this->street(), 'hu');
+        $street = $factory->fromDocument($this->street(), 'hu')->withMatch(new QueryMatch(1, 2));
 
         $address = $factory->address($this->street(), $street, new HouseNumber(new StreetKey(1), '606/42', null, new Coordinates(48.7, 21.2), 'Sever', '7101722639'), 'hu');
 
@@ -64,6 +65,7 @@ final class SuggestionFactoryTest extends TestCase
         $this->assertSame('Kassai I. járás', $address->county);
         $this->assertSame('040 01', $address->postcode);
         $this->assertSame('7101722639', $address->reference);
+        $this->assertEquals(new QueryMatch(1, 2), $address->match, 'An address matched as its street.');
 
         $inherited = $factory->address($this->street(), $street, new HouseNumber(new StreetKey(1), '1', '040 11', new Coordinates(48.7, 21.2)), 'hu');
         $this->assertSame('Óváros', $inherited->suburb);

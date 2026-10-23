@@ -14,7 +14,9 @@ use Tito10047\Geocoder\Search\Suggestion;
 
 /**
  * The quality checks of the research (_lab/scripts/quality.py, quality-rerank.py and
- * quality-city.py) against a real index: does the expected place come first while typing?
+ * quality-city.py) against a real index: does the expected place come first while typing? And
+ * does it stay first when only the complete matches are asked for, while a place outside the
+ * imported countries finds nothing then?
  *
  * Needs the variant D index of _docs/01-merania.md; skipped unless MEILISEARCH_URL is set
  * (MEILISEARCH_KEY and MEILISEARCH_INDEX, "geo" by default, too) and when that index is missing
@@ -78,6 +80,15 @@ final class SearchQualityTest extends TestCase
         ['presernov trg lubiana', 'Prešernov trg', 'Ljubljana', 'SI'],
     ];
 
+    /**
+     * Addresses outside the imported countries whose words partly match imported names
+     * ("Champs" hamlets in Switzerland, the Champs-Élysées of Rust in Germany).
+     */
+    private const OUTSIDE = [
+        'Champs-Élysées, Paris', 'Champs-Élysées, Par', 'champs elysees paris', 'rue de rivoli paris',
+        'oxford street london', 'gran via madrid', 'Nevsky prospekt, Sankt Peterburg',
+    ];
+
     private Geocoder $geocoder;
 
     protected function setUp(): void
@@ -115,11 +126,11 @@ final class SearchQualityTest extends TestCase
      * @param int $expectedTop1 the score of _docs/01-merania.md and 03-meilisearch-index-a-ranking.md
      */
     #[DataProvider('providePreferredCountries')]
-    public function testPlaces(?string $preferredCountry, int $expectedTop1): void
+    public function testPlaces(?string $preferredCountry, int $expectedTop1, bool $completeMatchesOnly): void
     {
-        $options = new SearchOptions(preferredCountry: $preferredCountry);
+        $options = new SearchOptions(preferredCountry: $preferredCountry, completeMatchesOnly: $completeMatchesOnly);
         $top1 = $top3 = 0;
-        $misses = [];
+        $misses = $partial = [];
         $time = 0.0;
         foreach (self::PLACES as [$text, $name, $countryCode]) {
             $start = hrtime(true);
@@ -132,32 +143,40 @@ final class SearchQualityTest extends TestCase
             if (0 !== $position) {
                 $misses[] = $this->miss($text, $position, $suggestions);
             }
+            if (null !== $position && !$suggestions[$position]->isCompleteMatch()) {
+                $partial[] = $this->miss($text, $position, $suggestions);
+            }
         }
 
-        $this->report(\sprintf('places, preferred country %s', $preferredCountry ?? 'none'), $top1, $top3, \count(self::PLACES), $time, $misses);
+        $this->report(\sprintf('places, preferred country %s%s', $preferredCountry ?? 'none', $completeMatchesOnly ? ', complete matches only' : ''), $top1, $top3, \count(self::PLACES), $time, $misses);
         $this->assertGreaterThanOrEqual($expectedTop1, $top1);
+        $this->assertSame([], $partial, 'The expected places match every word typed.');
     }
 
     /**
-     * @return iterable<string, array{string|null, int}>
+     * @return iterable<string, array{string|null, int, bool}>
      */
     public static function providePreferredCountries(): iterable
     {
-        yield 'none' => [null, 42];
-        yield 'SK' => ['SK', 43];
-        yield 'CZ' => ['CZ', 42];
-        yield 'HU' => ['HU', 42];
-        yield 'AT' => ['AT', 42];
+        foreach ([false => '', true => ', complete matches only'] as $completeMatchesOnly => $name) {
+            yield 'none'.$name => [null, 42, (bool) $completeMatchesOnly];
+            yield 'SK'.$name => ['SK', 43, (bool) $completeMatchesOnly];
+            yield 'CZ'.$name => ['CZ', 42, (bool) $completeMatchesOnly];
+            yield 'HU'.$name => ['HU', 42, (bool) $completeMatchesOnly];
+            yield 'AT'.$name => ['AT', 42, (bool) $completeMatchesOnly];
+        }
     }
 
-    public function testStreetsInTowns(): void
+    #[DataProvider('provideCompleteMatchesOnly')]
+    public function testStreetsInTowns(bool $completeMatchesOnly): void
     {
+        $options = new SearchOptions(completeMatchesOnly: $completeMatchesOnly);
         $top1 = $top3 = 0;
-        $misses = [];
+        $misses = $partial = [];
         $time = 0.0;
         foreach (self::STREETS as [$text, $name, $city, $countryCode]) {
             $start = hrtime(true);
-            $suggestions = $this->geocoder->suggest($text);
+            $suggestions = $this->geocoder->suggest($text, $options);
             $time += (hrtime(true) - $start) / 1e6;
 
             $position = $this->position($suggestions, static fn (Suggestion $suggestion): bool => $suggestion->name === $name && $suggestion->city === $city && $suggestion->countryCode === $countryCode);
@@ -166,10 +185,39 @@ final class SearchQualityTest extends TestCase
             if (0 !== $position) {
                 $misses[] = $this->miss($text, $position, $suggestions);
             }
+            if (null !== $position && !$suggestions[$position]->isCompleteMatch()) {
+                $partial[] = $this->miss($text, $position, $suggestions);
+            }
         }
 
-        $this->report('streets in towns', $top1, $top3, \count(self::STREETS), $time, $misses);
+        $this->report('streets in towns'.($completeMatchesOnly ? ', complete matches only' : ''), $top1, $top3, \count(self::STREETS), $time, $misses);
         $this->assertGreaterThanOrEqual(36, $top1);
+        $this->assertSame([], $partial, 'The expected streets match every word typed.');
+    }
+
+    /**
+     * @return iterable<string, array{bool}>
+     */
+    public static function provideCompleteMatchesOnly(): iterable
+    {
+        yield 'all matches' => [false];
+        yield 'complete matches only' => [true];
+    }
+
+    public function testFindsNothingOutsideTheImportedCountries(): void
+    {
+        $found = [];
+        foreach (self::OUTSIDE as $text) {
+            $partial = $this->geocoder->suggest($text);
+            fwrite(\STDERR, \sprintf("\n%-34s -> %d partial matches: %s", $text, \count($partial), implode(' | ', array_map(static fn (Suggestion $suggestion): string => $suggestion->label, \array_slice($partial, 0, 2)))));
+            $complete = $this->geocoder->suggest($text, new SearchOptions(completeMatchesOnly: true));
+            if ([] !== $complete) {
+                $found[] = $this->miss($text, null, $complete);
+            }
+        }
+        fwrite(\STDERR, "\n");
+
+        $this->assertSame([], $found, 'A text outside the imported countries matches no suggestion completely.');
     }
 
     /**

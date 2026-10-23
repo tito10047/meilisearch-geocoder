@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `Search\QueryMatch` (`matchedWords`, `queryWords`, `isComplete()`) and `Suggestion::$match`
+  (with `withMatch()` and `isCompleteMatch()`): how many words of the searched text (without the
+  house number; an address as its street) a suggestion matched, from Meilisearch's `words` ranking
+  details. Null for `AddressLookup::findByReference()` (nothing searched) and when the engine does
+  not tell.
+- `SearchOptions::$completeMatchesOnly` / `withCompleteMatchesOnly()`: drops the partial matches
+  after the reranking, so that a text outside the imported countries ("Champs-Élysées, Paris" in an
+  index without France) gives `[]` and an application can fall back to another geocoder.
+- `SearchHit::$queryWords` and `SearchHit::match()`; `MeilisearchSearchBackend` reads
+  `maxMatchingWords`.
+- `Exception\GeocoderNotConfiguredException`, a `GeocoderUnavailableException` for a geocoder
+  switched off by the configuration rather than down.
+
 ## [0.2.0] - 2026-10-23
 
 ### Added

@@ -67,7 +67,7 @@ final class Tito10047GeoBundle extends AbstractBundle
     {
         $container->import('../config/services.php');
 
-        /** @var array{enabled: bool, meilisearch: array{url: ?string, api_key: ?string, client: ?string, http_client: ?string, timeout: float, compression: bool, index: string, snapshot_dir: ?string, version: ?string}, database: array{dsn: ?string, user: ?string, password: ?string, connection: ?string, tables: array{house_numbers: string, translations: string, metadata: string}}, import: array{dumps_dir: ?string, languages: list<string>, place_types: array<string, int>, pois: array<string, list<string>>, poi_rank: int, street_rank: int, place_dedup_km: float, street_excluded_highways: list<string>, reference_keys: array<string, string>, regions: list<string>, download_url: string, download_http_client: ?string}, search: array{default_limit: int, preferred_country: ?string, max_rank_gap: int, rerank_window: int}, ux_autocomplete: array{enabled: bool|'auto', alias: string}, photon_api: array{enabled: bool, max_age: int}} $geocoder */
+        /** @var array{enabled: bool, meilisearch: array{url: ?string, api_key: ?string, client: ?string, http_client: ?string, timeout: float, compression: bool, index: string, snapshot_dir: ?string, version: ?string}, database: array{dsn: ?string, user: ?string, password: ?string, connection: ?string, tables: array{house_numbers: string, translations: string, metadata: string}}, import: array{dumps_dir: ?string, languages: list<string>, place_types: array<string, int>, pois: array<string, list<string>>, poi_rank: int, street_rank: int, place_dedup_km: float, street_excluded_highways: list<string>, reference_keys: array<string, string>, regions: list<string>, download_url: string, download_http_client: ?string}, search: array{default_limit: int, preferred_country: ?string, max_rank_gap: int, rerank_window: int, complete_matches_only: bool}, ux_autocomplete: array{enabled: bool|'auto', alias: string}, photon_api: array{enabled: bool, max_age: int}} $geocoder */
         $geocoder = $config['geocoder'];
         if ($geocoder['enabled']) {
             $this->loadGeocoder($geocoder, $container, $builder);
@@ -82,7 +82,7 @@ final class Tito10047GeoBundle extends AbstractBundle
     }
 
     /**
-     * @param array{enabled: bool, meilisearch: array{url: ?string, api_key: ?string, client: ?string, http_client: ?string, timeout: float, compression: bool, index: string, snapshot_dir: ?string, version: ?string}, database: array{dsn: ?string, user: ?string, password: ?string, connection: ?string, tables: array{house_numbers: string, translations: string, metadata: string}}, import: array{dumps_dir: ?string, languages: list<string>, place_types: array<string, int>, pois: array<string, list<string>>, poi_rank: int, street_rank: int, place_dedup_km: float, street_excluded_highways: list<string>, reference_keys: array<string, string>, regions: list<string>, download_url: string, download_http_client: ?string}, search: array{default_limit: int, preferred_country: ?string, max_rank_gap: int, rerank_window: int}, ux_autocomplete: array{enabled: bool|'auto', alias: string}, photon_api: array{enabled: bool, max_age: int}} $config
+     * @param array{enabled: bool, meilisearch: array{url: ?string, api_key: ?string, client: ?string, http_client: ?string, timeout: float, compression: bool, index: string, snapshot_dir: ?string, version: ?string}, database: array{dsn: ?string, user: ?string, password: ?string, connection: ?string, tables: array{house_numbers: string, translations: string, metadata: string}}, import: array{dumps_dir: ?string, languages: list<string>, place_types: array<string, int>, pois: array<string, list<string>>, poi_rank: int, street_rank: int, place_dedup_km: float, street_excluded_highways: list<string>, reference_keys: array<string, string>, regions: list<string>, download_url: string, download_http_client: ?string}, search: array{default_limit: int, preferred_country: ?string, max_rank_gap: int, rerank_window: int, complete_matches_only: bool}, ux_autocomplete: array{enabled: bool|'auto', alias: string}, photon_api: array{enabled: bool, max_age: int}} $config
      *
      * @throws LogicException when the configuration asks for symfony/ux-autocomplete and it is missing
      */
@@ -152,7 +152,7 @@ final class Tito10047GeoBundle extends AbstractBundle
         $services->get('geo.geocoder.search_backend.configured')->arg(1, $meilisearch['index']);
         $services->get('geo.geocoder.reranker')->arg(0, $search['max_rank_gap']);
         $services->get('geo.geocoder.configured')->arg(6, $search['rerank_window']);
-        $services->get('geo.geocoder.search_options')->arg(1, $search['default_limit'])->arg(2, $search['preferred_country']);
+        $services->get('geo.geocoder.search_options')->arg(1, $search['default_limit'])->arg(2, $search['preferred_country'])->arg(5, $search['complete_matches_only']);
 
         // index and import
         $services->get('geo.geocoder.index_naming')->arg(0, $meilisearch['index']);

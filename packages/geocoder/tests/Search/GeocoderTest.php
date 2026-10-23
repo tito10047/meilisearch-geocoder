@@ -14,6 +14,7 @@ use Tito10047\Geocoder\Search\Backend\SearchHit;
 use Tito10047\Geocoder\Search\Geocoder;
 use Tito10047\Geocoder\Search\Kind;
 use Tito10047\Geocoder\Search\LabelFormatter;
+use Tito10047\Geocoder\Search\QueryMatch;
 use Tito10047\Geocoder\Search\RankedSuggestion;
 use Tito10047\Geocoder\Search\Reranker;
 use Tito10047\Geocoder\Search\RerankerInterface;
@@ -325,6 +326,90 @@ final class GeocoderTest extends TestCase
         $suggestions = $this->geocoder($backend)->suggest('hlavna kosice', new SearchOptions(preferredCountry: 'CZ'));
 
         $this->assertSame(['s'.self::HLAVNA_KEY, 's12'], $this->ids($suggestions));
+    }
+
+    public function testTellsHowWellEverySuggestionMatched(): void
+    {
+        $backend = new FakeSearchBackend([
+            new SearchHit($this->hlavna(), 2, 2),
+            new SearchHit(Documents::create('s12', 'Hlavná', 'CZ', DocumentKind::Street, 'street', 25000, 'Žampach'), 1, 2),
+            new SearchHit(Documents::create('R1', 'Košice'), 1),
+        ]);
+        $houseNumbers = new FakeHouseNumberStore([$this->houseNumber('12', null)]);
+
+        $suggestions = $this->geocoder($backend, $houseNumbers)->suggest('Hlavná 12 Košice', new SearchOptions(limit: 10));
+
+        $this->assertSame(['s'.self::HLAVNA_KEY.'#12', 's'.self::HLAVNA_KEY, 's12', 'R1'], $this->ids($suggestions));
+        $this->assertEquals(new QueryMatch(2, 2), $suggestions[0]->match, 'An address matched as its street: the house number is not a word of the search.');
+        $this->assertTrue($suggestions[0]->isCompleteMatch());
+        $this->assertEquals(new QueryMatch(2, 2), $suggestions[1]->match);
+        $this->assertEquals(new QueryMatch(1, 2), $suggestions[2]->match);
+        $this->assertFalse($suggestions[2]->isCompleteMatch());
+        $this->assertNull($suggestions[3]->match, 'Unknown when the search engine does not tell the number of words of the query.');
+        $this->assertFalse($suggestions[3]->isCompleteMatch());
+    }
+
+    /**
+     * @param list<SearchHit> $hits
+     * @param list<string>    $expected
+     */
+    #[DataProvider('provideCompleteMatchesOnly')]
+    public function testReturnsOnlyCompleteMatchesWhenAsked(array $hits, SearchOptions $options, array $expected): void
+    {
+        $suggestions = $this->geocoder(new FakeSearchBackend($hits))->suggest('Champs-Élysées, Paris', $options->withCompleteMatchesOnly());
+
+        $this->assertSame($expected, $this->ids($suggestions));
+    }
+
+    /**
+     * @return iterable<string, array{list<SearchHit>, SearchOptions, list<string>}>
+     */
+    public static function provideCompleteMatchesOnly(): iterable
+    {
+        $rust = new SearchHit(Documents::create('s1', 'Avenue des Champs-Élysées', 'DE', DocumentKind::Street, 'street', 25000, 'Rust'), 2, 3);
+        $hamlet = new SearchHit(Documents::create('N2', 'Champs', 'CH', type: 'hamlet', rank: 40000), 1, 3);
+        $paris = new SearchHit(Documents::create('s3', 'Avenue des Champs-Élysées', 'FR', DocumentKind::Street, 'street', 25000, 'Paris'), 3, 3);
+        $unknown = new SearchHit(Documents::create('s4', 'Avenue des Champs-Élysées', 'FR', DocumentKind::Street, 'street', 25000, 'Paris'));
+
+        yield 'outside the imported countries: nothing' => [[$rust, $hamlet], new SearchOptions(), []];
+        yield 'the complete match only' => [[$paris, $rust, $hamlet], new SearchOptions(), ['s3']];
+        yield 'with a preferred country' => [[$paris, $rust], new SearchOptions(preferredCountry: 'DE'), ['s3']];
+        yield 'an unknown match is not complete' => [[$unknown], new SearchOptions(), []];
+    }
+
+    public function testDropsThePartialMatchesAfterTheRerankAndBeforeTheLimit(): void
+    {
+        $backend = new FakeSearchBackend([
+            new SearchHit(Documents::create('s3', 'Avenue des Champs-Élysées', 'FR', DocumentKind::Street, 'street', 25000, 'Paris'), 3, 3),
+            new SearchHit(Documents::create('s1', 'Avenue des Champs-Élysées', 'DE', DocumentKind::Street, 'street', 25000, 'Rust'), 2, 3),
+        ]);
+        $reranker = new ReversingReranker();
+
+        $suggestions = $this->geocoder($backend, reranker: $reranker)->suggest('Champs-Élysées, Paris', new SearchOptions(limit: 1, preferredCountry: 'DE', completeMatchesOnly: true));
+
+        $this->assertCount(2, $reranker->received, 'The reranker receives the partial matches too.');
+        $this->assertSame(['s3'], $this->ids($suggestions));
+    }
+
+    public function testKeepsThePartialMatchesByDefault(): void
+    {
+        $backend = new FakeSearchBackend([
+            new SearchHit(Documents::create('s1', 'Avenue des Champs-Élysées', 'DE', DocumentKind::Street, 'street', 25000, 'Rust'), 2, 3),
+        ]);
+
+        $this->assertSame(['s1'], $this->ids($this->geocoder($backend)->suggest('Champs-Élysées, Paris')));
+    }
+
+    public function testTheWholeTextSearchedAgainIsMatchedWithItsNumber(): void
+    {
+        // the second search ("Praha 11") answers with the words of the whole text
+        $backend = new FakeSearchBackend([new SearchHit(Documents::create('R1', 'Praha 11', 'CZ', type: 'suburb'), 2, 2)]);
+
+        $suggestions = $this->geocoder($backend)->suggest('Praha 11', new SearchOptions(completeMatchesOnly: true));
+
+        $this->assertCount(2, $backend->queries);
+        $this->assertSame(['R1'], $this->ids($suggestions));
+        $this->assertEquals(new QueryMatch(2, 2), $suggestions[0]->match);
     }
 
     public function testUsesAnyReranker(): void

@@ -12,6 +12,7 @@ use Tito10047\GeoBundle\Tests\Fake\FakeGeocoder;
 use Tito10047\Geocoder\Coordinates;
 use Tito10047\Geocoder\Exception\GeocoderUnavailableException;
 use Tito10047\Geocoder\Search\Kind;
+use Tito10047\Geocoder\Search\QueryMatch;
 use Tito10047\Geocoder\Search\SearchOptions;
 use Tito10047\Geocoder\Search\Suggestion;
 
@@ -34,8 +35,9 @@ final class GeocoderSearchCommandTest extends TestCase
     public function testPrintsTheSuggestionsAndTheAttribution(): void
     {
         $this->geocoder->suggestions = [
-            new Suggestion('s1#12', Kind::Address, 'house', 'Hlavná 12', 'Hlavná 12, Košice, Slovensko', new Coordinates(48.7203, 21.2577), 'SK'),
-            new Suggestion('s1', Kind::Street, 'street', 'Hlavná', 'Hlavná, Košice, Slovensko', new Coordinates(48.72, 21.258), 'SK'),
+            new Suggestion('s1#12', Kind::Address, 'house', 'Hlavná 12', 'Hlavná 12, Košice, Slovensko', new Coordinates(48.7203, 21.2577), 'SK', match: new QueryMatch(2, 2)),
+            new Suggestion('s1', Kind::Street, 'street', 'Hlavná', 'Hlavná, Košice, Slovensko', new Coordinates(48.72, 21.258), 'SK', match: new QueryMatch(1, 2)),
+            new Suggestion('s2', Kind::Street, 'street', 'Hlavná', 'Hlavná, Prešov, Slovensko', new Coordinates(49.0, 21.24), 'SK'),
         ];
         $tester = $this->application->command('geo:search');
 
@@ -46,6 +48,9 @@ final class GeocoderSearchCommandTest extends TestCase
         $this->assertStringContainsString('Hlavná 12, Košice, Slovensko', $display);
         $this->assertStringContainsString('48.720300,21.257700', $display);
         $this->assertStringContainsString('address', $display);
+        $this->assertStringContainsString('2/2 complete', $display);
+        $this->assertStringContainsString('1/2 ', $display);
+        $this->assertStringContainsString('unknown', $display);
         $this->assertStringContainsString(Attribution::OPENSTREETMAP, $display);
         $this->assertEquals([['Hlavná 12 Košice', new SearchOptions(limit: 3, preferredCountry: 'SK')]], $this->geocoder->calls);
     }
@@ -59,6 +64,33 @@ final class GeocoderSearchCommandTest extends TestCase
         $this->assertSame(Command::SUCCESS, $tester->getStatusCode());
         $this->assertStringContainsString('Nothing found.', $tester->getDisplay());
         $this->assertEquals([['wien', new SearchOptions('sk', 10, 'AT', ['AT', 'SK'])]], $this->geocoder->calls);
+    }
+
+    public function testAsksForCompleteMatchesOnly(): void
+    {
+        $tester = $this->application->command('geo:search');
+
+        $tester->execute(['text' => 'Champs-Élysées, Paris', '--complete-only' => true]);
+
+        $tester->assertCommandIsSuccessful();
+        $this->assertStringContainsString('Nothing matches every word.', $tester->getDisplay());
+        $this->assertEquals([['Champs-Élysées, Paris', new SearchOptions(limit: 3, preferredCountry: 'SK', completeMatchesOnly: true)]], $this->geocoder->calls);
+    }
+
+    public function testNoCompleteOnlyOverridesTheConfiguration(): void
+    {
+        $application = new TestApplication(Configs::geocoder(['search' => ['complete_matches_only' => true]]));
+        try {
+            $geocoder = $application->service('geo.geocoder', FakeGeocoder::class);
+            $tester = $application->command('geo:search');
+
+            $tester->execute(['text' => 'wien']);
+            $tester->execute(['text' => 'wien', '--no-complete-only' => true]);
+
+            $this->assertEquals([['wien', new SearchOptions(completeMatchesOnly: true)], ['wien', new SearchOptions()]], $geocoder->calls);
+        } finally {
+            $application->shutdown();
+        }
     }
 
     public function testEmptyPreferredCountryRemovesTheDefault(): void
@@ -116,6 +148,7 @@ final class GeocoderSearchCommandTest extends TestCase
 
             $this->assertSame(Command::FAILURE, $tester->getStatusCode());
             $this->assertStringContainsString('Meilisearch is not configured: geo.geocoder.meilisearch.url is empty.', $tester->getDisplay());
+            $this->assertStringContainsString('switched off by the configuration', $tester->getDisplay());
         } finally {
             $application->shutdown();
         }

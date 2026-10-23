@@ -15,7 +15,8 @@ interface AddressLookupInterface
      *
      * @param SearchOptions|null $options only the locale is used: the language of the names and the label
      *
-     * @return Suggestion|null a Kind::Address suggestion; null when no address has the reference
+     * @return Suggestion|null a Kind::Address suggestion without a QueryMatch (nothing was searched by name); null when
+     *                         no address has the reference
      *
      * @throws GeocoderUnavailableException when Meilisearch or the database cannot answer
      */

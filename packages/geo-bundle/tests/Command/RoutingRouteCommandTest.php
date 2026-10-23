@@ -128,6 +128,7 @@ final class RoutingRouteCommandTest extends TestCase
 
             $this->assertSame(Command::FAILURE, $tester->getStatusCode());
             $this->assertStringContainsString('Valhalla is not configured: geo.routing.url is empty.', $tester->getDisplay());
+            $this->assertStringContainsString('switched off by the configuration', $tester->getDisplay());
         } finally {
             $application->shutdown();
         }

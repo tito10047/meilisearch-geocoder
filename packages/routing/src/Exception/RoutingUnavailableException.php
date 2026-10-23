@@ -8,6 +8,6 @@ namespace Tito10047\Routing\Exception;
  *
  * Applications with a fallback router switch to it when they catch this exception.
  */
-final class RoutingUnavailableException extends RuntimeException
+class RoutingUnavailableException extends RuntimeException
 {
 }

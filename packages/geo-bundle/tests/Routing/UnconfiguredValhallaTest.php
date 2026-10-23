@@ -6,7 +6,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Tito10047\GeoBundle\Routing\UnconfiguredValhalla;
 use Tito10047\Routing\Coordinates;
-use Tito10047\Routing\Exception\RoutingUnavailableException;
+use Tito10047\Routing\Exception\RoutingNotConfiguredException;
 use Tito10047\Routing\MatrixRequest;
 use Tito10047\Routing\RouteRequest;
 
@@ -30,7 +30,7 @@ final class UnconfiguredValhallaTest extends TestCase
     #[DataProvider('calls')]
     public function testEveryCallIsUnavailable(\Closure $call): void
     {
-        $this->expectException(RoutingUnavailableException::class);
+        $this->expectException(RoutingNotConfiguredException::class);
         $this->expectExceptionMessage('Valhalla is not configured: geo.routing.url is empty.');
 
         $call(new UnconfiguredValhalla());

@@ -4,7 +4,7 @@ namespace Tito10047\GeoBundle\Geocoder;
 
 use Tito10047\Geocoder\Document\Document;
 use Tito10047\Geocoder\Document\DocumentWriterInterface;
-use Tito10047\Geocoder\Exception\GeocoderUnavailableException;
+use Tito10047\Geocoder\Exception\GeocoderNotConfiguredException;
 use Tito10047\Geocoder\Index\IndexManagerInterface;
 use Tito10047\Geocoder\Index\IndexSettings;
 use Tito10047\Geocoder\Index\IndexStatus;
@@ -21,8 +21,9 @@ use Tito10047\Geocoder\Search\Suggestion;
  * empty value (an empty environment variable in an environment without a search engine).
  *
  * The services depending on the geocoder are still created; every search, lookup and operation on
- * the indexes fails with GeocoderUnavailableException, as when Meilisearch is unreachable, so that
- * applications fall back and the commands fail the same way. The geocoder and the address lookup
+ * the indexes fails with GeocoderNotConfiguredException: a GeocoderUnavailableException, so that
+ * applications fall back and the commands fail as when Meilisearch is unreachable, which can still
+ * be told apart. The geocoder and the address lookup
  * are replaced too, not only the search engine: they would otherwise answer some requests from the
  * database alone (a text too short to search, a reference without a house number) and hide the
  * missing configuration.
@@ -112,8 +113,8 @@ final readonly class UnconfiguredMeilisearch implements GeocoderInterface, Addre
         throw $this->exception();
     }
 
-    private function exception(): GeocoderUnavailableException
+    private function exception(): GeocoderNotConfiguredException
     {
-        return new GeocoderUnavailableException(self::MESSAGE);
+        return new GeocoderNotConfiguredException(self::MESSAGE);
     }
 }
