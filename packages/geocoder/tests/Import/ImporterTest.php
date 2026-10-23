@@ -69,6 +69,16 @@ final class ImporterTest extends TestCase
         $this->assertFalse($this->storage->exists(new TableNames()));
     }
 
+    public function testStartsTheBuildAtAWholeSecond(): void
+    {
+        $this->clock->now = new \DateTimeImmutable('2026-10-23 12:00:00.750 UTC');
+
+        $build = $this->importer()->import([self::DUMP]);
+
+        $this->assertEquals(new \DateTimeImmutable('2026-10-23 12:00:00 UTC'), $build->startedAt);
+        $this->assertEquals($build, $this->storage->read($build->tables));
+    }
+
     public function testImportsSeveralDumpsIntoOneBuild(): void
     {
         $build = $this->importer()->import((static function (): \Generator {

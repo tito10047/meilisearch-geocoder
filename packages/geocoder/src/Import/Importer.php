@@ -50,7 +50,9 @@ final readonly class Importer implements ImporterInterface
             throw new InvalidArgumentException('Nothing to import: give at least one dump.');
         }
 
-        $startedAt = $this->clock->now();
+        $now = $this->clock->now();
+        // to the second, like the name of the build and the metadata
+        $startedAt = $now->setTime((int) $now->format('G'), (int) $now->format('i'), (int) $now->format('s'));
         $uid = $this->naming->buildUid($startedAt);
         $tables = $this->tables->withSuffix($this->naming->buildSuffix($uid));
         if ($this->indexes->exists($uid) || $this->storage->exists($tables)) {

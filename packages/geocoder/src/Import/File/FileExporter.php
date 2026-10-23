@@ -43,7 +43,9 @@ final readonly class FileExporter implements FileExporterInterface
         $created = LocalFiles::prepareEmptyDirectory($directory);
         $documentsFile = $directory.'/'.FileExportLayout::DOCUMENTS;
         $databaseFile = $directory.'/'.FileExportLayout::DATABASE;
-        $startedAt = $this->clock->now();
+        $now = $this->clock->now();
+        // to the second, like the name of the build and the metadata
+        $startedAt = $now->setTime((int) $now->format('G'), (int) $now->format('i'), (int) $now->format('s'));
         $tables = FileExportLayout::tables();
         $pdo = null;
 
