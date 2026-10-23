@@ -13,7 +13,8 @@ interface GeocoderInterface
     /**
      * Suggestions while the user types: a possibly unfinished address or place name.
      *
-     * @return list<Suggestion> the best match first; [] when nothing matches or the text is too short
+     * @return list<Suggestion> the best match first; [] when nothing matches (with SearchOptions::$completeMatchesOnly:
+     *                          when nothing matches every word) or the text is too short
      *
      * @throws InvalidArgumentException     when the text is not valid UTF-8
      * @throws GeocoderUnavailableException when Meilisearch or the database cannot answer

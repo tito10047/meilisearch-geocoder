@@ -56,6 +56,44 @@ A suggestion carries the parts of its address separately: `street`, `houseNumber
 part of the town), `city`, `county` (the district: "okres Košice I"), `region`, `postcode`,
 `countryCode` and `coordinates`, named in the requested language when the data translates them.
 
+### Matching
+
+The search engine finds a document when only some of the words typed match: a fragment of an
+address is still found while it is typed, and "Champs-Élysées, Paris" finds the Champs-Élysées of
+Rust (Germany) and the Swiss hamlets "Champs …" of an index without France. Every suggestion of
+`suggest()` therefore tells how well it matched, `$suggestion->match`, a `QueryMatch`:
+
+| | |
+|---|---|
+| `matchedWords` | the words of the searched text it matched |
+| `queryWords` | the words of the searched text |
+| `isComplete()` | every word matched (also `$suggestion->isCompleteMatch()`) |
+
+The searched text is the typed one without the house number: "Hlavná 12, Košice" has 2 words, and
+an address matched as its street (the house number is found in the database, or the street is
+suggested without it). When no street takes the number, the whole text is searched again ("Praha
+11": a part of Prague) and the number is a word. Meilisearch splits the words at spaces and
+punctuation ("Champs-Élysées, Paris" has 3), counts a word matched with a typo ("kosice hlvana"),
+as the beginning of a longer word (the last word, still being typed: "Champs-Élysées, Par") or
+joined with the next one ("mlynskenivy") as matched, and searches the first 10 words only.
+
+An application falling back to another geocoder when the address lies outside the imported
+countries asks for the complete matches only, and falls back on `[]`:
+
+```php
+$suggestions = $geocoder->suggest('Champs-Élysées, Paris', (new SearchOptions(locale: 'sk'))->withCompleteMatchesOnly());
+// [] without France: the partial matches are dropped after the reranking
+```
+
+`match` is null when nothing was searched (`findByReference()`: a reference identifies the house)
+and when the search engine does not tell (an index ranked without the `words` rule); such a
+suggestion is not a complete match. Words the index does not hold make every match partial: the
+**postcodes and the names of countries are not searchable**, so "Hlavná 12, 040 01 Košice" or
+"Stephansplatz, Wien, Österreich" match nothing completely — strip them from addresses formatted
+for the post before searching with this option. The 43 places and 38 streets in towns of the
+quality checks (`tests/Search/Integration/SearchQualityTest.php`) keep their top suggestion with
+it.
+
 **Official address ids.** When the dump carries the official id of an address in an `extra` tag,
 the import keeps it as the `reference` of the address: in Slovakia the id of the register of
 addresses (`ref:minvskaddress`, its `buildingIndex`), on 91.5 % of the addresses. Configure the tag

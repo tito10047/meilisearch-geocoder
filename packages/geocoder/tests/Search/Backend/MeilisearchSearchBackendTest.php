@@ -34,6 +34,7 @@ final class MeilisearchSearchBackendTest extends TestCase
 
         $this->assertCount(1, $hits);
         $this->assertSame(1, $hits[0]->matchingWords);
+        $this->assertSame(1, $hits[0]->queryWords);
         $document = $hits[0]->document;
         $this->assertSame('R109166', $document->id);
         $this->assertSame(DocumentKind::Place, $document->kind);
@@ -57,7 +58,7 @@ final class MeilisearchSearchBackendTest extends TestCase
      * @param array<mixed>|null $details
      */
     #[DataProvider('provideScoreDetails')]
-    public function testReadsTheMatchingWords(?array $details, ?int $expected): void
+    public function testReadsTheMatchingWords(?array $details, ?int $expected, ?int $expectedQueryWords): void
     {
         $hit = self::HIT;
         unset($hit['_rankingScoreDetails']);
@@ -68,19 +69,24 @@ final class MeilisearchSearchBackendTest extends TestCase
         $hits = $this->backend(new FakeHttpClient($this->json(['hits' => [$hit]])))->search(new BackendQuery('wien', 5));
 
         $this->assertSame($expected, $hits[0]->matchingWords);
+        $this->assertSame($expectedQueryWords, $hits[0]->queryWords);
     }
 
     /**
-     * @return iterable<string, array{array<mixed>|null, int|null}>
+     * @return iterable<string, array{array<mixed>|null, int|null, int|null}>
      */
     public static function provideScoreDetails(): iterable
     {
-        yield 'matching words' => [['words' => ['matchingWords' => 2, 'maxMatchingWords' => 3]], 2];
-        yield 'no details' => [null, null];
-        yield 'no words rule' => [['typo' => ['score' => 1.0]], null];
-        yield 'words not an object' => [['words' => 1], null];
-        yield 'not an integer' => [['words' => ['matchingWords' => '2']], null];
-        yield 'negative' => [['words' => ['matchingWords' => -1]], null];
+        yield 'matching words' => [['words' => ['matchingWords' => 2, 'maxMatchingWords' => 3]], 2, 3];
+        yield 'complete match' => [['words' => ['matchingWords' => 3, 'maxMatchingWords' => 3]], 3, 3];
+        yield 'no details' => [null, null, null];
+        yield 'no words rule' => [['typo' => ['score' => 1.0]], null, null];
+        yield 'words not an object' => [['words' => 1], null, null];
+        yield 'not an integer' => [['words' => ['matchingWords' => '2', 'maxMatchingWords' => '3']], null, null];
+        yield 'negative' => [['words' => ['matchingWords' => -1, 'maxMatchingWords' => 3]], null, 3];
+        yield 'no words in the query' => [['words' => ['matchingWords' => 0, 'maxMatchingWords' => 0]], 0, null];
+        yield 'more matching words than words' => [['words' => ['matchingWords' => 4, 'maxMatchingWords' => 3]], 4, null];
+        yield 'number of words only' => [['words' => ['maxMatchingWords' => 3]], null, 3];
     }
 
     public function testFiltersCountriesAndKinds(): void

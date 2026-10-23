@@ -48,7 +48,8 @@ final readonly class SuggestionFactory
 
     /**
      * The address of a house number of the street; the house's own part of the town wins over
-     * the street's (a long street may cross several).
+     * the street's (a long street may cross several). The address matched the searched text as
+     * the street did: the house number is not a part of it.
      *
      * @param Suggestion $street the suggestion of the street document, in the same language
      */
@@ -70,6 +71,7 @@ final readonly class SuggestionFactory
             suburb: null === $houseNumber->suburb ? $street->suburb : $this->translate($streetDocument->countryCode, NameKind::Suburb, $houseNumber->suburb, $language),
             county: $street->county,
             reference: $houseNumber->reference,
+            match: $street->match,
         ), $language);
     }
 

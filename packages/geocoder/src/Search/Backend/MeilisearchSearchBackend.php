@@ -40,7 +40,8 @@ final readonly class MeilisearchSearchBackend implements SearchBackendInterface,
 
     public function search(BackendQuery $query): array
     {
-        // the details tell how many words of the query each hit matched, for the reranker
+        // the details tell how many words of the query each hit matched, for the reranker and the
+        // complete matches
         $parameters = ['limit' => $query->limit, 'attributesToRetrieve' => self::ATTRIBUTES, 'showRankingScoreDetails' => true];
         $filter = $this->filter($query);
         if ([] !== $filter) {
@@ -64,7 +65,8 @@ final readonly class MeilisearchSearchBackend implements SearchBackendInterface,
                 throw new GeocoderUnavailableException(\sprintf('Meilisearch answered a search of the index "%s" with a hit that is not an object.', $this->indexUid));
             }
             try {
-                $found[] = new SearchHit(Document::fromArray($hit), $this->matchingWords($hit));
+                [$matchingWords, $queryWords] = $this->words($hit);
+                $found[] = new SearchHit(Document::fromArray($hit), $matchingWords, $queryWords);
             } catch (InvalidArgumentException $e) {
                 // a hit the geocoder cannot read means an index built for something else
                 throw new GeocoderUnavailableException(\sprintf('The index "%s" holds an invalid document: %s', $this->indexUid, $e->getMessage()), 0, $e);
@@ -104,17 +106,28 @@ final readonly class MeilisearchSearchBackend implements SearchBackendInterface,
     }
 
     /**
-     * The number of words of the query the hit matched, from the details of the "words" ranking rule.
+     * The number of words of the query the hit matched and the number of words of the query, from
+     * the details of the "words" ranking rule; null for what is missing or inconsistent (an index
+     * ranked without the rule).
+     *
+     * "matchingWords" counts a word matched with a typo, as a prefix (the last word) or joined
+     * with the next one ("mlynskenivy" for "Mlynské nivy"); "maxMatchingWords" is the number of
+     * words Meilisearch searched: split at spaces and punctuation, 10 at most.
      *
      * @param array<array-key, mixed> $hit
+     *
+     * @return array{?int, ?int}
      */
-    private function matchingWords(array $hit): ?int
+    private function words(array $hit): array
     {
         $details = $hit['_rankingScoreDetails'] ?? null;
         $words = \is_array($details) ? ($details['words'] ?? null) : null;
         $matchingWords = \is_array($words) ? ($words['matchingWords'] ?? null) : null;
+        $queryWords = \is_array($words) ? ($words['maxMatchingWords'] ?? null) : null;
+        $matchingWords = \is_int($matchingWords) && $matchingWords >= 0 ? $matchingWords : null;
+        $queryWords = \is_int($queryWords) && $queryWords >= 1 && (null === $matchingWords || $matchingWords <= $queryWords) ? $queryWords : null;
 
-        return \is_int($matchingWords) && $matchingWords >= 0 ? $matchingWords : null;
+        return [$matchingWords, $queryWords];
     }
 
     /**

@@ -51,6 +51,7 @@ final class AddressLookupTest extends TestCase
         $this->assertSame('027 44', $address->postcode);
         $this->assertSame('SK', $address->countryCode);
         $this->assertSame('7101722639', $address->reference);
+        $this->assertNull($address->match, 'Nothing was searched by name.');
         $this->assertEqualsWithDelta(49.33, $address->coordinates->latitude, \PHP_FLOAT_EPSILON);
 
         // without a suburb of its own, the house is in the suburb of its street

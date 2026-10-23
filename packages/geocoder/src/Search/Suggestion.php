@@ -10,19 +10,21 @@ use Tito10047\Geocoder\Coordinates;
 final readonly class Suggestion
 {
     /**
-     * @param string      $id          "R109166" (OSM object), "s<street key>" (street), "s<street key>#12" (address)
-     * @param string      $type        the OSM value: "city", "village", "hotel", "station", "street", "house"
-     * @param string      $name        in the requested language when known: "Viedeň"
-     * @param string      $label       the whole line, in the requested language when known: "Stephansplatz, Viedeň, Rakúsko"
-     * @param string      $countryCode ISO 3166-1 alpha-2, upper case
-     * @param string|null $city        the town, in the requested language when known
-     * @param string|null $region      the region, in the requested language when known
-     * @param string|null $street      the street of an address (Kind::Address)
-     * @param string|null $houseNumber the house number of an address (Kind::Address)
-     * @param string|null $suburb      the part of the town, in the requested language when known: "Medvedzie" of Tvrdošín
-     * @param string|null $county      the county (district), in the requested language when known: "okres Tvrdošín"
-     * @param string|null $reference   the official id of an address when the data has one (Kind::Address): in Slovakia
-     *                                 the id of the register of addresses ("ref:minvskaddress")
+     * @param string          $id          "R109166" (OSM object), "s<street key>" (street), "s<street key>#12" (address)
+     * @param string          $type        the OSM value: "city", "village", "hotel", "station", "street", "house"
+     * @param string          $name        in the requested language when known: "Viedeň"
+     * @param string          $label       the whole line, in the requested language when known: "Stephansplatz, Viedeň, Rakúsko"
+     * @param string          $countryCode ISO 3166-1 alpha-2, upper case
+     * @param string|null     $city        the town, in the requested language when known
+     * @param string|null     $region      the region, in the requested language when known
+     * @param string|null     $street      the street of an address (Kind::Address)
+     * @param string|null     $houseNumber the house number of an address (Kind::Address)
+     * @param string|null     $suburb      the part of the town, in the requested language when known: "Medvedzie" of Tvrdošín
+     * @param string|null     $county      the county (district), in the requested language when known: "okres Tvrdošín"
+     * @param string|null     $reference   the official id of an address when the data has one (Kind::Address): in Slovakia
+     *                                     the id of the register of addresses ("ref:minvskaddress")
+     * @param QueryMatch|null $match       how many words of the searched text it matched (an address: as its street); null
+     *                                     when nothing was searched (AddressLookup) or the search engine does not tell
      */
     public function __construct(
         public string $id,
@@ -40,12 +42,27 @@ final readonly class Suggestion
         public ?string $suburb = null,
         public ?string $county = null,
         public ?string $reference = null,
+        public ?QueryMatch $match = null,
     ) {
+    }
+
+    /**
+     * Whether it is known to match every word of the searched text; false when unknown.
+     */
+    public function isCompleteMatch(): bool
+    {
+        return $this->match instanceof QueryMatch && $this->match->isComplete();
     }
 
     public function withLabel(string $label): self
     {
         return new self($this->id, $this->kind, $this->type, $this->name, $label, $this->coordinates, $this->countryCode,
-            $this->city, $this->region, $this->postcode, $this->street, $this->houseNumber, $this->suburb, $this->county, $this->reference);
+            $this->city, $this->region, $this->postcode, $this->street, $this->houseNumber, $this->suburb, $this->county, $this->reference, $this->match);
+    }
+
+    public function withMatch(?QueryMatch $match): self
+    {
+        return new self($this->id, $this->kind, $this->type, $this->name, $this->label, $this->coordinates, $this->countryCode,
+            $this->city, $this->region, $this->postcode, $this->street, $this->houseNumber, $this->suburb, $this->county, $this->reference, $match);
     }
 }

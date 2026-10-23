@@ -14,6 +14,9 @@ use Tito10047\Geocoder\Search\Backend\DocumentSourceInterface;
  *
  * A house whose street has no document (its address names neither a street nor a place) is not
  * found, as suggest() cannot find it either.
+ *
+ * Nothing is searched by name, so the address has no QueryMatch (Suggestion::$match is null): an
+ * official reference identifies the house, it does not match it partially.
  */
 final readonly class AddressLookup implements AddressLookupInterface
 {

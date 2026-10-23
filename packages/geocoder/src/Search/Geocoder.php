@@ -30,9 +30,13 @@ use Tito10047\Geocoder\StreetKey;
  *     before their street; when no street is found at all, the number is a part of the name
  *     ("Praha 11", "Wien 3") and the whole text is searched again;
  *  4. every suggestion is named in the requested language (the translations of the document, the
- *     parts of towns, towns, counties and regions from the name catalog) and labelled;
- *  5. the reranker reorders them (knowing the ranks of their documents) and the first $limit are
- *     returned.
+ *     parts of towns, towns, counties and regions from the name catalog), labelled and given how
+ *     many words of the searched text (without the house number) its document matched; an
+ *     address matched as its street;
+ *  5. the reranker reorders them (knowing the ranks of their documents); with
+ *     SearchOptions::$completeMatchesOnly the partial matches are dropped then, and the first
+ *     $limit are returned. The search engine ranks the documents matching more words first, so
+ *     the complete matches are among the $limit (or $rerankWindow) documents fetched.
  */
 final readonly class Geocoder implements GeocoderInterface
 {
@@ -82,7 +86,7 @@ final readonly class Geocoder implements GeocoderInterface
         $candidates = [];
         foreach ($hits as $hit) {
             $document = $hit->document;
-            $suggestion = $this->suggestions->fromDocument($document, $options->language());
+            $suggestion = $this->suggestions->fromDocument($document, $options->language())->withMatch($hit->match());
             if (null !== $query->houseNumber && DocumentKind::Street === $document->kind) {
                 foreach ($this->addresses($document, $suggestion, $query->houseNumber, $options) as $address) {
                     $candidates[] = new RankedSuggestion($address, $document->rank, $hit->matchingWords);
@@ -94,6 +98,9 @@ final readonly class Geocoder implements GeocoderInterface
         $candidates = array_values(array_filter($candidates, static fn (RankedSuggestion $candidate): bool => self::isRequested($candidate->suggestion->kind, $options)));
 
         $reranked = $this->reranker->rerank($candidates, $options);
+        if ($options->completeMatchesOnly) {
+            $reranked = array_filter($reranked, static fn (RankedSuggestion $candidate): bool => $candidate->suggestion->isCompleteMatch());
+        }
 
         return array_map(static fn (RankedSuggestion $candidate): Suggestion => $candidate->suggestion, \array_slice($reranked, 0, $options->limit));
     }

@@ -20,6 +20,7 @@ final class SearchOptionsTest extends TestCase
         $this->assertNull($options->preferredCountry);
         $this->assertSame([], $options->countries);
         $this->assertSame([], $options->kinds);
+        $this->assertFalse($options->completeMatchesOnly);
     }
 
     #[DataProvider('provideLanguages')]
@@ -48,10 +49,13 @@ final class SearchOptionsTest extends TestCase
             ->withLimit(10)
             ->withPreferredCountry('SK')
             ->withCountries(['SK', 'CZ'])
-            ->withKinds([Kind::Place]);
+            ->withKinds([Kind::Place])
+            ->withCompleteMatchesOnly();
 
-        $this->assertEquals(new SearchOptions('sk', 10, 'SK', ['SK', 'CZ'], [Kind::Place]), $modified);
+        $this->assertEquals(new SearchOptions('sk', 10, 'SK', ['SK', 'CZ'], [Kind::Place], true), $modified);
         $this->assertEquals(new SearchOptions(), $options);
+        $this->assertFalse($modified->withCompleteMatchesOnly(false)->completeMatchesOnly);
+        $this->assertTrue($modified->withLocale(null)->withLimit(5)->withPreferredCountry(null)->withCountries([])->withKinds([])->completeMatchesOnly, 'Every wither keeps it.');
     }
 
     /**
