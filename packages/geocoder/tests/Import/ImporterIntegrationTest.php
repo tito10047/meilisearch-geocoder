@@ -117,7 +117,20 @@ final class ImporterIntegrationTest extends TestCase
 
         $addresses = array_filter($geocoder->suggest('Spodná 196/14 Viničky'), static fn (Suggestion $suggestion): bool => Kind::Address === $suggestion->kind);
         $this->assertNotSame([], $addresses);
-        $this->assertSame('Spodná', array_values($addresses)[0]->street);
+        $address = array_values($addresses)[0];
+        $this->assertSame('Spodná', $address->street);
+        $this->assertSame('Viničky', $address->suburb);
+        $this->assertSame('okres Trebišov', $address->county);
+        $this->assertSame('30701583', $address->reference);
+
+        // the official id, through the street document read by id
+        $lookup = GeocoderFactory::createAddressLookup(new Client($this->url, $this->key), $pdo, $this->naming->liveUid());
+        $found = $lookup->findByReference('30701583');
+        $this->assertInstanceOf(Suggestion::class, $found);
+        $this->assertSame($address->id, $found->id);
+        $this->assertSame($address->label, $found->label);
+        $this->assertSame('okres Trebišov', $found->county);
+        $this->assertNull($lookup->findByReference('0'));
     }
 
     /**
