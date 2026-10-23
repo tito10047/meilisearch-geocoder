@@ -28,7 +28,7 @@ use function Symfony\Component\DependencyInjection\Loader\Configurator\inline_se
  * removes them before each run, so that every run compiles fresh containers.
  *
  * symfony/ux-autocomplete is registered when its version supports the autocompleter of the bundle
- * (3.5 or newer), with its routes under /autocomplete.
+ * (3.5 or newer), with its routes under /autocomplete. The routes of the bundle are under /photon.
  */
 final class TestKernel extends Kernel
 {
@@ -131,6 +131,8 @@ final class TestKernel extends Kernel
         if (self::hasUxAutocomplete()) {
             $routes->import('@AutocompleteBundle/config/routes.php')->prefix('/autocomplete');
         }
+        // imported whatever the configuration, as an application does: no route while the Photon API is disabled
+        $routes->import('@Tito10047GeoBundle/config/routes.php')->prefix('/photon');
     }
 
     /**

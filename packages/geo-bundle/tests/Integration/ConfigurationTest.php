@@ -64,6 +64,7 @@ final class ConfigurationTest extends KernelTestCase
             'place_dedup_km' => 5.0,
         ], $geocoder['import']);
         $this->assertSame(['enabled' => 'auto', 'alias' => 'tito10047_geo_address'], $geocoder['ux_autocomplete']);
+        $this->assertSame(['enabled' => false, 'max_age' => 3600], $geocoder['photon_api']);
     }
 
     public function testRoutingDefaults(): void
@@ -90,6 +91,9 @@ final class ConfigurationTest extends KernelTestCase
         yield 'points of interest replace the defaults' => [Configs::geocoder(['import' => ['pois' => ['shop' => ['mall']]]]), ['shop' => ['mall']], 'geocoder.import.pois'];
         yield 'autocomplete shorthand' => [Configs::geocoder(['ux_autocomplete' => false]), false, 'geocoder.ux_autocomplete.enabled'];
         yield 'autocomplete required' => [Configs::geocoder(['ux_autocomplete' => ['enabled' => true]]), true, 'geocoder.ux_autocomplete.enabled'];
+        yield 'Photon API shorthand' => [Configs::geocoder(['photon_api' => true]), true, 'geocoder.photon_api.enabled'];
+        yield 'Photon API enabled by its options' => [Configs::geocoder(['photon_api' => ['max_age' => 0]]), true, 'geocoder.photon_api.enabled'];
+        yield 'Photon API without caching' => [Configs::geocoder(['photon_api' => ['max_age' => 0]]), 0, 'geocoder.photon_api.max_age'];
         yield 'compression' => [Configs::geocoder(['meilisearch' => ['url' => 'http://m:7700', 'compression' => true]]), true, 'geocoder.meilisearch.compression'];
         yield 'snapshot directory' => [Configs::geocoder(['meilisearch' => ['url' => 'http://m:7700', 'snapshot_dir' => '/srv/meili/snapshots']]), '/srv/meili/snapshots', 'geocoder.meilisearch.snapshot_dir'];
         yield 'Meilisearch version' => [Configs::geocoder(['meilisearch' => ['url' => 'http://m:7700', 'version' => '1.35.1']]), '1.35.1', 'geocoder.meilisearch.version'];
@@ -149,6 +153,7 @@ final class ConfigurationTest extends KernelTestCase
         yield 'negative dedup distance' => [Configs::geocoder(['import' => ['place_dedup_km' => -0.1]]), 'Should be greater than or equal to 0'];
         yield 'invalid autocomplete mode' => [Configs::geocoder(['ux_autocomplete' => 'always']), 'is not allowed'];
         yield 'invalid autocomplete alias' => [Configs::geocoder(['ux_autocomplete' => ['alias' => 'geo/address']]), 'The alias must be'];
+        yield 'negative Photon API max age' => [Configs::geocoder(['photon_api' => ['max_age' => -1]]), 'Should be greater than or equal to 0'];
         yield 'routing without url' => [['routing' => ['timeout' => 5]], 'needs the "url" of Valhalla'];
         yield 'routing negative radius' => [Configs::routing(['radius' => -1]), 'Should be greater than or equal to 0'];
         yield 'routing too short timeout' => [Configs::routing(['timeout' => 0.01]), 'Should be greater than or equal to 0.1'];

@@ -13,6 +13,8 @@ use Symfony\UX\Autocomplete\AutocompleterRegistry;
 use Tito10047\GeoBundle\Artifact\ArtifactInstallerFactory;
 use Tito10047\GeoBundle\Artifact\ArtifactInstallerFactoryInterface;
 use Tito10047\GeoBundle\Autocomplete\GeocoderAutocompleter;
+use Tito10047\GeoBundle\Photon\PhotonApiController;
+use Tito10047\GeoBundle\Photon\PhotonApiRouteLoader;
 use Tito10047\GeoBundle\Routing\RoutingStatusProviderInterface;
 use Tito10047\GeoBundle\Routing\ValhallaStatusProvider;
 use Tito10047\GeoBundle\Tests\App\Configs;
@@ -38,6 +40,10 @@ use Tito10047\Geocoder\Index\IndexSettings;
 use Tito10047\Geocoder\Index\MeilisearchIndexManager;
 use Tito10047\Geocoder\Name\NameCatalogInterface;
 use Tito10047\Geocoder\Name\NameKind;
+use Tito10047\Geocoder\Photon\FeatureFactory;
+use Tito10047\Geocoder\Photon\FeatureFactoryInterface;
+use Tito10047\Geocoder\Photon\PhotonSearch;
+use Tito10047\Geocoder\Photon\PhotonSearchInterface;
 use Tito10047\Geocoder\Search\Backend\SearchBackendInterface;
 use Tito10047\Geocoder\Search\Geocoder;
 use Tito10047\Geocoder\Search\GeocoderInterface;
@@ -330,6 +336,41 @@ final class ContainerTest extends KernelTestCase
         self::bootKernel(['extension_configs' => ['tito10047_geo' => Configs::geocoder(['ux_autocomplete' => false])]]);
 
         $this->assertFalse(self::getContainer()->has('tito10047_geo.geocoder.autocompleter'));
+    }
+
+    public function testPhotonApiIsRegisteredWhenEnabled(): void
+    {
+        self::bootKernel(['extension_configs' => ['tito10047_geo' => Configs::geocoder(['photon_api' => ['max_age' => 60]])]]);
+        $container = self::getContainer();
+
+        $this->assertInstanceOf(PhotonSearch::class, $container->get(PhotonSearchInterface::class));
+        $this->assertInstanceOf(FeatureFactory::class, $container->get(FeatureFactoryInterface::class));
+        $this->assertInstanceOf(PhotonApiController::class, $container->get('tito10047_geo.geocoder.photon_api.controller'));
+        $this->assertTrue($container->getParameter(PhotonApiRouteLoader::ENABLED_PARAMETER));
+    }
+
+    /**
+     * @return iterable<string, array{array<string, mixed>}>
+     */
+    public static function withoutPhotonApi(): iterable
+    {
+        yield 'by default' => [Configs::geocoder()];
+        yield 'without the geocoder' => [['geocoder' => ['enabled' => false, 'photon_api' => true]]];
+    }
+
+    /**
+     * @param array<string, mixed> $config
+     */
+    #[DataProvider('withoutPhotonApi')]
+    public function testPhotonApiIsNotRegisteredWhenDisabled(array $config): void
+    {
+        self::bootKernel(['extension_configs' => ['tito10047_geo' => $config]]);
+        $container = self::getContainer();
+
+        $this->assertFalse($container->has('tito10047_geo.geocoder.photon_api.controller'));
+        $this->assertFalse($container->has(PhotonSearchInterface::class));
+        $this->assertFalse($container->getParameter(PhotonApiRouteLoader::ENABLED_PARAMETER));
+        $this->assertInstanceOf(PhotonApiRouteLoader::class, $container->get('tito10047_geo.photon_api.route_loader'));
     }
 
     /**
