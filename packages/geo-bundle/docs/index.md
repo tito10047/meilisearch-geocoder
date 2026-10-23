@@ -355,6 +355,7 @@ replace it (e.g. `#[AsDecorator('tito10047_geo.geocoder.label_formatter')]`).
 | Interface (alias) | Service id | Class |
 |---|---|---|
 | `Geocoder\Search\GeocoderInterface` | `tito10047_geo.geocoder` | `Geocoder` |
+| `Geocoder\Search\AddressLookupInterface` | `tito10047_geo.geocoder.address_lookup` | `AddressLookup`: an address by its official id (`findByReference()`) |
 | `Geocoder\Search\Backend\SearchBackendInterface` | `tito10047_geo.geocoder.search_backend` | `MeilisearchSearchBackend` |
 | `Geocoder\HouseNumber\HouseNumberStoreInterface` | `tito10047_geo.geocoder.house_number_store` | `PdoHouseNumberStore` |
 | `Geocoder\Name\NameCatalogInterface` | `tito10047_geo.geocoder.name_catalog` | `PdoNameCatalog` |

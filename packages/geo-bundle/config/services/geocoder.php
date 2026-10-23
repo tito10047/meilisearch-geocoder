@@ -7,6 +7,7 @@ use Tito10047\GeoBundle\Command\GeocoderSearchCommand;
 use Tito10047\GeoBundle\Command\GeocoderStatusCommand;
 use Tito10047\GeoBundle\Database\PdoConnectionFactory;
 use Tito10047\GeoBundle\Http\HttpClientFactory;
+use Tito10047\Geocoder\HouseNumber\HouseNumberReferenceStoreInterface;
 use Tito10047\Geocoder\HouseNumber\HouseNumberStoreInterface;
 use Tito10047\Geocoder\HouseNumber\PdoHouseNumberStore;
 use Tito10047\Geocoder\Import\SelectionRules;
@@ -17,6 +18,9 @@ use Tito10047\Geocoder\Index\MeilisearchIndexManager;
 use Tito10047\Geocoder\Index\TimestampIndexNaming;
 use Tito10047\Geocoder\Name\NameCatalogInterface;
 use Tito10047\Geocoder\Name\PdoNameCatalog;
+use Tito10047\Geocoder\Search\AddressLookup;
+use Tito10047\Geocoder\Search\AddressLookupInterface;
+use Tito10047\Geocoder\Search\Backend\DocumentSourceInterface;
 use Tito10047\Geocoder\Search\Backend\MeilisearchSearchBackend;
 use Tito10047\Geocoder\Search\Backend\SearchBackendInterface;
 use Tito10047\Geocoder\Search\Geocoder;
@@ -83,10 +87,12 @@ return static function (ContainerConfigurator $container): void {
         ->set('tito10047_geo.geocoder.search_backend', MeilisearchSearchBackend::class)
             ->args([service('tito10047_geo.geocoder.meilisearch.client'), abstract_arg('index uid')])
         ->alias(SearchBackendInterface::class, 'tito10047_geo.geocoder.search_backend')
+        ->alias(DocumentSourceInterface::class, 'tito10047_geo.geocoder.search_backend')
 
         ->set('tito10047_geo.geocoder.house_number_store', PdoHouseNumberStore::class)
             ->args([service('tito10047_geo.geocoder.connection'), service('tito10047_geo.geocoder.tables')])
         ->alias(HouseNumberStoreInterface::class, 'tito10047_geo.geocoder.house_number_store')
+        ->alias(HouseNumberReferenceStoreInterface::class, 'tito10047_geo.geocoder.house_number_store')
 
         // remembers translations: forgotten between the requests of a long-running worker, and after a publication
         ->set('tito10047_geo.geocoder.name_catalog', PdoNameCatalog::class)
@@ -119,6 +125,16 @@ return static function (ContainerConfigurator $container): void {
                 abstract_arg('rerank window'),
             ])
         ->alias(GeocoderInterface::class, 'tito10047_geo.geocoder')
+
+        // an address by its official id (ref:minvskaddress in Slovakia)
+        ->set('tito10047_geo.geocoder.address_lookup', AddressLookup::class)
+            ->args([
+                service('tito10047_geo.geocoder.house_number_store'),
+                service('tito10047_geo.geocoder.search_backend'),
+                service('tito10047_geo.geocoder.name_catalog'),
+                service('tito10047_geo.geocoder.label_formatter'),
+            ])
+        ->alias(AddressLookupInterface::class, 'tito10047_geo.geocoder.address_lookup')
 
         // the configured defaults of a search, for the commands and the autocompleter
         ->set('tito10047_geo.geocoder.search_options', SearchOptions::class)

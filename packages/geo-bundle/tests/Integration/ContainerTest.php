@@ -48,6 +48,8 @@ use Tito10047\Geocoder\Photon\FeatureFactory;
 use Tito10047\Geocoder\Photon\FeatureFactoryInterface;
 use Tito10047\Geocoder\Photon\PhotonSearch;
 use Tito10047\Geocoder\Photon\PhotonSearchInterface;
+use Tito10047\Geocoder\Search\AddressLookup;
+use Tito10047\Geocoder\Search\AddressLookupInterface;
 use Tito10047\Geocoder\Search\Backend\SearchBackendInterface;
 use Tito10047\Geocoder\Search\Geocoder;
 use Tito10047\Geocoder\Search\GeocoderInterface;
@@ -106,6 +108,7 @@ final class ContainerTest extends KernelTestCase
     public static function geocoderServices(): iterable
     {
         yield 'geocoder' => [GeocoderInterface::class, Geocoder::class];
+        yield 'address lookup' => [AddressLookupInterface::class, AddressLookup::class];
         yield 'search backend' => [SearchBackendInterface::class, SearchBackendInterface::class];
         yield 'house numbers' => [HouseNumberStoreInterface::class, PdoHouseNumberStore::class];
         yield 'name catalog' => [NameCatalogInterface::class, NameCatalogInterface::class];
