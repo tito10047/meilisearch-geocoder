@@ -130,7 +130,8 @@ tito10047_geo:
         enabled: false                  # true as soon as the section is configured
         url: ~                          # required, e.g. '%env(VALHALLA_URL)%'
         timeout: 10.0                   # seconds a route may take, connecting included (default HTTP client only), >= 0.1
-        radius: 200                     # metres a point may snap to a road (the route command)
+        radius: 200                     # metres a point may snap to a road (the route and matrix commands)
+        max_matrix_location_pairs: 2500 # sources × targets of a matrix, Valhalla's max_matrix_location_pairs, >= 1
         http_client: null               # a PSR-18 client service instead of the default one
 ```
 
@@ -186,6 +187,25 @@ $routes[0]->tolledByCountry(); // ['SK' => 312000]
 
 `RouteNotFoundException` means no route goes through the points, `RoutingUnavailableException`
 that Valhalla cannot answer now.
+
+### Distance matrix
+
+Inject `Tito10047\Routing\MatrixInterface` for the distance and duration from every source to
+every target (on the same Valhalla and HTTP client as the routes):
+
+```php
+use Tito10047\Routing\MatrixInterface;
+use Tito10047\Routing\MatrixRequest;
+
+$matrix = $this->matrix->matrix(new MatrixRequest([$home], $stations));
+$matrix->distanceMeters(0, 2);  // metres from $home to $stations[2], null without a route
+$matrix->nearestTarget(0);      // the station reached soonest, or null
+```
+
+A pair without a route is null; a matrix larger than `max_matrix_location_pairs` is an
+`InvalidArgumentException` before Valhalla is asked; points farther apart than Valhalla's
+`max_matrix_distance` (400 km by car by default, in a straight line) or outside its data are a
+`RoutingUnavailableException`. See the [routing README](https://github.com/tito10047/routing#distance-matrix).
 
 ### Address autocomplete with Symfony UX
 
@@ -250,6 +270,10 @@ replace it (e.g. `#[AsDecorator('tito10047_geo.geocoder.label_formatter')]`).
 | | `tito10047_geo.geocoder.index_settings` | `Index\IndexSettings` of the builds |
 | | `tito10047_geo.geocoder.autocompleter` | `GeocoderAutocompleter` |
 | `Routing\RouterInterface` | `tito10047_geo.routing.router` | `Valhalla\ValhallaRouter` |
+| `Routing\MatrixInterface` | `tito10047_geo.routing.matrix` | `Valhalla\ValhallaMatrix` |
+| `Routing\Valhalla\MatrixRequestEncoderInterface` | `tito10047_geo.routing.matrix_request_encoder` | `MatrixRequestEncoder` |
+| `Routing\Valhalla\MatrixResponseParserInterface` | `tito10047_geo.routing.matrix_response_parser` | `MatrixResponseParser` |
+| | `tito10047_geo.routing.matrix_error_translator` | `ErrorTranslator::forMatrix()` |
 | `Routing\Valhalla\RequestEncoderInterface` | `tito10047_geo.routing.request_encoder` | `RequestEncoder` |
 | `Routing\Valhalla\ResponseParserInterface` | `tito10047_geo.routing.response_parser` | `ResponseParser` |
 | `Routing\Valhalla\ErrorTranslatorInterface` | `tito10047_geo.routing.error_translator` | `ErrorTranslator` |
@@ -298,6 +322,10 @@ $ php bin/console tito10047-geo:geocoder:status
 # routes through points: distance, duration, countries, tolls per country
 $ php bin/console tito10047-geo:routing:route 48.1486,17.1077 48.7164,21.2611 --alternatives=3
 $ php bin/console tito10047-geo:routing:route 48.1486,17.1077 48.2082,16.3738 49.1951,16.6068 --costing=truck --radius=500
+
+# distance and duration from every source to every target, as a table (km, min)
+$ php bin/console tito10047-geo:routing:matrix --source=48.1486,17.1077 --source=48.3774,17.5872 --target=49.2231,18.7394 --target=48.3069,18.0864
+$ php bin/console tito10047-geo:routing:matrix --source=48.1486,17.1077 --target=48.2082,16.3738 --costing=bicycle
 
 # whether Valhalla is reachable, its version and the date of its routing data
 $ php bin/console tito10047-geo:routing:status

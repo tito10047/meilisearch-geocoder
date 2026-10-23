@@ -54,7 +54,7 @@ final class Tito10047GeoBundle extends AbstractBundle
             $this->loadGeocoder($geocoder, $container, $builder);
         }
 
-        /** @var array{enabled: bool, url: string, timeout: float, radius: int, http_client: ?string} $routing */
+        /** @var array{enabled: bool, url: string, timeout: float, radius: int, max_matrix_location_pairs: int, http_client: ?string} $routing */
         $routing = $config['routing'];
         if ($routing['enabled']) {
             $this->loadRouting($routing, $container, $builder);
@@ -162,7 +162,7 @@ final class Tito10047GeoBundle extends AbstractBundle
     }
 
     /**
-     * @param array{enabled: bool, url: string, timeout: float, radius: int, http_client: ?string} $config
+     * @param array{enabled: bool, url: string, timeout: float, radius: int, max_matrix_location_pairs: int, http_client: ?string} $config
      */
     private function loadRouting(array $config, ContainerConfigurator $container, ContainerBuilder $builder): void
     {
@@ -176,7 +176,9 @@ final class Tito10047GeoBundle extends AbstractBundle
             $services->get('tito10047_geo.routing.http_client')->arg(0, $config['timeout']);
         }
         $services->get('tito10047_geo.routing.router')->arg(0, $config['url']);
+        $services->get('tito10047_geo.routing.matrix')->arg(0, $config['url'])->arg(8, $config['max_matrix_location_pairs']);
         $services->get('tito10047_geo.routing.status_provider')->arg(0, $config['url']);
         $services->get('tito10047_geo.routing.command.route')->arg(1, $config['radius']);
+        $services->get('tito10047_geo.routing.command.matrix')->arg(1, $config['radius']);
     }
 }

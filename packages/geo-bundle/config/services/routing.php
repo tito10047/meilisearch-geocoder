@@ -2,6 +2,7 @@
 
 use Psr\Http\Client\ClientInterface;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
+use Tito10047\GeoBundle\Command\RoutingMatrixCommand;
 use Tito10047\GeoBundle\Command\RoutingRouteCommand;
 use Tito10047\GeoBundle\Command\RoutingStatusCommand;
 use Tito10047\GeoBundle\Http\HttpClientFactory;
@@ -9,17 +10,23 @@ use Tito10047\GeoBundle\Routing\RoutingStatusProviderInterface;
 use Tito10047\GeoBundle\Routing\ValhallaStatusProvider;
 use Tito10047\Routing\Geometry\PolylineDecoder;
 use Tito10047\Routing\Geometry\PolylineDecoderInterface;
+use Tito10047\Routing\MatrixInterface;
 use Tito10047\Routing\RouterInterface;
 use Tito10047\Routing\Valhalla\AdminCrossingCountryLocator;
 use Tito10047\Routing\Valhalla\CountryLocatorInterface;
 use Tito10047\Routing\Valhalla\ErrorTranslator;
 use Tito10047\Routing\Valhalla\ErrorTranslatorInterface;
 use Tito10047\Routing\Valhalla\ManeuverTollLocator;
+use Tito10047\Routing\Valhalla\MatrixRequestEncoder;
+use Tito10047\Routing\Valhalla\MatrixRequestEncoderInterface;
+use Tito10047\Routing\Valhalla\MatrixResponseParser;
+use Tito10047\Routing\Valhalla\MatrixResponseParserInterface;
 use Tito10047\Routing\Valhalla\RequestEncoder;
 use Tito10047\Routing\Valhalla\RequestEncoderInterface;
 use Tito10047\Routing\Valhalla\ResponseParser;
 use Tito10047\Routing\Valhalla\ResponseParserInterface;
 use Tito10047\Routing\Valhalla\TollLocatorInterface;
+use Tito10047\Routing\Valhalla\ValhallaMatrix;
 use Tito10047\Routing\Valhalla\ValhallaRouter;
 
 use function Symfony\Component\DependencyInjection\Loader\Configurator\abstract_arg;
@@ -78,6 +85,32 @@ return static function (ContainerConfigurator $container): void {
             ->tag('monolog.logger', ['channel' => 'tito10047_geo'])
         ->alias(RouterInterface::class, 'tito10047_geo.routing.router')
 
+        // the distance matrix, over the same HTTP client
+        ->set('tito10047_geo.routing.matrix_request_encoder', MatrixRequestEncoder::class)
+        ->alias(MatrixRequestEncoderInterface::class, 'tito10047_geo.routing.matrix_request_encoder')
+
+        ->set('tito10047_geo.routing.matrix_response_parser', MatrixResponseParser::class)
+        ->alias(MatrixResponseParserInterface::class, 'tito10047_geo.routing.matrix_response_parser')
+
+        // every error of /sources_to_targets means "unavailable" (170 is a point outside the data there)
+        ->set('tito10047_geo.routing.matrix_error_translator', ErrorTranslator::class)
+            ->factory([ErrorTranslator::class, 'forMatrix'])
+
+        ->set('tito10047_geo.routing.matrix', ValhallaMatrix::class)
+            ->args([
+                abstract_arg('Valhalla URL'),
+                service('tito10047_geo.routing.http_client'),
+                service('tito10047_geo.psr17_factory'),
+                service('tito10047_geo.psr17_factory'),
+                service('logger')->nullOnInvalid(),
+                service('tito10047_geo.routing.matrix_request_encoder'),
+                service('tito10047_geo.routing.matrix_response_parser'),
+                service('tito10047_geo.routing.matrix_error_translator'),
+                abstract_arg('maximum of location pairs'),
+            ])
+            ->tag('monolog.logger', ['channel' => 'tito10047_geo'])
+        ->alias(MatrixInterface::class, 'tito10047_geo.routing.matrix')
+
         ->set('tito10047_geo.routing.status_provider', ValhallaStatusProvider::class)
             ->args([
                 abstract_arg('Valhalla URL'),
@@ -90,6 +123,10 @@ return static function (ContainerConfigurator $container): void {
         ->set('tito10047_geo.routing.command.route', RoutingRouteCommand::class)
             ->args([service('tito10047_geo.routing.router'), abstract_arg('default radius')])
             ->tag('console.command', ['command' => 'tito10047-geo:routing:route'])
+
+        ->set('tito10047_geo.routing.command.matrix', RoutingMatrixCommand::class)
+            ->args([service('tito10047_geo.routing.matrix'), abstract_arg('default radius')])
+            ->tag('console.command', ['command' => 'tito10047-geo:routing:matrix'])
 
         ->set('tito10047_geo.routing.command.status', RoutingStatusCommand::class)
             ->args([service('tito10047_geo.routing.status_provider')])

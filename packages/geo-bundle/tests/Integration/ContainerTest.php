@@ -50,12 +50,16 @@ use Tito10047\Geocoder\Storage\BuildStorageInterface;
 use Tito10047\Geocoder\Storage\Pdo\Dialect\SqlDialectInterface;
 use Tito10047\Geocoder\Storage\TableNames;
 use Tito10047\Routing\Geometry\PolylineDecoderInterface;
+use Tito10047\Routing\MatrixInterface;
 use Tito10047\Routing\RouterInterface;
 use Tito10047\Routing\Valhalla\CountryLocatorInterface;
 use Tito10047\Routing\Valhalla\ErrorTranslatorInterface;
+use Tito10047\Routing\Valhalla\MatrixRequestEncoderInterface;
+use Tito10047\Routing\Valhalla\MatrixResponseParserInterface;
 use Tito10047\Routing\Valhalla\RequestEncoderInterface;
 use Tito10047\Routing\Valhalla\ResponseParserInterface;
 use Tito10047\Routing\Valhalla\TollLocatorInterface;
+use Tito10047\Routing\Valhalla\ValhallaMatrix;
 use Tito10047\Routing\Valhalla\ValhallaRouter;
 
 /**
@@ -72,7 +76,7 @@ final class ContainerTest extends KernelTestCase
         'tito10047-geo:geocoder:search',
         'tito10047-geo:geocoder:status',
     ];
-    private const ROUTING_COMMANDS = ['tito10047-geo:routing:route', 'tito10047-geo:routing:status'];
+    private const ROUTING_COMMANDS = ['tito10047-geo:routing:matrix', 'tito10047-geo:routing:route', 'tito10047-geo:routing:status'];
 
     public function testNothingIsRegisteredWithoutConfiguration(): void
     {
@@ -276,6 +280,10 @@ final class ContainerTest extends KernelTestCase
     public static function routingServices(): iterable
     {
         yield 'router' => [RouterInterface::class, ValhallaRouter::class];
+        yield 'matrix' => [MatrixInterface::class, ValhallaMatrix::class];
+        yield 'matrix request encoder' => [MatrixRequestEncoderInterface::class, MatrixRequestEncoderInterface::class];
+        yield 'matrix response parser' => [MatrixResponseParserInterface::class, MatrixResponseParserInterface::class];
+        yield 'matrix error translator' => ['tito10047_geo.routing.matrix_error_translator', ErrorTranslatorInterface::class];
         yield 'status provider' => [RoutingStatusProviderInterface::class, ValhallaStatusProvider::class];
         yield 'request encoder' => [RequestEncoderInterface::class, RequestEncoderInterface::class];
         yield 'response parser' => [ResponseParserInterface::class, ResponseParserInterface::class];
