@@ -10,7 +10,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - The `AddressLookupInterface` service: an address by its official id.
-
 - First version of Tito10047GeoBundle.
 - Command `tito10047-geo:geocoder:download [region…] [--force]`: the Photon dumps of the given or
   configured regions into `import.dumps_dir`, again only when they changed.

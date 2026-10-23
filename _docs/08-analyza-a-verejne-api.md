@@ -64,7 +64,7 @@ composer.json, phpunit/phpstan/rector/cs-fixer, .github/           koreň: len v
 | Verzia | Adresy (`geocoder`) | Trasy (`routing`) |
 |---|---|---|
 | **v0.1** (potreba Tankovača) | import Photon výpisu, stavba indexu a výmena bez výpadku, `suggest()` s číslom domu, popiskom v jazyku a domácou krajinou, prenos snapshotom | `route()`: viac bodov, alternatívy, geometria, krajiny, mýto po krajinách, preklad chýb; skripty na stavbu a beh dlaždíc |
-| v0.2 | sťahovanie výpisov (ETag) ✓, `geocode()`, HTTP API ako Photon, orientačné čísla (`606/42` podľa `42`) ✓, ulice bez zastávok a iných nie-ciest ✓, časť obce a okres ✓, oficiálne id adresy + `findByReference()` ✓ (schéma 2) | vyhýbanie sa mýtu a diaľniciam, matica vzdialeností (`sources_to_targets`) |
+| v0.2 ✓ | sťahovanie výpisov (ETag) ✓, `geocode()` ✓, HTTP API ako Photon ✓, orientačné čísla (`606/42` podľa `42`) ✓, ulice bez zastávok a iných nie-ciest ✓, časť obce a okres ✓, oficiálne id adresy + `findByReference()` ✓ (schéma 2) | vyhýbanie sa mýtu a diaľniciam ✓, matica vzdialeností (`sources_to_targets`) ✓ |
 | neskôr | provider pre `geocoder-php`, `reverse()`, `attributeRank` v novších Meilisearchoch | izochróny, mapovanie GPS stopy |
 | mimo | parsovanie PBF v PHP, distribúcia dát | dlaždice na zobrazenie mapy, navigácia krok za krokom |
 
