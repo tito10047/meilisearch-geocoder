@@ -1,7 +1,8 @@
 # Routing
 
 Driving routes from a self-hosted [Valhalla](https://github.com/valhalla/valhalla): distance,
-duration, geometry, the countries crossed and the tolled distance in each, without a framework.
+duration, geometry, the countries crossed and the tolled distance in each, and distance matrices,
+without a framework.
 
 [![CI](https://github.com/tito10047/meilisearch-geocoder/actions/workflows/ci.yml/badge.svg)](https://github.com/tito10047/meilisearch-geocoder/actions/workflows/ci.yml)
 
@@ -93,13 +94,59 @@ tags as `toll=yes`: motorways with a vignette count as tolled as well.
 Every exception implements `Tito10047\Routing\Exception\ExceptionInterface`; the original
 exception of the HTTP client is kept as the previous one.
 
+### Distance matrix
+
+The distance and duration from every source to every target, each pair routed on its own
+(Valhalla's `/sources_to_targets`), e.g. to find the nearest of many places:
+
+```php
+use Tito10047\Routing\MatrixRequest;
+use Tito10047\Routing\Valhalla\ValhallaMatrix;
+
+$matrix = new ValhallaMatrix('http://localhost:8002', $client, $client, $client);
+
+$trnava = new Coordinates(48.3774, 17.5872);
+$zilina = new Coordinates(49.2231, 18.7394);
+$nitra = new Coordinates(48.3069, 18.0864);
+
+try {
+    $result = $matrix->matrix(new MatrixRequest([$bratislava, $trnava], [$zilina, $nitra]));
+} catch (RoutingUnavailableException) {
+    // Valhalla is down, a point is outside its data, or the points are too far apart
+}
+
+$result->distanceMeters(0, 1);      // 92790: Bratislava → Nitra
+$result->durationSeconds(0, 1);     // 2978
+$result->distanceMeters(1, 0);      // 150949: Trnava → Žilina, null for a pair without a route
+$result->nearestTarget(1);          // MatrixEntry(source: 1, target: 1, …): Nitra, the soonest reached
+foreach ($result->entries() as $entry) {
+    // MatrixEntry: source, target, distanceMeters, durationSeconds, isReachable(); row by row
+}
+```
+
+`MatrixRequest` takes `sources`, `targets` (at least one of each) and the `costing`,
+`radiusMeters`, `avoidTolls` and `avoidHighways` of a route request, with the same defaults.
+
+A pair without a route is null, the matrix is never refused for it. Valhalla's limits (per
+costing, `service_limits` in its configuration) shape the answer:
+
+| Valhalla's setting | Default | Over it |
+|---|---|---|
+| `max_matrix_location_pairs` | 2,500 sources × targets | refused with error 150; `ValhallaMatrix` refuses it before asking (`InvalidArgumentException`), set its `maxLocationPairs` as the server is configured |
+| `max_matrix_distance` | 400 km for `auto` and `truck`, 200 km for `bicycle` and `pedestrian` | a source and a target farther apart in a straight line: the whole matrix is refused (error 154, `RoutingUnavailableException`); a pair closer in a straight line but longer by road is null (Bratislava → Košice: 300 km, but 441 km by road) |
+
+A point outside the data makes Valhalla refuse the whole matrix with error 170 (where `/route`
+answers 171), a `RoutingUnavailableException` as well: every error of the matrix is one
+(`ErrorTranslator::forMatrix()`), `MatrixInterface` never throws `RouteNotFoundException`.
+
 ### Extension
 
 `ValhallaRouter` takes its collaborators through interfaces in `Tito10047\Routing\Valhalla`:
 `RequestEncoderInterface` (the JSON body), `ResponseParserInterface` (the routes), and
 `ErrorTranslatorInterface` (which exception an error is). `ResponseParser` itself takes a
-`PolylineDecoderInterface`, a `CountryLocatorInterface` and a `TollLocatorInterface`. Another
-engine is another `RouterInterface`.
+`PolylineDecoderInterface`, a `CountryLocatorInterface` and a `TollLocatorInterface`.
+`ValhallaMatrix` takes a `MatrixRequestEncoderInterface`, a `MatrixResponseParserInterface` and an
+`ErrorTranslatorInterface`. Another engine is another `RouterInterface` or `MatrixInterface`.
 
 ## Data
 

@@ -18,11 +18,31 @@ use Tito10047\Routing\Exception\RoutingUnavailableException;
  * distance exceeds the max distance limit" (a limit of this instance), the 1xx errors of a
  * request it does not accept, 5xx, and answers that are not Valhalla's JSON (a proxy's page).
  *
+ * The matrix (`/sources_to_targets`) is different: it answers 170 when a point lies outside the
+ * data (where `/route` answers 171) and gives null for the pairs without a route, so
+ * {@see self::forMatrix()} translates every error to "unavailable".
+ *
  * @see https://valhalla.github.io/valhalla/api/turn-by-turn/api-reference/#http-status-codes-and-conditions
  */
-final class ErrorTranslator implements ErrorTranslatorInterface
+final readonly class ErrorTranslator implements ErrorTranslatorInterface
 {
-    private const NO_ROUTE_CODES = [170, 441, 442];
+    public const ROUTE_NOT_FOUND_CODES = [170, 441, 442];
+
+    /**
+     * @param list<int> $notFoundCodes the error codes meaning that no route exists
+     */
+    public function __construct(
+        private array $notFoundCodes = self::ROUTE_NOT_FOUND_CODES,
+    ) {
+    }
+
+    /**
+     * The translator of the errors of `/sources_to_targets`: none of them means that no route exists.
+     */
+    public static function forMatrix(): self
+    {
+        return new self([]);
+    }
 
     public function translate(int $statusCode, string $body): RouteNotFoundException|RoutingUnavailableException
     {
@@ -40,7 +60,7 @@ final class ErrorTranslator implements ErrorTranslatorInterface
         $message = \is_string($error['error'] ?? null) ? $error['error'] : 'no message';
         $description = \sprintf('Valhalla answered with HTTP %d, error %d: %s', $statusCode, $code, $message);
 
-        if (\in_array($code, self::NO_ROUTE_CODES, true)) {
+        if (\in_array($code, $this->notFoundCodes, true)) {
             return new RouteNotFoundException($description, $code);
         }
 
