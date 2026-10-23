@@ -21,8 +21,12 @@
     "require": {
         "php": ">=8.2",
         "ext-pdo": "*",
+        "ext-pdo_sqlite": "*",
         "meilisearch/meilisearch-php": "^1.17",
         "psr/log": "^3.0"
+    },
+    "suggest": {
+        "ext-zstd": "Reads the zstd-compressed Photon dumps without running the zstd command"
     },
     "autoload": {
         "psr-4": {
