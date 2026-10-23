@@ -7,6 +7,7 @@ use Tito10047\Geocoder\Document\DocumentKind;
 use Tito10047\Geocoder\Document\DocumentWriterInterface;
 use Tito10047\Geocoder\Exception\InvalidArgumentException;
 use Tito10047\Geocoder\Exception\InvalidDumpException;
+use Tito10047\Geocoder\HouseNumber\HouseNumber;
 use Tito10047\Geocoder\HouseNumber\HouseNumberWriterInterface;
 use Tito10047\Geocoder\Import\ConverterInterface;
 use Tito10047\Geocoder\Import\DistancePlaceDeduplicator;
@@ -125,12 +126,12 @@ final readonly class PhotonConverter implements ConverterInterface
         $kind = $this->selector->select($place);
         if (null !== $place->houseNumber) {
             $houseNumber = $this->documents->houseNumber($place);
-            if ($houseNumber instanceof \Tito10047\Geocoder\HouseNumber\HouseNumber) {
+            if ($houseNumber instanceof HouseNumber) {
                 $run->writeHouseNumber($houseNumber);
             }
             // a street known only from its houses still has to be found; the next house of the same
             // street adds nothing
-            if (!$houseNumber instanceof \Tito10047\Geocoder\HouseNumber\HouseNumber || $run->isNewStreetOfHouses($houseNumber->streetKey)) {
+            if (!$houseNumber instanceof HouseNumber || $run->isNewStreetOfHouses($houseNumber->streetKey)) {
                 $street = $this->documents->streetOfAddress($place);
                 if ($street instanceof Document) {
                     $workspace->addStreetOfAddress($street);

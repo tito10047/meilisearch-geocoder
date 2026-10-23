@@ -18,7 +18,7 @@ final readonly class Document
      * @param string                $type        the OSM value: "city", "village", "hotel", "station", "street", …
      * @param string                $name        the local name
      * @param list<string>          $names       searchable: the local name first, then its distinct translations
-     * @param list<string>          $cities      searchable: the town and its distinct translations ([] for a town itself)
+     * @param list<string>          $cities      searchable: the town of its address and its distinct translations ([] when the address names no town)
      * @param array<string, string> $namesI18n   displayed: translations of the name differing from it, by language ("sk" => "Viedeň")
      * @param string                $city        the town the document is in, in its local name ("" when none)
      * @param string                $region      the region (state) the document is in ("" when unknown)

@@ -44,6 +44,6 @@ final class TableNamesTest extends TestCase
         yield 'leading digit' => ['1geo'];
         yield 'injection' => ['geo; DROP TABLE x'];
         yield 'quoted' => ['"geo"'];
-        yield 'too long' => [str_repeat('a', 64)];
+        yield 'too long' => [str_repeat('a', 49)];
     }
 }

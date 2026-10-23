@@ -18,7 +18,7 @@ final readonly class TableNames
      * @param string $translations the translated names of towns, regions and countries
      * @param string $metadata     key/value metadata: the schema version, the data timestamp of each country, …
      *
-     * @throws InvalidArgumentException when a name is not a plain SQL identifier
+     * @throws InvalidArgumentException when a name is not a plain SQL identifier of at most 48 characters
      */
     public function __construct(
         public string $houseNumbers = 'geo_house',
@@ -26,8 +26,8 @@ final readonly class TableNames
         public string $metadata = 'geo_meta',
     ) {
         foreach ([$houseNumbers, $translations, $metadata] as $name) {
-            if (1 !== preg_match('/^[A-Za-z_][A-Za-z0-9_]{0,62}$/D', $name)) {
-                throw new InvalidArgumentException(\sprintf('"%s" is not a valid table name: use letters, digits and underscores, at most 63 characters.', $name));
+            if (1 !== preg_match('/^[A-Za-z_][A-Za-z0-9_]{0,47}$/D', $name)) {
+                throw new InvalidArgumentException(\sprintf('"%s" is not a valid table name: use letters, digits and underscores, at most 48 characters (the names of their indexes add a suffix, within the 63 characters of PostgreSQL).', $name));
             }
         }
     }
