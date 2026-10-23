@@ -60,6 +60,13 @@ Professional library code: robust, extensible, no shortcuts.
   variable is set (`MEILISEARCH_URL`, `VALHALLA_URL`).
 - Comments explain why, not what; PHPDoc on every public method of an interface.
 
+## Running things
+
+The dev machine is the user's workstation: keep it usable. Heavy commands (full-dump imports,
+indexing, benchmarks) under `nice -n 19 ionice -c3`, one at a time; Docker containers with
+`--memory` ≤ 1g and `--cpus=2`, stopped when no longer needed; PHP `memory_limit` ≤ 1G; the full
+`composer qa` at the end of a change, not in loops.
+
 ## Data
 
 `_data/` (~39 GB, git-ignored) holds the downloaded Photon dumps and PBFs of 9 countries, the
