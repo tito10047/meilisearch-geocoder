@@ -47,6 +47,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Wrong translations of towns in `geo_name` and the labels ("Staré Mesto, Bytča" for Bratislava
+  in Slovak): `geo:import` translates each town as most of its addresses do (fixed in
+  `tito10047/geocoder`). Import again to correct an existing build.
 - `geo:import` of an export (files-only mode) records the original dumps of the export, so
   `geo:status` shows their file names, per-country data timestamps and counts as after a direct
   import, not the absolute path of the export directory on the build machine (fixed in

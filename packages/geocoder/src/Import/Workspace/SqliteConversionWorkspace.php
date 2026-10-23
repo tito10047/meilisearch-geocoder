@@ -5,6 +5,8 @@ namespace Tito10047\Geocoder\Import\Workspace;
 use Tito10047\Geocoder\Document\Document;
 use Tito10047\Geocoder\Exception\InvalidArgumentException;
 use Tito10047\Geocoder\Exception\StorageException;
+use Tito10047\Geocoder\Name\NameKind;
+use Tito10047\Geocoder\Name\Translation;
 
 /**
  * A workspace in an SQLite database file, deleted when the workspace is closed.
@@ -16,11 +18,17 @@ final class SqliteConversionWorkspace implements ConversionWorkspaceInterface
     /** Keys seen lately are answered from memory: an address repeats the town of the previous one. */
     private const RECENT_KEYS = 4096;
 
+    /** Votes are summed in memory first: the addresses of a town follow each other. */
+    private const VOTE_BUFFER = 8192;
+
     private ?\PDO $pdo;
     private ?\PDOStatement $insertSeen = null;
     private ?\PDOStatement $insertPlace = null;
     private ?\PDOStatement $upsertStreetOfWay = null;
     private ?\PDOStatement $insertStreetOfAddress = null;
+    private ?\PDOStatement $upsertVote = null;
+    /** @var array<string, array{Translation, int, int}> */
+    private array $votes = [];
     /** @var array<string, true> */
     private array $recentKeys = [];
     /** @var array<string, true> */
@@ -47,6 +55,8 @@ final class SqliteConversionWorkspace implements ConversionWorkspaceInterface
             $this->pdo->exec('CREATE TABLE seen (seen_key TEXT NOT NULL PRIMARY KEY) WITHOUT ROWID');
             $this->pdo->exec('CREATE TABLE place (seq INTEGER NOT NULL PRIMARY KEY, grp TEXT NOT NULL, doc TEXT NOT NULL)');
             $this->pdo->exec('CREATE TABLE street (id TEXT NOT NULL PRIMARY KEY, seq INTEGER NOT NULL, names INTEGER NOT NULL, doc TEXT NOT NULL)');
+            $this->pdo->exec('CREATE TABLE vote (cc TEXT NOT NULL, kind TEXT NOT NULL, name TEXT NOT NULL, lang TEXT NOT NULL, translation TEXT NOT NULL,
+                addresses INTEGER NOT NULL, own_names INTEGER NOT NULL, PRIMARY KEY (cc, kind, name, lang, translation)) WITHOUT ROWID');
             $this->pdo->beginTransaction();
         } catch (\PDOException $exception) {
             $this->pdo = null;
@@ -142,14 +152,42 @@ final class SqliteConversionWorkspace implements ConversionWorkspaceInterface
         return $this->documents($statement);
     }
 
+    public function voteForTranslation(Translation $translation, TranslationSource $source, int $votes = 1): void
+    {
+        if ($votes < 1) {
+            throw new InvalidArgumentException(\sprintf('The votes must be positive, %d given.', $votes));
+        }
+        $this->pdo();
+
+        $key = $translation->countryCode."\0".$translation->kind->value."\0".$translation->name."\0".$translation->language."\0".$translation->translation;
+        $this->votes[$key] ??= [$translation, 0, 0];
+        $this->votes[$key][TranslationSource::Address === $source ? 1 : 2] += $votes;
+        if (\count($this->votes) >= self::VOTE_BUFFER) {
+            $this->flushVotes();
+        }
+    }
+
+    public function translationCandidates(): iterable
+    {
+        $this->flushVotes();
+        try {
+            $statement = $this->pdo()->prepare('SELECT cc, kind, name, lang, translation, addresses, own_names FROM vote ORDER BY cc, kind, name, lang, translation');
+            $statement->execute();
+        } catch (\PDOException $exception) {
+            throw $this->failure($exception);
+        }
+
+        return $this->candidates($statement);
+    }
+
     public function close(): void
     {
         if (!$this->pdo instanceof \PDO) {
             return;
         }
-        $this->insertSeen = $this->insertPlace = $this->upsertStreetOfWay = $this->insertStreetOfAddress = null;
+        $this->insertSeen = $this->insertPlace = $this->upsertStreetOfWay = $this->insertStreetOfAddress = $this->upsertVote = null;
         $this->pdo = null;
-        $this->recentKeys = $this->recentStreetsOfAddress = [];
+        $this->recentKeys = $this->recentStreetsOfAddress = $this->votes = [];
         $this->deleteFile();
     }
 
@@ -176,6 +214,72 @@ final class SqliteConversionWorkspace implements ConversionWorkspaceInterface
         }
         if ([] !== $places) {
             yield $places;
+        }
+    }
+
+    private function flushVotes(): void
+    {
+        if ([] === $this->votes) {
+            return;
+        }
+        $votes = $this->votes;
+        $this->votes = [];
+
+        try {
+            $statement = $this->upsertVote ??= $this->pdo()->prepare(
+                'INSERT INTO vote (cc, kind, name, lang, translation, addresses, own_names) VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT (cc, kind, name, lang, translation) DO UPDATE SET addresses = addresses + excluded.addresses, own_names = own_names + excluded.own_names'
+            );
+            foreach ($votes as [$translation, $addresses, $ownNames]) {
+                $statement->execute([$translation->countryCode, $translation->kind->value, $translation->name, $translation->language, $translation->translation, $addresses, $ownNames]);
+            }
+        } catch (\PDOException $exception) {
+            throw $this->failure($exception);
+        }
+    }
+
+    /**
+     * @return \Generator<int, non-empty-list<TranslationCandidate>>
+     */
+    private function candidates(\PDOStatement $statement): \Generator
+    {
+        $group = null;
+        $candidates = [];
+        try {
+            while (false !== ($row = $statement->fetch(\PDO::FETCH_NUM))) {
+                $candidate = $this->candidate($row);
+                $key = [$row[0], $row[1], $row[2], $row[3]];
+                if ($key !== $group && [] !== $candidates) {
+                    yield $candidates;
+                    $candidates = [];
+                }
+                $group = $key;
+                $candidates[] = $candidate;
+            }
+        } catch (\PDOException $exception) {
+            throw $this->failure($exception);
+        } finally {
+            $statement->closeCursor();
+        }
+        if ([] !== $candidates) {
+            yield $candidates;
+        }
+    }
+
+    /**
+     * @param array<int, mixed> $row
+     */
+    private function candidate(array $row): TranslationCandidate
+    {
+        try {
+            $kind = \is_string($row[1]) ? NameKind::tryFrom($row[1]) : null;
+            if (!$kind instanceof NameKind || !\is_string($row[0]) || !\is_string($row[2]) || !\is_string($row[3]) || !\is_string($row[4])) {
+                throw new InvalidArgumentException('a column is not a valid string');
+            }
+
+            return new TranslationCandidate(new Translation($row[0], $kind, $row[2], $row[3], $row[4]), (int) $row[5], (int) $row[6]);
+        } catch (InvalidArgumentException $exception) {
+            throw new StorageException(\sprintf('The workspace database holds a damaged translation: %s', $exception->getMessage()), 0, $exception);
         }
     }
 

@@ -30,6 +30,9 @@ final class ConversionRun
     /** @var array<string, string> */
     private array $previousAddress = [];
     private ?int $previousStreetOfHouses = null;
+    /** @var list<Translation> */
+    private array $addressVotes = [];
+    private int $addresses = 0;
 
     public function __construct(
         private readonly string $dump,
@@ -74,6 +77,44 @@ final class ConversionRun
         $this->previousAddress = $place->address;
 
         return false;
+    }
+
+    /**
+     * The previous address is given again: its translations get one more vote.
+     */
+    public function repeatAddressVotes(): void
+    {
+        ++$this->addresses;
+    }
+
+    /**
+     * Keeps the translations of a new address, to be voted for once it is known how many addresses follow with them.
+     *
+     * @param list<Translation> $translations
+     *
+     * @return array{list<Translation>, int} the translations of the previous address and the number of addresses giving them
+     */
+    public function replaceAddressVotes(array $translations): array
+    {
+        $previous = $this->takeAddressVotes();
+        $this->addressVotes = $translations;
+        $this->addresses = 1;
+
+        return $previous;
+    }
+
+    /**
+     * The translations of the last address and the number of addresses giving them; none are kept.
+     *
+     * @return array{list<Translation>, int}
+     */
+    public function takeAddressVotes(): array
+    {
+        $votes = [$this->addressVotes, $this->addresses];
+        $this->addressVotes = [];
+        $this->addresses = 0;
+
+        return $votes;
     }
 
     /**

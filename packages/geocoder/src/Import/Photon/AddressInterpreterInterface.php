@@ -2,6 +2,8 @@
 
 namespace Tito10047\Geocoder\Import\Photon;
 
+use Tito10047\Geocoder\Name\NameKind;
+
 /**
  * Reads the parts of an address the geocoder needs: the part of the town, the town, the street,
  * the county, the region and their translations. Countries name their administrative levels differently, hence an interface.
@@ -68,4 +70,18 @@ interface AddressInterpreterInterface
      * @return array<string, string> language => translation
      */
     public function countyTranslations(Place $place): array;
+
+    /**
+     * What the address says of the translations of one of its names, for the catalog of names:
+     * the translations in the order of the languages, those equal to the local name included (the
+     * name is not translated in that language).
+     *
+     * Empty when the address cannot be trusted with them: Photon takes a name of the address from
+     * the object's own tags ("addr:city") but its translations from the boundary the object lies
+     * in, so a building in Bytča tagged "addr:city=Bratislava" would translate Bratislava as Bytča.
+     * One address may still be wrong: the converter keeps what most addresses agree on.
+     *
+     * @return array<string, string> language => translation
+     */
+    public function catalogTranslations(Place $place, NameKind $kind): array;
 }

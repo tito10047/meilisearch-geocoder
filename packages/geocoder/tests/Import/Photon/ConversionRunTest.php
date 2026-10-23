@@ -65,6 +65,20 @@ final class ConversionRunTest extends TestCase
         $this->assertTrue($run->isPreviousAddress(Places::create(address: ['city' => 'Košice'], countryCode: 'HU')));
     }
 
+    public function testCountsTheAddressesGivingTheSameTranslations(): void
+    {
+        $run = new ConversionRun('sk.jsonl', new InMemoryDocumentWriter(), new InMemoryHouseNumberWriter(), new InMemoryTranslationWriter(), null);
+        $kassa = [new Translation('SK', NameKind::City, 'Košice', 'hu', 'Kassa')];
+        $zsolna = [new Translation('SK', NameKind::City, 'Žilina', 'hu', 'Zsolna')];
+
+        $this->assertSame([[], 0], $run->replaceAddressVotes($kassa));
+        $run->repeatAddressVotes();
+        $run->repeatAddressVotes();
+        $this->assertSame([$kassa, 3], $run->replaceAddressVotes($zsolna));
+        $this->assertSame([$zsolna, 1], $run->takeAddressVotes());
+        $this->assertSame([[], 0], $run->takeAddressVotes());
+    }
+
     public function testRemembersTheStreetOfThePreviousHouse(): void
     {
         $run = new ConversionRun('sk.jsonl', new InMemoryDocumentWriter(), new InMemoryHouseNumberWriter(), new InMemoryTranslationWriter(), null);

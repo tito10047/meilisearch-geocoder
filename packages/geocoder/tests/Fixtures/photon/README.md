@@ -32,6 +32,18 @@ the library writes each document id once, keeping the first record. The fields t
 not have were added from the library's output (checked to change nothing else): the `suburb` and
 `county` of the documents, the `suburb` and `reference` of the house numbers.
 
+## Mistagged towns
+
+`mistagged-towns.jsonl` reproduces the wrong translations of towns of the first production import:
+Photon takes the town of an address from the object's own `addr:city` but its translations
+(`city:xx`) from the boundary the object lies in. Its first house is the address of a building
+of the Slovak dump of 2026-10-17 (way 318758534, reduced to a few address keys, another id) in
+Bytča tagged `addr:city=Bratislava`, with `city:sk=Bytča`; the other records are made up after
+records of the same dump: houses and the records of Bytča and Bratislava (one house of Bratislava without the
+translations of its town, as 54,000 of them are), a village whose addresses do not translate it,
+two villages "Nová Ves" with different Hungarian names (one with more houses) and two villages
+"Lehota", one of them not translated.
+
 ## Licence
 
 The data is © OpenStreetMap contributors, available under the

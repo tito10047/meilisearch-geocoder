@@ -6,6 +6,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Tito10047\Geocoder\Exception\InvalidArgumentException;
 use Tito10047\Geocoder\Import\Photon\PhotonAddressInterpreter;
+use Tito10047\Geocoder\Name\NameKind;
 use Tito10047\Geocoder\Tests\Fake\Places;
 
 final class PhotonAddressInterpreterTest extends TestCase
@@ -116,6 +117,69 @@ final class PhotonAddressInterpreterTest extends TestCase
         yield 'town of a place under the city key' => [['city' => 'Košice', 'city:hu' => 'Kassa'], 'Košice', ['hu' => 'Kassa']];
         yield 'no town' => [['city:hu' => 'Kassa'], '', []];
         yield 'empty translation' => [['city' => 'Košice', 'city:hu' => ''], 'Košice', []];
+    }
+
+    /**
+     * @param array<string, string> $address
+     * @param array<string, string> $expected
+     */
+    #[DataProvider('provideCatalogTranslations')]
+    public function testCatalogTranslations(array $address, NameKind $kind, array $expected): void
+    {
+        $interpreter = new PhotonAddressInterpreter(['sk', 'de', 'hu', 'it']);
+
+        $this->assertSame($expected, $interpreter->catalogTranslations(Places::create(osmKey: 'building', osmValue: 'yes', address: $address), $kind));
+    }
+
+    /**
+     * @return iterable<string, array{array<string, string>, NameKind, array<string, string>}>
+     */
+    public static function provideCatalogTranslations(): iterable
+    {
+        yield 'town, the local name included' => [
+            ['city' => 'Košice', 'city:sk' => 'Košice', 'city:hu' => 'Kassa', 'city:ru' => 'Кошице', 'city:it' => ''],
+            NameKind::City,
+            ['sk' => 'Košice', 'hu' => 'Kassa'],
+        ];
+        // the building in Bytča tagged "addr:city=Bratislava": the translations are those of Bytča
+        yield 'town translated from the boundary of another' => [
+            ['city' => 'Bratislava', 'city:sk' => 'Bytča', 'city:de' => 'Bitsch', 'city:hu' => 'Nagybiccse'],
+            NameKind::City,
+            [],
+        ];
+        yield 'town whose local name is translated in another language only' => [
+            ['city' => 'Biel/Bienne', 'city:de' => 'Biel', 'city:fr' => 'Bienne', 'city:es' => 'Biel/Bienne'],
+            NameKind::City,
+            ['de' => 'Biel'],
+        ];
+        yield 'town under the key of its level' => [
+            ['town' => 'Moldava nad Bodvou', 'town:sk' => 'Moldava nad Bodvou', 'town:hu' => 'Szepsi', 'city:hu' => 'Kassa'],
+            NameKind::City,
+            ['sk' => 'Moldava nad Bodvou', 'hu' => 'Szepsi'],
+        ];
+        yield 'part of a town' => [
+            ['suburb' => 'Medvedzie', 'suburb:sk' => 'Medvedzie', 'suburb:hu' => 'Medvéd'],
+            NameKind::Suburb,
+            ['sk' => 'Medvedzie', 'hu' => 'Medvéd'],
+        ];
+        yield 'part of a town translated from the boundary of another' => [
+            ['suburb' => 'Lomnica', 'suburb:sk' => 'Vranov nad Topľou', 'suburb:hu' => 'Varannó'],
+            NameKind::Suburb,
+            [],
+        ];
+        // counties and regions come from the boundaries: a canton named in two languages keeps its translations
+        yield 'region named in two languages' => [
+            ['state' => 'Bern/Berne', 'state:de' => 'Bern', 'state:it' => 'Berna'],
+            NameKind::Region,
+            ['de' => 'Bern', 'it' => 'Berna'],
+        ];
+        yield 'county' => [
+            ['county' => 'okres Bytča', 'county:hu' => 'Nagybiccsei járás'],
+            NameKind::County,
+            ['hu' => 'Nagybiccsei járás'],
+        ];
+        yield 'no such name' => [['city' => 'Košice', 'city:hu' => 'Kassa'], NameKind::Suburb, []];
+        yield 'country' => [['city' => 'Košice', 'city:hu' => 'Kassa'], NameKind::Country, []];
     }
 
     public function testRejectsInvalidLanguages(): void

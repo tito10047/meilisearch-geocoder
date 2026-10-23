@@ -3,11 +3,14 @@
 namespace Tito10047\Geocoder\Import\Workspace;
 
 use Tito10047\Geocoder\Document\Document;
+use Tito10047\Geocoder\Exception\InvalidArgumentException;
 use Tito10047\Geocoder\Exception\RuntimeException;
+use Tito10047\Geocoder\Name\Translation;
 
 /**
  * The scratch storage of one conversion: what has to be seen whole before it can be written
- * (places of the same name, segments of the same street) and what was already seen.
+ * (places of the same name, segments of the same street, the votes for the translations of a
+ * name) and what was already seen.
  *
  * A dump holds millions of objects: implementations keep them out of the PHP memory.
  */
@@ -61,6 +64,26 @@ interface ConversionWorkspaceInterface
      * @throws RuntimeException when the storage fails
      */
     public function streets(): iterable;
+
+    /**
+     * Counts votes for a candidate translation of a name.
+     *
+     * @param int $votes the records voting alike, e.g. the houses of a street with the same address
+     *
+     * @throws InvalidArgumentException when the votes are not positive
+     * @throws RuntimeException         when the storage fails
+     */
+    public function voteForTranslation(Translation $translation, TranslationSource $source, int $votes = 1): void;
+
+    /**
+     * The candidate translations with their votes, grouped by what they translate (country, kind,
+     * name and language); each group sorted by translation.
+     *
+     * @return iterable<int, non-empty-list<TranslationCandidate>>
+     *
+     * @throws RuntimeException when the storage fails
+     */
+    public function translationCandidates(): iterable;
 
     /**
      * Releases the storage; the workspace cannot be used afterwards.

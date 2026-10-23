@@ -18,6 +18,8 @@ use Tito10047\Geocoder\Import\SelectionRules;
 use Tito10047\Geocoder\Import\Workspace\ConversionWorkspaceFactoryInterface;
 use Tito10047\Geocoder\Import\Workspace\ConversionWorkspaceInterface;
 use Tito10047\Geocoder\Import\Workspace\SqliteConversionWorkspaceFactory;
+use Tito10047\Geocoder\Import\Workspace\TranslationCandidate;
+use Tito10047\Geocoder\Import\Workspace\TranslationSource;
 use Tito10047\Geocoder\Name\Translation;
 use Tito10047\Geocoder\Name\TranslationWriterInterface;
 
@@ -28,6 +30,13 @@ use Tito10047\Geocoder\Name\TranslationWriterInterface;
  * once it is read, after the places of the same name were deduplicated and the segments of each
  * street merged. Both wait in a workspace (an SQLite file by default), so the memory does not
  * grow with the size of the dump.
+ *
+ * So do the translations of the names of towns, their parts, counties and regions: every address
+ * votes for the translations it gives, and once the dump is read each name gets, in each language,
+ * the translation most addresses gave (the name itself, i.e. no translation, included). Where no
+ * address gives one, the records of the towns and parts of towns named so vote with their own
+ * names. One address cannot impose its translation: Photon translates the town of an address from
+ * the boundary the object lies in, whatever town its own tags name.
  */
 final readonly class PhotonConverter implements ConverterInterface
 {
@@ -88,10 +97,18 @@ final readonly class PhotonConverter implements ConverterInterface
                     }
                 } elseif ($record instanceof CountryInfo) {
                     foreach ($record->countries as $country) {
-                        $this->writeTranslations($this->translations->fromCountry($country), $workspace, $run);
+                        $this->writeCountryTranslations($this->translations->fromCountry($country), $workspace, $run);
                     }
                 } else {
                     $header = $record;
+                }
+            }
+
+            $this->voteForAddress($run->takeAddressVotes(), $workspace);
+            foreach ($workspace->translationCandidates() as $candidates) {
+                $translation = $this->elect($candidates);
+                if ($translation instanceof Translation) {
+                    $run->writeTranslation($translation);
                 }
             }
 
@@ -118,9 +135,14 @@ final readonly class PhotonConverter implements ConverterInterface
 
     private function convertPlace(Place $place, ConversionWorkspaceInterface $workspace, ConversionRun $run): void
     {
-        // the houses of a street follow each other with the same address: its translations are written already
-        if (!$run->isPreviousAddress($place)) {
-            $this->writeTranslations($this->translations->fromPlace($place), $workspace, $run);
+        // the houses of a street follow each other with the same address: their votes are counted once
+        if ($run->isPreviousAddress($place)) {
+            $run->repeatAddressVotes();
+        } else {
+            $this->voteForAddress($run->replaceAddressVotes($this->translations->fromPlace($place)), $workspace);
+        }
+        foreach ($this->translations->fromOwnNames($place) as $translation) {
+            $workspace->voteForTranslation($translation, TranslationSource::OwnName);
         }
 
         $kind = $this->selector->select($place);
@@ -192,12 +214,47 @@ final readonly class PhotonConverter implements ConverterInterface
     }
 
     /**
+     * @param array{list<Translation>, int} $votes the translations of an address and the number of addresses giving them
+     */
+    private function voteForAddress(array $votes, ConversionWorkspaceInterface $workspace): void
+    {
+        [$translations, $addresses] = $votes;
+        foreach ($translations as $translation) {
+            $workspace->voteForTranslation($translation, TranslationSource::Address, $addresses);
+        }
+    }
+
+    /**
+     * The translation of a name in a language: that of the most addresses, or of the most records of
+     * the towns named so when no address gives one. A tie goes to the name itself (no translation
+     * is better than a wrong one), then to the first translation in order. Null when the winner is
+     * the name itself.
+     *
+     * @param non-empty-list<TranslationCandidate> $candidates of one name and language
+     */
+    private function elect(array $candidates): ?Translation
+    {
+        $byAddresses = [] !== array_filter($candidates, static fn (TranslationCandidate $candidate): bool => $candidate->addresses > 0);
+        $winner = null;
+        $winnerVotes = 0;
+        foreach ($candidates as $candidate) {
+            $votes = $byAddresses ? $candidate->addresses : $candidate->ownNames;
+            if ($votes > $winnerVotes || ($votes === $winnerVotes && $votes > 0 && $candidate->isName() && !$winner?->isName())) {
+                $winner = $candidate;
+                $winnerVotes = $votes;
+            }
+        }
+
+        return null === $winner || $winner->isName() ? null : $winner->translation;
+    }
+
+    /**
      * @param list<Translation> $translations
      */
-    private function writeTranslations(array $translations, ConversionWorkspaceInterface $workspace, ConversionRun $run): void
+    private function writeCountryTranslations(array $translations, ConversionWorkspaceInterface $workspace, ConversionRun $run): void
     {
         foreach ($translations as $translation) {
-            // every address of a town repeats its translations: write each once
+            // every dump of a country repeats the countries: write each once
             $key = 't|'.$translation->countryCode.'|'.$translation->kind->value.'|'.$translation->name.'|'.$translation->language;
             if ($workspace->firstOccurrence($key)) {
                 $run->writeTranslation($translation);

@@ -94,6 +94,38 @@ final class PhotonConverterTest extends TestCase
         $this->assertArrayNotHasKey('SK|region|Košický kraj|ru', $translations);
     }
 
+    /**
+     * The regression of the first production import: a building in Bytča tagged
+     * "addr:city=Bratislava" comes first, with the translations of Bytča (Photon translates the
+     * town from the boundary the object lies in). The first translation written won, and
+     * Bratislava was "Bytča" in Slovak, "Bitsch" in German.
+     */
+    public function testTranslatesTheTownsAsTheirAddressesAgreeAndNotAsAMistaggedOne(): void
+    {
+        (new PhotonConverter())->convert(self::FIXTURES.'/mistagged-towns.jsonl', $this->documents, $this->houseNumbers, $this->translations);
+
+        $translations = $this->translations->map();
+        ksort($translations);
+        $this->assertSame([
+            // the houses of Bratislava agree; the one without translations does not vote
+            'SK|city|Bratislava|hu' => 'Pozsony',
+            'SK|city|Bratislava|pl' => 'Bratysława',
+            'SK|city|Bytča|de' => 'Bitsch',
+            'SK|city|Bytča|hu' => 'Nagybiccse',
+            // no address translates it: the record of the village does
+            'SK|city|Hliník nad Váhom|hu' => 'Vágagyagos',
+            // two villages of the name: the one with more addresses
+            'SK|city|Nová Ves|hu' => 'Tótújfalu',
+            'SK|country|SK|en' => 'Slovakia',
+            'SK|county|okres Bytča|hu' => 'Nagybiccsei járás',
+            'SK|region|Bratislavský kraj|hu' => 'Pozsonyi kerület',
+            'SK|region|Žilinský kraj|hu' => 'Zsolnai kerület',
+            'SK|suburb|Hliník nad Váhom|hu' => 'Vágagyagos',
+            // "Lehota" is not translated in one village of the name, "Szentlehota" in the other: a tie, no translation
+        ], $translations);
+        $this->assertCount(\count($translations), $this->translations->translations, 'Each translation is written once.');
+    }
+
     public function testFollowsTheRules(): void
     {
         $rules = new SelectionRules(placeTypes: ['village' => 50], pois: ['amenity' => ['restaurant']], languages: ['hu']);

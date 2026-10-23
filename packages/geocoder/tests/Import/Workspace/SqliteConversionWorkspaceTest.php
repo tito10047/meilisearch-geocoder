@@ -8,6 +8,10 @@ use Tito10047\Geocoder\Document\DocumentKind;
 use Tito10047\Geocoder\Exception\InvalidArgumentException;
 use Tito10047\Geocoder\Exception\StorageException;
 use Tito10047\Geocoder\Import\Workspace\SqliteConversionWorkspace;
+use Tito10047\Geocoder\Import\Workspace\TranslationCandidate;
+use Tito10047\Geocoder\Import\Workspace\TranslationSource;
+use Tito10047\Geocoder\Name\NameKind;
+use Tito10047\Geocoder\Name\Translation;
 use Tito10047\Geocoder\Tests\Fake\ImportDocuments;
 
 final class SqliteConversionWorkspaceTest extends TestCase
@@ -94,6 +98,54 @@ final class SqliteConversionWorkspaceTest extends TestCase
         $this->assertSame(['s1' => 48.3, 's2' => 48.4, 's3' => 48.6, 's4' => 48.8], $streets);
     }
 
+    public function testCountsTheVotesForTranslationsByNameAndLanguage(): void
+    {
+        $bytca = new Translation('SK', NameKind::City, 'Bratislava', 'sk', 'Bytča');
+        $same = new Translation('SK', NameKind::City, 'Bratislava', 'sk', 'Bratislava');
+        $pozsony = new Translation('SK', NameKind::City, 'Bratislava', 'hu', 'Pozsony');
+        $this->workspace->voteForTranslation($same, TranslationSource::Address, 40);
+        $this->workspace->voteForTranslation($bytca, TranslationSource::Address);
+        $this->workspace->voteForTranslation($pozsony, TranslationSource::OwnName);
+        $this->workspace->voteForTranslation($same, TranslationSource::Address, 2);
+        $this->workspace->voteForTranslation($same, TranslationSource::OwnName);
+        $this->workspace->voteForTranslation($pozsony, TranslationSource::Address, 7);
+
+        $this->assertEquals([
+            [new TranslationCandidate($pozsony, 7, 1)],
+            [new TranslationCandidate($same, 42, 1), new TranslationCandidate($bytca, 1, 0)],
+        ], iterator_to_array($this->workspace->translationCandidates(), false));
+    }
+
+    /**
+     * The votes summed in memory and those already in the database add up.
+     */
+    public function testAddsTheVotesBeyondTheMemory(): void
+    {
+        $kassa = new Translation('SK', NameKind::City, 'Košice', 'hu', 'Kassa');
+        $this->workspace->voteForTranslation($kassa, TranslationSource::Address);
+        for ($i = 0; $i < 10000; ++$i) {
+            $this->workspace->voteForTranslation(new Translation('SK', NameKind::Suburb, 'part '.$i, 'hu', 'rész '.$i), TranslationSource::Address);
+        }
+        $this->workspace->voteForTranslation($kassa, TranslationSource::Address, 2);
+
+        $candidates = iterator_to_array($this->workspace->translationCandidates(), false);
+
+        $this->assertCount(10001, $candidates);
+        $this->assertEquals([new TranslationCandidate($kassa, 3, 0)], $candidates[0]);
+    }
+
+    public function testRejectsNoVotes(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        $this->workspace->voteForTranslation(new Translation('SK', NameKind::City, 'Košice', 'hu', 'Kassa'), TranslationSource::Address, 0);
+    }
+
+    public function testNoTranslationCandidates(): void
+    {
+        $this->assertSame([], iterator_to_array($this->workspace->translationCandidates()));
+    }
+
     public function testCloseDeletesTheFile(): void
     {
         $this->assertFileExists($this->path);
@@ -112,6 +164,16 @@ final class SqliteConversionWorkspaceTest extends TestCase
         $this->expectExceptionMessage('closed');
 
         $this->workspace->addPlace('SK|Viničky', ImportDocuments::create());
+    }
+
+    public function testCannotVoteOnceClosed(): void
+    {
+        $this->workspace->close();
+
+        $this->expectException(StorageException::class);
+        $this->expectExceptionMessage('closed');
+
+        $this->workspace->voteForTranslation(new Translation('SK', NameKind::City, 'Košice', 'hu', 'Kassa'), TranslationSource::Address);
     }
 
     public function testRejectsAnEmptyPath(): void
