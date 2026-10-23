@@ -10,6 +10,9 @@ use Tito10047\Geocoder\Exception\InvalidArgumentException;
  *
  * The file is saved under the last part of the region ("slovakia.jsonl.zst"): the import command
  * looks for "*.jsonl.zst" files.
+ *
+ * The regions are those of the server, not always those of Geofabrik: Switzerland is one dump with
+ * Liechtenstein, "europe/switzerland-liechtenstein".
  */
 final readonly class GraphHopperRegionUrlResolver implements RegionUrlResolverInterface
 {

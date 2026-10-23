@@ -23,11 +23,27 @@ VALHALLA_PBF=/srv/osm/pbf VALHALLA_DATA=/srv/valhalla docker compose --profile b
 ```
 
 `admins.sqlite` holds the borders the countries and tolls per country are computed from, do not
-leave it out. Measured: Slovakia 46 s and 347 MB; 9 countries (11.4 GB of PBF) 34 min and
-13 GB with `VALHALLA_CONCURRENCY=6`. The build needs more memory than serving: build elsewhere
-and copy `tiles.tar` and `admins.sqlite` to a small server (Valhalla reads the tar through mmap).
-Errors `NOT NULL constraint failed: admin_access.admin_id` name countries outside the extracts
-and can be ignored.
+leave it out. Errors `NOT NULL constraint failed: admin_access.admin_id` name countries outside
+the extracts and can be ignored.
+
+The build needs far more memory than serving: build elsewhere and copy `tiles.tar` and
+`admins.sqlite` to a small server (Valhalla reads the tar through mmap). Memory and time grow
+with the region and with `VALHALLA_CONCURRENCY` (the threads of the build):
+a lower concurrency needs less memory and takes longer.
+
+| Region | `VALHALLA_CONCURRENCY` | Time | Memory of the build | Data |
+|---|---|---|---|---|
+| Slovakia | default | 46 s | | 347 MB |
+| 9 countries (SK CZ AT HU PL HR SI DE IT, 11.4 GB of PBF) | 6 | 34 min | | 13 GB |
+| 10 countries (the 9, Switzerland and Liechtenstein) | 4 | ~60 min | ~6.4 GiB anonymous | |
+
+Give the container (or the machine) that much memory, or lower the concurrency: a build killed
+by the OOM killer leaves an incomplete data directory. `VALHALLA_CONCURRENCY` is 4 by default
+in `compose.yaml`; `build.sh` alone uses all the processors.
+
+Regions are not named alike everywhere: Geofabrik publishes `europe/switzerland` and
+`europe/liechtenstein` as two extracts (download both), while the Photon dump of the geocoder
+covering them is one region, `europe/switzerland-liechtenstein`.
 
 ## Serve
 
