@@ -5,7 +5,6 @@ namespace Tito10047\Geocoder\Import\File;
 use Tito10047\Geocoder\Document\DocumentWriterInterface;
 use Tito10047\Geocoder\HouseNumber\HouseNumberWriterInterface;
 use Tito10047\Geocoder\Import\ConverterInterface;
-use Tito10047\Geocoder\Import\DumpSummary;
 use Tito10047\Geocoder\Import\ImportProgressInterface;
 use Tito10047\Geocoder\Name\TranslationWriterInterface;
 
@@ -40,7 +39,7 @@ final readonly class ExportAwareConverter implements ConverterInterface
         HouseNumberWriterInterface $houseNumbers,
         TranslationWriterInterface $translations,
         ?ImportProgressInterface $progress = null,
-    ): DumpSummary {
+    ): array {
         $converter = self::isExport($dump) ? $this->exports : $this->dumps;
 
         return $converter->convert($dump, $documents, $houseNumbers, $translations, $progress);

@@ -40,12 +40,12 @@ final class PhotonConverterTest extends TestCase
      */
     public function testConvertsTheSampleLikeThePrototype(): void
     {
-        $summary = (new PhotonConverter())->convert(self::FIXTURES.'/slovakia-sample.jsonl', $this->documents, $this->houseNumbers, $this->translations);
+        [$summary] = (new PhotonConverter())->convert(self::FIXTURES.'/slovakia-sample.jsonl', $this->documents, $this->houseNumbers, $this->translations);
 
         $this->assertSame($this->expectedDocuments(), $this->documentLines());
         $this->assertSame($this->expectedHouseNumbers(), $this->houseNumberRows());
 
-        $this->assertSame(self::FIXTURES.'/slovakia-sample.jsonl', $summary->dump);
+        $this->assertSame('slovakia-sample.jsonl', $summary->dump);
         $this->assertEquals(new \DateTimeImmutable('2026-10-17T23:02:06+00:00'), $summary->dataTimestamp);
         $this->assertSame(['SK'], $summary->countryCodes);
         $this->assertEquals(new ImportCounts(places: 4, streets: 13, pois: 4, houseNumbers: 134), $summary->counts);
@@ -69,7 +69,7 @@ final class PhotonConverterTest extends TestCase
 
     public function testConvertsACompressedDump(): void
     {
-        $summary = (new PhotonConverter())->convert(self::FIXTURES.'/slovakia-sample.jsonl.zst', $this->documents, $this->houseNumbers, $this->translations);
+        [$summary] = (new PhotonConverter())->convert(self::FIXTURES.'/slovakia-sample.jsonl.zst', $this->documents, $this->houseNumbers, $this->translations);
 
         $this->assertSame($this->expectedDocuments(), $this->documentLines());
         $this->assertSame(134, $summary->counts->houseNumbers);
@@ -98,7 +98,7 @@ final class PhotonConverterTest extends TestCase
     {
         $rules = new SelectionRules(placeTypes: ['village' => 50], pois: ['amenity' => ['restaurant']], languages: ['hu']);
 
-        $summary = (new PhotonConverter($rules))->convert(self::FIXTURES.'/slovakia-sample.jsonl', $this->documents, $this->houseNumbers, $this->translations);
+        [$summary] = (new PhotonConverter($rules))->convert(self::FIXTURES.'/slovakia-sample.jsonl', $this->documents, $this->houseNumbers, $this->translations);
 
         $this->assertSame(1, $summary->counts->places);
         // two restaurants "Zlatá putňa" at the same spot are one
@@ -124,7 +124,7 @@ final class PhotonConverterTest extends TestCase
             $place(4, 'highway', 'bus_stop', 'Horná'),
         ]).']}', '{"type":"Place","content":[{"object_type":"W","object_id":5,"osm_key":"building","osm_value":"yes","housenumber":"12","address":{"village":"Nová Sedlica","street":"Horná"},"country_code":"sk","centroid":[22.51,49.05]}]}'];
 
-        $summary = (new PhotonConverter(reader: new PhotonDumpReader(new InMemoryLineSource($lines))))
+        [$summary] = (new PhotonConverter(reader: new PhotonDumpReader(new InMemoryLineSource($lines))))
             ->convert('dump', $this->documents, $this->houseNumbers, $this->translations);
 
         $names = array_map(static fn (Document $document): string => $document->name, $this->documents->documents);

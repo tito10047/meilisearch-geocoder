@@ -73,7 +73,7 @@ final readonly class PhotonConverter implements ConverterInterface
         HouseNumberWriterInterface $houseNumbers,
         TranslationWriterInterface $translations,
         ?ImportProgressInterface $progress = null,
-    ): DumpSummary {
+    ): array {
         $run = new ConversionRun($dump, $documents, $houseNumbers, $translations, $progress);
         $header = null;
         $objects = 0;
@@ -113,7 +113,7 @@ final readonly class PhotonConverter implements ConverterInterface
         }
         $run->reportProgress();
 
-        return new DumpSummary($dump, $header->dataTimestamp, $run->countryCodes(), $run->counts());
+        return [new DumpSummary(DumpSummary::nameOf($dump), $header->dataTimestamp, $run->countryCodes(), $run->counts())];
     }
 
     private function convertPlace(Place $place, ConversionWorkspaceInterface $workspace, ConversionRun $run): void

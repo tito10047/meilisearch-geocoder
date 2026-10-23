@@ -45,6 +45,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - An environment variable as `geo.geocoder.meilisearch.index` was rejected when the container was
   built ("cannot contain an environment variable").
 
+### Fixed
+
+- `geo:import` of an export (files-only mode) records the original dumps of the export, so
+  `geo:status` shows their file names, per-country data timestamps and counts as after a direct
+  import, not the absolute path of the export directory on the build machine (fixed in
+  `tito10047/geocoder`).
+
 ## [0.2.1] - 2026-10-23
 
 ### Fixed

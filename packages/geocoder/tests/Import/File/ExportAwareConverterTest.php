@@ -34,14 +34,13 @@ final class ExportAwareConverterTest extends TestCase
         $converter = new ExportAwareConverter(new PhotonConverter());
 
         $fromDump = [new InMemoryDocumentWriter(), new InMemoryHouseNumberWriter(), new InMemoryTranslationWriter()];
-        $dumpSummary = $converter->convert(self::DUMP, ...$fromDump);
+        $dumpSummaries = $converter->convert(self::DUMP, ...$fromDump);
         $fromExport = [new InMemoryDocumentWriter(), new InMemoryHouseNumberWriter(), new InMemoryTranslationWriter()];
-        $exportSummary = $converter->convert($export, ...$fromExport);
+        $exportSummaries = $converter->convert($export, ...$fromExport);
 
         $this->assertEquals($fromDump[0]->documents, $fromExport[0]->documents);
         $this->assertEquals($fromDump[1]->houseNumbers, $fromExport[1]->houseNumbers);
-        $this->assertSame($export, $exportSummary->dump);
-        $this->assertEquals($dumpSummary->counts, $exportSummary->counts);
+        $this->assertEquals($dumpSummaries, $exportSummaries);
     }
 
     public function testDetectsAnExport(): void

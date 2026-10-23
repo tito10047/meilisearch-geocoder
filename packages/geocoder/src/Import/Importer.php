@@ -74,7 +74,7 @@ final readonly class Importer implements ImporterInterface
             $summaries = [];
             foreach ($dumps as $dump) {
                 $this->logger->info('Importing the dump {dump} into the build {build}.', ['dump' => $dump, 'build' => $uid]);
-                $summaries[] = $this->converter->convert($dump, $documents, $houseNumbers, $translations, $progress);
+                array_push($summaries, ...$this->converter->convert($dump, $documents, $houseNumbers, $translations, $progress));
             }
             $documents->close();
             $houseNumbers->close();

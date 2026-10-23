@@ -91,7 +91,8 @@ final class ImporterTest extends TestCase
         })());
 
         $this->assertCount(2, $build->dumps);
-        $this->assertSame(self::DUMP.'.zst', $build->dumps[1]->dump);
+        // the file name only: the directories of the machine that imported it mean nothing elsewhere
+        $this->assertSame('slovakia-sample.jsonl.zst', $build->dumps[1]->dump);
         $this->assertSame(268, $build->counts()->houseNumbers);
         $this->assertSame('268', $this->value('SELECT COUNT(*) FROM geo_house_20261023120000'));
     }

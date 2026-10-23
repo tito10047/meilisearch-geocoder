@@ -22,7 +22,11 @@ use Tito10047\Geocoder\Storage\Pdo\PdoTableReader;
  * Reads an export of FileExporter as if it were a dump, so that the Importer indexes it: give
  * the Importer this converter and the directories of the exports instead of the dumps.
  *
- * The summary of an export of several dumps is one: the oldest data timestamp, all the countries.
+ * It returns the summaries of the original dumps, which the export carries in its metadata (the
+ * "dumps" of its build: name, data timestamp, countries and counts of each), so that a build
+ * imported from an export has the same metadata as one imported from the dumps directly. Exports
+ * of earlier versions carry them too, under the paths of the machine that converted the dumps:
+ * only their file names are kept.
  */
 final readonly class FileExportConverter implements ConverterInterface
 {
@@ -47,7 +51,7 @@ final readonly class FileExportConverter implements ConverterInterface
         HouseNumberWriterInterface $houseNumbers,
         TranslationWriterInterface $translations,
         ?ImportProgressInterface $progress = null,
-    ): DumpSummary {
+    ): array {
         $documentsFile = $dump.'/'.FileExportLayout::DOCUMENTS;
         $databaseFile = $dump.'/'.FileExportLayout::DATABASE;
         if (!is_file($documentsFile) || !is_file($databaseFile)) {
@@ -98,12 +102,21 @@ final readonly class FileExportConverter implements ConverterInterface
         }
         $report();
 
-        return new DumpSummary(
-            $dump,
-            $build->oldestDataTimestamp(),
-            array_keys($build->dataTimestamps()),
-            new ImportCounts($counts['places'], $counts['streets'], $counts['pois'], $counts['houseNumbers']),
+        $read = new ImportCounts($counts['places'], $counts['streets'], $counts['pois'], $counts['houseNumbers']);
+        $expected = $build->counts();
+        if ($read != $expected) {
+            throw new InvalidArgumentException(\sprintf('The export "%s" is damaged: its dumps hold %s, its files %s.', $dump, $this->describe($expected), $this->describe($read)));
+        }
+
+        return array_map(
+            static fn (DumpSummary $summary): DumpSummary => new DumpSummary(DumpSummary::nameOf($summary->dump), $summary->dataTimestamp, $summary->countryCodes, $summary->counts),
+            $build->dumps,
         );
+    }
+
+    private function describe(ImportCounts $counts): string
+    {
+        return \sprintf('%d places, %d streets, %d points of interest and %d house numbers', $counts->places, $counts->streets, $counts->pois, $counts->houseNumbers);
     }
 
     /**

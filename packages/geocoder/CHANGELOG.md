@@ -35,6 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   build index, recorded in the metadata of its tables when its publication starts.
 - `HttpDumpDownloader` sets the permissions of what it creates, `$fileMode` (0644) and
   `$directoryMode` (0755), whatever the umask.
+- `Import\DumpSummary::nameOf()`: the portable name of a dump (its file name, a `php://` stream as
+  it is).
 
 ### Changed
 
@@ -50,6 +52,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `RuntimeException`s).
 - **BC break for implementers** of `IndexManagerInterface` (`fingerprint()`, `version()`) and
   `BuildStorageInterface` (`recordPublication()`, `recordedPublication()`).
+- **BC break:** `Import\ConverterInterface::convert()` returns a non-empty `list<DumpSummary>`
+  instead of one `DumpSummary`: one per dump read, so that a converter of something holding several
+  converted dumps can return each. `PhotonConverter` returns one; implementations must wrap theirs
+  in an array.
+- A build stores the file name of each dump (`DumpSummary::nameOf()`), never the path it had on
+  the machine that converted it: `PhotonConverter` names its summary so, and `PdoBuildMetadata`
+  writes so whatever a converter gives.
 
 ### Fixed
 
@@ -58,6 +67,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   effect, leaving the new index live with the old tables: Meilisearch hides the tasks of no index
   (swaps, snapshots) from such a key. The swap is now confirmed from the indexes, polled with the
   task timeout; a snapshot followed by such a key fails with the key it needs (`"indexes": ["*"]`).
+- Importing an export (`File\FileExportConverter`, files-only mode) no longer records the absolute
+  path of the export directory as the one dump of the build with the oldest timestamp for every
+  country: it returns the summaries of the original dumps the export carries in its metadata (the
+  `dumps` of `geo_meta` in `geocoder.sqlite`: name, data timestamp, countries, counts), so the
+  published build's metadata, per-country data timestamps and counts equal those of importing the
+  dumps directly. Exports of 0.2 carry the same manifest under absolute paths: only the file names
+  are kept. An export whose files do not hold the counts of its manifest is refused as damaged.
 
 ## [0.2.0] - 2026-10-23
 

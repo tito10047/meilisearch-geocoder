@@ -5,7 +5,6 @@ namespace Tito10047\Geocoder\Tests\Fake;
 use Tito10047\Geocoder\Document\DocumentWriterInterface;
 use Tito10047\Geocoder\HouseNumber\HouseNumberWriterInterface;
 use Tito10047\Geocoder\Import\ConverterInterface;
-use Tito10047\Geocoder\Import\DumpSummary;
 use Tito10047\Geocoder\Import\ImportProgressInterface;
 use Tito10047\Geocoder\Name\TranslationWriterInterface;
 
@@ -30,12 +29,12 @@ final readonly class FailingConverter implements ConverterInterface
         HouseNumberWriterInterface $houseNumbers,
         TranslationWriterInterface $translations,
         ?ImportProgressInterface $progress = null,
-    ): DumpSummary {
-        $summary = $this->inner->convert($dump, $documents, $houseNumbers, $translations, $progress);
+    ): array {
+        $summaries = $this->inner->convert($dump, $documents, $houseNumbers, $translations, $progress);
         if (\in_array($dump, $this->failingDumps, true)) {
             throw $this->failure;
         }
 
-        return $summary;
+        return $summaries;
     }
 }

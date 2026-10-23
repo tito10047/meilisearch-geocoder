@@ -6,6 +6,8 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Tito10047\Geocoder\Exception\InvalidArgumentException;
 use Tito10047\Geocoder\Exception\StorageException;
+use Tito10047\Geocoder\Import\Build;
+use Tito10047\Geocoder\Import\DumpSummary;
 use Tito10047\Geocoder\Import\Exception\BuildNotFoundException;
 use Tito10047\Geocoder\Storage\Pdo\PdoBuildMetadata;
 use Tito10047\Geocoder\Storage\Pdo\PdoSchema;
@@ -41,6 +43,21 @@ final class PdoBuildMetadataTest extends TestCase
             'settings_hash' => Builds::build($this->tables)->settingsHash,
             'started_at' => '2026-10-23T12:00:00+00:00',
         ], $this->rows());
+    }
+
+    public function testWritesTheFileNameOfADumpGivenByItsPath(): void
+    {
+        $build = Builds::build($this->tables);
+        $dump = $build->dumps[0];
+        $build = new Build($build->indexUid, $build->tables, $build->startedAt, $build->settingsHash, $build->schemaVersion, [
+            new DumpSummary('/srv/build-machine/dumps/slovakia.jsonl.zst', $dump->dataTimestamp, $dump->countryCodes, $dump->counts),
+        ]);
+        $metadata = new PdoBuildMetadata($this->pdo);
+
+        $metadata->write($build);
+
+        $this->assertSame('slovakia.jsonl.zst', $metadata->read($this->tables)->dumps[0]->dump);
+        $this->assertStringNotContainsString('build-machine', $this->rows()['dumps']);
     }
 
     public function testReplacesTheMetadataAndReadsItBack(): void
