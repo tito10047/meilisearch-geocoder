@@ -19,9 +19,11 @@ return RectorConfig::configure()
     ->withPaths([
         __DIR__.'/packages/geocoder/src',
         __DIR__.'/packages/geocoder/tests',
-        __DIR__.'/packages/geocoder-bundle/config',
-        __DIR__.'/packages/geocoder-bundle/src',
-        __DIR__.'/packages/geocoder-bundle/tests',
+        __DIR__.'/packages/routing/src',
+        __DIR__.'/packages/routing/tests',
+        __DIR__.'/packages/geo-bundle/config',
+        __DIR__.'/packages/geo-bundle/src',
+        __DIR__.'/packages/geo-bundle/tests',
     ])
     ->withRootFiles()
     ->withPhpSets(php82: true)

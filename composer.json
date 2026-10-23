@@ -1,6 +1,6 @@
 {
     "name": "tito10047/meilisearch-geocoder",
-    "description": "Development monorepo of tito10047/geocoder and tito10047/geocoder-bundle (not installable, use the packages)",
+    "description": "Development monorepo of tito10047/geocoder, tito10047/routing and tito10047/geo-bundle (not installable, use the packages)",
     "license": "MIT",
     "type": "library",
     "authors": [
@@ -11,15 +11,24 @@
     ],
     "require": {
         "php": ">=8.2",
+        "ext-pdo": "*",
+        "meilisearch/meilisearch-php": "^1.17",
+        "nyholm/psr7": "^1.8",
+        "php-http/discovery": "^1.20",
+        "psr/http-client": "^1.0",
+        "psr/http-factory": "^1.1",
+        "psr/log": "^3.0",
         "symfony/config": "^7.4.17 || ^8.1.5",
         "symfony/console": "^7.4.17 || ^8.1.5",
         "symfony/dependency-injection": "^7.4.17 || ^8.1.5",
         "symfony/framework-bundle": "^7.4.17 || ^8.1.5",
+        "symfony/http-client": "^7.4.17 || ^8.1.5",
         "symfony/http-foundation": "^7.4.17 || ^8.1.5",
         "symfony/http-kernel": "^7.4.17 || ^8.1.5",
         "symfony/routing": "^7.4.17 || ^8.1.5"
     },
     "require-dev": {
+        "ext-pdo_sqlite": "*",
         "friendsofphp/php-cs-fixer": "^3.92",
         "phpstan/extension-installer": "^1.4",
         "phpstan/phpstan": "^2.1",
@@ -32,24 +41,28 @@
         "symfony/filesystem": "^7.4.17 || ^8.1.5"
     },
     "replace": {
+        "tito10047/geo-bundle": "self.version",
         "tito10047/geocoder": "self.version",
-        "tito10047/geocoder-bundle": "self.version"
+        "tito10047/routing": "self.version"
     },
     "autoload": {
         "psr-4": {
+            "Tito10047\\GeoBundle\\": "packages/geo-bundle/src/",
             "Tito10047\\Geocoder\\": "packages/geocoder/src/",
-            "Tito10047\\GeocoderBundle\\": "packages/geocoder-bundle/src/"
+            "Tito10047\\Routing\\": "packages/routing/src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
+            "Tito10047\\GeoBundle\\Tests\\": "packages/geo-bundle/tests/",
             "Tito10047\\Geocoder\\Tests\\": "packages/geocoder/tests/",
-            "Tito10047\\GeocoderBundle\\Tests\\": "packages/geocoder-bundle/tests/"
+            "Tito10047\\Routing\\Tests\\": "packages/routing/tests/"
         }
     },
     "config": {
         "allow-plugins": {
-            "phpstan/extension-installer": true
+            "phpstan/extension-installer": true,
+            "php-http/discovery": true
         },
         "sort-packages": true
     },
@@ -73,7 +86,8 @@
         "test": "phpunit",
         "validate:packages": [
             "composer validate --strict --no-check-lock --working-dir=packages/geocoder",
-            "composer validate --strict --no-check-lock --working-dir=packages/geocoder-bundle"
+            "composer validate --strict --no-check-lock --working-dir=packages/routing",
+            "composer validate --strict --no-check-lock --working-dir=packages/geo-bundle"
         ]
     },
     "scripts-descriptions": {

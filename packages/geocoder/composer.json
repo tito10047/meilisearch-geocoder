@@ -19,7 +19,10 @@
         }
     ],
     "require": {
-        "php": ">=8.2"
+        "php": ">=8.2",
+        "ext-pdo": "*",
+        "meilisearch/meilisearch-php": "^1.17",
+        "psr/log": "^3.0"
     },
     "autoload": {
         "psr-4": {

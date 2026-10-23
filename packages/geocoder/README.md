@@ -7,7 +7,7 @@ without a framework.
 
 Read-only split of the [tito10047/meilisearch-geocoder](https://github.com/tito10047/meilisearch-geocoder)
 monorepo: report issues and send pull requests there. Symfony applications should install
-[tito10047/geocoder-bundle](https://github.com/tito10047/geocoder-bundle) instead, which
+[tito10047/geo-bundle](https://github.com/tito10047/geo-bundle) instead, which
 configures this library.
 
 > Work in progress: the library is not usable yet.

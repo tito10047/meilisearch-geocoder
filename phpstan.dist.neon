@@ -6,9 +6,13 @@
 
 parameters:
     level: 8
+    # the public API validates its arguments at runtime, PHPDoc types included: callers may not be analysed
+    treatPhpDocTypesAsCertain: false
     paths:
         - packages/geocoder/src
         - packages/geocoder/tests
-        - packages/geocoder-bundle/config
-        - packages/geocoder-bundle/src
-        - packages/geocoder-bundle/tests
+        - packages/routing/src
+        - packages/routing/tests
+        - packages/geo-bundle/config
+        - packages/geo-bundle/src
+        - packages/geo-bundle/tests

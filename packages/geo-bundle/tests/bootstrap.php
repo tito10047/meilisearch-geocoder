@@ -1,0 +1,11 @@
+<?php
+
+use Symfony\Component\Filesystem\Filesystem;
+use Tito10047\GeoBundle\Tests\App\TestKernel;
+
+// the dependencies are installed at the root of the monorepo
+require dirname(__DIR__, 3).'/vendor/autoload.php';
+
+// a kernel reuses the container compiled by a previous run: the code of the bundle building it
+// (the extension, the compiler passes) would not run, and would be missing from the code coverage
+(new Filesystem())->remove(TestKernel::getTemporaryDir());
