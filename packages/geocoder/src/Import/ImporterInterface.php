@@ -29,8 +29,9 @@ interface ImporterInterface
 
     /**
      * Makes a build live: its index swapped in under the live uid, its tables renamed to the
-     * live names; the index and the tables it replaces are dropped, and so are the builds left
-     * by earlier failed or abandoned imports.
+     * live names; the index and the tables it replaces are dropped, and so are the builds started
+     * before it (left by failed or abandoned imports). Builds started after it are kept: their
+     * imports may still run.
      *
      * @return Build the same build, in the live tables
      *
