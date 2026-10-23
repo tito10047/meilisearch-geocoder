@@ -1,0 +1,28 @@
+{
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {
+                "osm_type": "N",
+                "osm_id": 530544342,
+                "osm_key": "place",
+                "osm_value": "city",
+                "type": "city",
+                "name": "Bratislava",
+                "county": "okres Bratislava I",
+                "state": "Bratislavský kraj",
+                "country": "Slovensko",
+                "postcode": "815 18",
+                "countrycode": "SK"
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    17.1082867,
+                    48.1435026
+                ]
+            }
+        }
+    ]
+}

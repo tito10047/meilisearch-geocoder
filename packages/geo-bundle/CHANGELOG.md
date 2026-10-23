@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - First version of Tito10047GeoBundle.
+- Photon-compatible HTTP API (`geocoder.photon_api`, disabled by default): `GET /api` from
+  `@Tito10047GeoBundle/config/routes.php` (a route loader adding no route while disabled), Photon's
+  parameters and GeoJSON, 400/503 as `{"message": …}`, `Cache-Control: public, max-age`
+  (`max_age`), the OpenStreetMap licence as a `Link` header; checked against
+  `geocoder-php/photon-provider`.
 - Configuration with the sections `geocoder` (Meilisearch, database, tables, import rules, search
   defaults, UX Autocomplete) and `routing` (Valhalla), each enabled by configuring it.
 - Services of tito10047/geocoder and tito10047/routing, one per collaborator, aliased to their

@@ -125,6 +125,11 @@ tito10047_geo:
             enabled: auto               # auto: when installed; true: required; false: never
             alias: tito10047_geo_address
 
+        # An HTTP API answering like the search of Photon ("GET <prefix>/api?q=…"). A boolean is a shorthand for "enabled".
+        photon_api:
+            enabled: false
+            max_age: 3600               # seconds of "Cache-Control: public, max-age"; 0: no caching headers
+
     # Driving routes from a self-hosted Valhalla.
     routing:
         enabled: false                  # true as soon as the section is configured
@@ -232,6 +237,96 @@ comma-separated list, or `country[]=`, of ISO 3166-1 alpha-2 codes); an invalid 
 There is a single page of results; the limit and the preferred country are those of `search`.
 Everyone may search: protect the route `ux_autocomplete` in the security configuration and rate
 limit it when needed.
+
+### Photon-compatible HTTP API
+
+Clients of [Photon](https://github.com/komoot/photon) (e.g. `geocoder-php/photon-provider`, Leaflet
+and OpenLayers Photon plugins) can use the geocoder through `GET /api`, the search of Photon 1.3.
+Enable it and import the routes of the bundle under a prefix of your choice:
+
+```yaml
+# config/packages/tito10047_geo.yaml
+tito10047_geo:
+    geocoder:
+        photon_api: true                # or { max_age: 600 }
+
+# config/routes/tito10047_geo.yaml
+tito10047_geo:
+    resource: '@Tito10047GeoBundle/config/routes.php'
+    prefix: /photon                     # the clients get "https://example.com/photon" as the Photon URL
+```
+
+The routes file may stay imported whatever the configuration: while the API is disabled (or the
+geocoder is), it adds no route. The route is `tito10047_geo_photon_api` (GET and HEAD).
+
+```console
+$ curl 'https://example.com/photon/api?q=Hlavn%C3%A1+12+Ko%C5%A1ice&lang=sk&limit=1'
+{"type":"FeatureCollection","features":[{"type":"Feature","properties":{"osm_key":"place",
+"osm_value":"house","type":"house","housenumber":"12","street":"Hlavná","city":"Košice",
+"state":"Košický kraj","country":"Slovensko","postcode":"040 01","countrycode":"SK"},
+"geometry":{"type":"Point","coordinates":[21.2580166,48.7189389]}}]}
+```
+
+```php
+use Geocoder\Provider\Photon\Photon;
+use Geocoder\Query\GeocodeQuery;
+
+$provider = new Photon($psr18Client, 'https://example.com/photon');
+$addresses = $provider->geocodeQuery(GeocodeQuery::create('Hlavná 12 Košice')->withLocale('sk'));
+```
+
+#### Parameters
+
+Every parameter of Photon's `/api` is accepted; an unknown one is a 400, as in Photon. The
+filters that repeat in Photon (`layer`, `osm_tag`, `countrycode`, `include`, `exclude`) are read
+from the raw query string, so `layer=city&layer=street` works (no `layer[]=`).
+
+| Parameter | Behaviour |
+|---|---|
+| `q` | required (a search by `include` categories only is not supported) |
+| `lang` | the language of the names: an ISO 639 code (`sk`, `sk_SK`) or `default` (the local names); without it the `Accept-Language` header, as in Photon. A language without translations gives the local names. |
+| `limit` | 1–20 (`geocoder.search.default_limit` when absent); a smaller one gives 1, a larger one 20, as Photon clamps |
+| `countrycode` | ISO 3166-1 alpha-2 (any case), repeatable: only these countries |
+| `layer` | `house` (addresses and points of interest), `street`, `city` (city, town), `district` (village, suburb, borough, hamlet), `locality` (quarter, neighbourhood, other places); `county`, `state`, `country` and `other` are valid but match nothing (the index has no such objects); an unknown layer is a 400 |
+| `osm_tag` | the six forms of Photon (`key:value`, `key`, `:value`, `!key:value`, `!key`, `:!value`), repeatable, on the tags of the features (see below); a malformed one is a 400 |
+| `include`, `exclude` | categories of the group `osm` (`osm.tourism.hotel`, `osm.place`); other groups match nothing |
+| `bbox` | `minLon,minLat,maxLon,maxLat`: only the features in the box |
+| `lat`, `lon`, `zoom`, `location_bias_scale` | validated (both `lat` and `lon`, numbers in range) and **ignored**: the geocoder has no location bias; `geocoder.search.preferred_country` applies instead |
+| `dedupe`, `geometry`, `debug`, `suggest_addresses` | accepted and ignored (the import deduplicates; the geometries are points) |
+
+`layer`, `osm_tag`, `include`, `exclude` and `bbox` filter the 20 best suggestions (the kinds of
+the layers are passed to the geocoder): a filtered search may return fewer features than its
+limit, never one outside its filters.
+
+#### Answers
+
+A GeoJSON `FeatureCollection` of points with Photon's properties, in Photon's order; what the index
+does not know is left out, as Photon leaves out what an object does not have:
+
+| Property | Value |
+|---|---|
+| `osm_type`, `osm_id` | `N`/`W`/`R` and the id of places and points of interest; **absent** for streets (merged from their ways) and addresses (a house number of a street) |
+| `osm_key`, `osm_value` | `place` and the type for places; `place`/`house` for addresses; the key of `import.pois` listing the type and the type for points of interest; `highway` without a value for streets (`geocoder-php/photon-provider` then has no OSM tag) |
+| `type` | the layer, as above |
+| `name` | except for addresses, as Photon names only named houses |
+| `housenumber`, `street` | of addresses |
+| `postcode`, `city`, `state` (the region), `countrycode` | as in the suggestions (no `city` for a city itself) |
+| `country` | the name in the language of the request; absent for the local names (not stored) |
+| `county`, `district`, `locality`, `extent`, `extra` | never |
+
+Errors are `{"message": "…"}` with 400 for an invalid parameter (Photon 1.3 answers some of them
+as `{"<parameter>": [{"message": …}]}`; clients only check the status) and 503 when Meilisearch or
+the database cannot answer. Only `/api` is provided: no `/reverse`, `/structured` nor `/status`.
+
+The answers have `Cache-Control: public, max-age=<max_age>` (errors `no-store`), `Vary:
+Accept-Language` and the OpenStreetMap attribution as
+`Link: <https://www.openstreetmap.org/copyright>; rel="license"`; the body has Photon's shape only.
+**No CORS headers**: add them for the origins you serve (e.g. `nelmio/cors-bundle` on the prefix).
+Access control and rate limiting are the application's too.
+
+The core of the API is framework-free (`Tito10047\Geocoder\Photon\PhotonQuery::fromQueryString()`,
+`PhotonSearchInterface`, `FeatureFactoryInterface`): the services
+`tito10047_geo.geocoder.photon_api.search` and `….feature_factory` can be decorated or replaced.
 
 ### Services
 

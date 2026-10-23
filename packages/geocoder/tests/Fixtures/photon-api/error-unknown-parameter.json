@@ -1,0 +1,3 @@
+{
+    "message": "Unknown query parameter 'foo'.  Allowed parameters are: [include, location_bias_scale, debug, dedupe, bbox, countrycode, lon, zoom, layer, q, limit, osm_tag, suggest_addresses, exclude, geometry, lang, lat]"
+}

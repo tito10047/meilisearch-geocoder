@@ -82,6 +82,27 @@ php bin/console tito10047-geo:geocoder:search "Hlavná 12 Košice" --locale=sk
 php bin/console tito10047-geo:routing:route 48.1486,17.1077 48.7164,21.2611
 ```
 
+## Photon-compatible API
+
+`GET /api?q=…` answering like [Photon](https://github.com/komoot/photon) (GeoJSON, `lang`, `limit`,
+`layer`, `osm_tag`, `countrycode`, `bbox`, …), so that Photon clients such as
+`geocoder-php/photon-provider` work against your own data:
+
+```yaml
+# config/packages/tito10047_geo.yaml
+tito10047_geo:
+    geocoder:
+        photon_api: true
+
+# config/routes/tito10047_geo.yaml
+tito10047_geo:
+    resource: '@Tito10047GeoBundle/config/routes.php'
+    prefix: /photon
+```
+
+See [Photon-compatible HTTP API](docs/index.md#photon-compatible-http-api) for the parameters, the
+properties and what differs from Photon.
+
 ## Commands
 
 ```console
@@ -138,7 +159,8 @@ See [Deployment modes](docs/index.md#deployment-modes) for the details.
 ## Documentation
 
 Read the [documentation](docs/index.md) to learn how to use the bundle: the full configuration
-reference, the services, the commands and the Symfony UX Autocomplete integration.
+reference, the services, the commands, the Symfony UX Autocomplete integration and the
+Photon-compatible API.
 
 ## OpenStreetMap attribution
 
