@@ -15,7 +15,7 @@ use Tito10047\Geocoder\Storage\TableNames;
  * looked up and left out. The memory stays that of one batch however many translations come,
  * and rows written by an earlier import into the same table are respected. (A case- or
  * accent-insensitive collation of the table, as MariaDB's default, would make two spellings of a
- * name one row: give the table a binary collation there.)
+ * name one row: PdoSchema gives the tables a binary collation there.)
  */
 final class PdoTranslationWriter implements TranslationWriterInterface
 {
