@@ -12,6 +12,10 @@ use Tito10047\Geocoder\Index\Meilisearch\TaskWaiter;
 
 /**
  * The index manager over Meilisearch (≥ 1.18: compaction and swap with rename; tuned on 1.35.1).
+ *
+ * Works with an API key restricted to the indexes of the geocoder ("indexes": ["geo*"]), which
+ * Meilisearch does not show the tasks of no index: a swap is then confirmed from the creation
+ * times of the indexes. Only snapshot() needs a key allowed on every index.
  */
 final readonly class MeilisearchIndexManager implements IndexManagerInterface
 {

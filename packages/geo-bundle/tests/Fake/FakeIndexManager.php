@@ -74,7 +74,7 @@ final class FakeIndexManager implements IndexManagerInterface
             throw $this->exception;
         }
 
-        return null !== $this->status;
+        return $this->status instanceof IndexStatus;
     }
 
     public function fingerprint(string $uid): ?string
