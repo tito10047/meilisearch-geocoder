@@ -13,7 +13,9 @@ use Tito10047\Geocoder\Name\Translation;
  * ("place=town" with "name:xx"), and those of countries from the "CountryInfo" record.
  *
  * A country is named by its code, which no one reads: all its translations are kept, the one in
- * its own language included.
+ * its own language included. Its English name and its own name (Translation::LOCAL_LANGUAGE) are
+ * kept whatever the languages: a country typed into a query ("Košice, Slovakia", "Wien, Österreich")
+ * is recognized by any of them.
  */
 final readonly class PhotonTranslationExtractor implements TranslationExtractorInterface
 {
@@ -22,6 +24,9 @@ final readonly class PhotonTranslationExtractor implements TranslationExtractorI
 
     /** The "place" values of the records of parts of towns; a part of a town may be a village of its own. */
     private const SUBURBS = ['suburb', 'quarter', 'neighbourhood', 'borough', 'city_district', 'village', 'hamlet'];
+
+    /** The language of the country names typed by anyone. */
+    private const ENGLISH = 'en';
 
     private AddressInterpreterInterface $address;
 
@@ -86,10 +91,16 @@ final readonly class PhotonTranslationExtractor implements TranslationExtractorI
 
     public function fromCountry(Country $country): array
     {
+        $tags = [];
+        foreach ([...$this->languages, self::ENGLISH] as $language) {
+            $tags['name:'.$language] = $language;
+        }
+        $tags['name'] = Translation::LOCAL_LANGUAGE;
+
         $translations = [];
-        foreach ($this->languages as $language) {
-            $translation = $country->names['name:'.$language] ?? null;
-            if (null !== $translation && '' !== $translation) {
+        foreach ($tags as $tag => $language) {
+            $translation = trim($country->names[$tag] ?? '');
+            if ('' !== $translation) {
                 $translations[] = new Translation($country->countryCode, NameKind::Country, $country->countryCode, $language, $translation);
             }
         }

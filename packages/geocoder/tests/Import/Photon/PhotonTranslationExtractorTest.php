@@ -132,6 +132,24 @@ final class PhotonTranslationExtractorTest extends TestCase
         $this->assertEquals([
             new Translation('SK', NameKind::Country, 'SK', 'sk', 'Slovensko'),
             new Translation('SK', NameKind::Country, 'SK', 'en', 'Slovakia'),
+            new Translation('SK', NameKind::Country, 'SK', 'und', 'Slovensko'),
         ], $extractor->fromCountry($country));
+    }
+
+    public function testTheEnglishAndTheOwnNameOfACountryAreKeptWhateverTheLanguages(): void
+    {
+        $extractor = new PhotonTranslationExtractor(['hu']);
+        $country = new Country('AT', ['name' => 'Österreich', 'name:hu' => 'Ausztria', 'name:en' => 'Austria', 'name:de' => 'Österreich']);
+
+        $this->assertEquals([
+            new Translation('AT', NameKind::Country, 'AT', 'hu', 'Ausztria'),
+            new Translation('AT', NameKind::Country, 'AT', 'en', 'Austria'),
+            new Translation('AT', NameKind::Country, 'AT', 'und', 'Österreich'),
+        ], $extractor->fromCountry($country));
+    }
+
+    public function testACountryWithoutNamesHasNoTranslations(): void
+    {
+        $this->assertSame([], (new PhotonTranslationExtractor(['sk']))->fromCountry(new Country('XK', ['name:fr' => 'Kosovo', 'name' => ' '])));
     }
 }
