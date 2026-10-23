@@ -10,6 +10,12 @@ use Tito10047\Geocoder\Exception\InvalidArgumentException;
 final readonly class Translation
 {
     /**
+     * ISO 639-2 "undetermined": the language of a country's own name ("Schweiz/Suisse/Svizzera/Svizra"),
+     * which its OSM "name" does not tell.
+     */
+    public const LOCAL_LANGUAGE = 'und';
+
+    /**
      * @param string $countryCode ISO 3166-1 alpha-2, upper case: the country the named thing is in
      * @param string $name        the local name, as in the documents
      * @param string $language    ISO 639-1, lower case

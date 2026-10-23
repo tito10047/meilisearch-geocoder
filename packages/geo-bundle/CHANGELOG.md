@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The services `geo.geocoder.country_recognizer` (`CatalogCountryRecognizer`, alias
+  `CountryRecognizerInterface`, reset between requests) and `geo.geocoder.country_name_source`
+  (`PdoCountryNameSource`, alias `CountryNameSourceInterface`): `geo.geocoder.query_parser`
+  recognizes the imported countries typed with the place ("Bratislava, Slovensko", "Kosice
+  Slovakia") and restricts the search to them; postcodes are taken out of the searched text. The
+  geocoder, the autocompleter, `geo:search` and the Photon API get it.
+
 ## [0.3.0] - 2026-10-23
 
 ### Added

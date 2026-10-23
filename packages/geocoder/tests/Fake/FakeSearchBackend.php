@@ -9,8 +9,8 @@ use Tito10047\Geocoder\Search\Backend\SearchBackendInterface;
 use Tito10047\Geocoder\Search\Backend\SearchHit;
 
 /**
- * Answers every search with the same hits (cut to the limit) and remembers the queries; reads
- * the documents of the hits by id.
+ * Answers every search with the same hits (cut to the limit), or with the hits given for its text,
+ * and remembers the queries; reads the documents of the hits by id.
  */
 final class FakeSearchBackend implements SearchBackendInterface, DocumentSourceInterface
 {
@@ -25,18 +25,25 @@ final class FakeSearchBackend implements SearchBackendInterface, DocumentSourceI
     private readonly array $hits;
 
     /**
-     * @param list<Document|SearchHit> $hits a document is a hit without the number of matching words
+     * @var array<string, list<SearchHit>>
      */
-    public function __construct(array $hits = [])
+    private readonly array $hitsByText;
+
+    /**
+     * @param list<Document|SearchHit>                $hits       a document is a hit without the number of matching words
+     * @param array<string, list<Document|SearchHit>> $hitsByText the hits of the searches of these texts
+     */
+    public function __construct(array $hits = [], array $hitsByText = [])
     {
-        $this->hits = array_map(static fn (Document|SearchHit $hit): SearchHit => $hit instanceof SearchHit ? $hit : new SearchHit($hit), $hits);
+        $this->hits = $this->hits($hits);
+        $this->hitsByText = array_map($this->hits(...), $hitsByText);
     }
 
     public function search(BackendQuery $query): array
     {
         $this->queries[] = $query;
 
-        return \array_slice($this->hits, 0, $query->limit);
+        return \array_slice($this->hitsByText[$query->text] ?? $this->hits, 0, $query->limit);
     }
 
     public function document(string $id): ?Document
@@ -48,5 +55,15 @@ final class FakeSearchBackend implements SearchBackendInterface, DocumentSourceI
         }
 
         return null;
+    }
+
+    /**
+     * @param list<Document|SearchHit> $hits
+     *
+     * @return list<SearchHit>
+     */
+    private function hits(array $hits): array
+    {
+        return array_map(static fn (Document|SearchHit $hit): SearchHit => $hit instanceof SearchHit ? $hit : new SearchHit($hit), $hits);
     }
 }

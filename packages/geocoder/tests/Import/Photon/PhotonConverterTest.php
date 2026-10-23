@@ -12,6 +12,7 @@ use Tito10047\Geocoder\Import\Photon\PhotonConverter;
 use Tito10047\Geocoder\Import\Photon\PhotonDumpReader;
 use Tito10047\Geocoder\Import\SelectionRules;
 use Tito10047\Geocoder\Import\Workspace\SqliteConversionWorkspaceFactory;
+use Tito10047\Geocoder\Name\NameKind;
 use Tito10047\Geocoder\Tests\Fake\InMemoryDocumentWriter;
 use Tito10047\Geocoder\Tests\Fake\InMemoryHouseNumberWriter;
 use Tito10047\Geocoder\Tests\Fake\InMemoryLineSource;
@@ -117,6 +118,8 @@ final class PhotonConverterTest extends TestCase
             // two villages of the name: the one with more addresses
             'SK|city|Nová Ves|hu' => 'Tótújfalu',
             'SK|country|SK|en' => 'Slovakia',
+            // the own name of a country is kept for recognizing it in a query
+            'SK|country|SK|und' => 'Slovensko',
             'SK|county|okres Bytča|hu' => 'Nagybiccsei járás',
             'SK|region|Bratislavský kraj|hu' => 'Pozsonyi kerület',
             'SK|region|Žilinský kraj|hu' => 'Zsolnai kerület',
@@ -136,7 +139,8 @@ final class PhotonConverterTest extends TestCase
         // two restaurants "Zlatá putňa" at the same spot are one
         $this->assertSame(1, $summary->counts->pois);
         foreach ($this->translations->translations as $translation) {
-            $this->assertSame('hu', $translation->language);
+            // the English and the own names of the countries are kept for recognizing them in a query
+            $this->assertContains($translation->language, NameKind::Country === $translation->kind ? ['hu', 'en', 'und'] : ['hu']);
         }
     }
 

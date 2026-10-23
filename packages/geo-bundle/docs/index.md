@@ -304,8 +304,12 @@ if ([] === $suggestions) {
 }
 ```
 
-Postcodes and the names of countries are not searchable: such a word makes every match partial.
-See [Matching](https://github.com/tito10047/geocoder#matching) for the details;
+Postcodes and the names of countries are not searchable, so the query parser takes them out of the
+searched text: "Hlavná 12, 040 01 Košice" searches "Hlavná Košice", and a country typed with the
+place ("Bratislava, Slovensko", "Kosice Slovakia", "Košice, SK") restricts the search to that
+country (within `SearchOptions::$countries`) — the town then matches every word. Only the imported
+countries are recognized; a country name that is a part of a name ("Via Italia") is kept. See
+[Matching](https://github.com/tito10047/geocoder#matching) for the details;
 `geocoder.search.complete_matches_only` sets the option for the commands and the autocompleter.
 
 ### Routes
@@ -498,7 +502,9 @@ replace it (e.g. `#[AsDecorator('geo.geocoder.label_formatter')]`).
 | `Geocoder\Name\NameCatalogInterface` | `geo.geocoder.name_catalog` | `PdoNameCatalog` |
 | `Geocoder\Search\RerankerInterface` | `geo.geocoder.reranker` | `Reranker` |
 | `Geocoder\Search\LabelFormatterInterface` | `geo.geocoder.label_formatter` | `LabelFormatter` |
-| `Geocoder\Search\Query\QueryParserInterface` | `geo.geocoder.query_parser` | `QueryParser` |
+| `Geocoder\Search\Query\QueryParserInterface` | `geo.geocoder.query_parser` | `QueryParser` with the country recognizer |
+| `Geocoder\Search\Query\CountryRecognizerInterface` | `geo.geocoder.country_recognizer` | `CatalogCountryRecognizer`: the names of the imported countries, read once, forgotten between requests (`kernel.reset`) |
+| `Geocoder\Name\CountryNameSourceInterface` | `geo.geocoder.country_name_source` | `PdoCountryNameSource` |
 | `Geocoder\Search\Text\NameNormalizerInterface` | `geo.geocoder.name_normalizer` | `NameNormalizer` |
 | `Geocoder\Index\IndexManagerInterface` | `geo.geocoder.index_manager` | `MeilisearchIndexManager` (with a `url` only)¹ |
 | `Geocoder\Index\IndexNamingInterface` | `geo.geocoder.index_naming` | `TimestampIndexNaming` |

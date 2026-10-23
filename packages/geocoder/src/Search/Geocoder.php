@@ -14,6 +14,9 @@ use Tito10047\Geocoder\Search\Backend\SearchHit;
 use Tito10047\Geocoder\Search\Query\ParsedQuery;
 use Tito10047\Geocoder\Search\Query\QueryParser;
 use Tito10047\Geocoder\Search\Query\QueryParserInterface;
+use Tito10047\Geocoder\Search\Query\RecognizedCountry;
+use Tito10047\Geocoder\Search\Text\NameNormalizer;
+use Tito10047\Geocoder\Search\Text\NameNormalizerInterface;
 use Tito10047\Geocoder\StreetKey;
 
 /**
@@ -21,18 +24,24 @@ use Tito10047\Geocoder\StreetKey;
  * numbers, the reranker prefers the country of the user and the label formatter writes the lines.
  *
  * suggest(), step by step:
- *  1. the text is parsed: whitespace normalized, the house number taken out ("Hlavná 12 Koš" searches
- *     "Hlavná Koš" and the number 12); under 2 characters nothing is searched;
+ *  1. the text is parsed: whitespace normalized, the house number, the postcode and a country taken
+ *     out ("Hlavná 12, 040 01 Koš, Slovensko" searches "Hlavná Koš" in Slovakia and the number 12, see
+ *     QueryParser); under 2 characters nothing is searched;
  *  2. the search engine is asked for the documents of the requested countries and kinds (an
  *     address is a street document): $limit of them, or $rerankWindow when a country is preferred,
- *     so that the reranker has candidates to promote;
+ *     so that the reranker has candidates to promote. A country typed restricts the search to it,
+ *     within the requested countries (none of them: nothing is found). As a country name may be a
+ *     part of a name ("Via Italia", "Hotel Austria", "Włochy" in Warszawa), the text is searched
+ *     first with the name kept: when a document matching every word is named by the words typed
+ *     around the country name and the name itself (with at least one of those words, or the name
+ *     alone when it was typed alone between commas), that literal reading is kept;
  *  3. with a house number, the matching numbers of every street found become addresses, put right
  *     before their street; when no street is found at all, the number is a part of the name
  *     ("Praha 11", "Wien 3") and the whole text is searched again;
  *  4. every suggestion is named in the requested language (the translations of the document, the
  *     parts of towns, towns, counties and regions from the name catalog), labelled and given how
- *     many words of the searched text (without the house number) its document matched; an
- *     address matched as its street;
+ *     many words of the searched text (without the house number, the postcode and the country) its
+ *     document matched; an address matched as its street;
  *  5. the reranker reorders them (knowing the ranks of their documents); with
  *     SearchOptions::$completeMatchesOnly the partial matches are dropped then, and the first
  *     $limit are returned. The search engine ranks the documents matching more words first, so
@@ -58,6 +67,7 @@ final readonly class Geocoder implements GeocoderInterface
         LabelFormatterInterface $labelFormatter,
         private QueryParserInterface $parser = new QueryParser(),
         private int $rerankWindow = self::DEFAULT_RERANK_WINDOW,
+        private NameNormalizerInterface $normalizer = new NameNormalizer(),
     ) {
         if ($rerankWindow < 1) {
             throw new InvalidArgumentException(\sprintf('The rerank window must be positive, %d given.', $rerankWindow));
@@ -76,12 +86,7 @@ final readonly class Geocoder implements GeocoderInterface
             return [];
         }
 
-        $hits = $this->hits($query->text, $options);
-        if (null !== $query->houseNumber && !$this->hasStreet($hits)) {
-            // no street to take the number: it belongs to the name ("Praha 11", "Wien 3")
-            $query = new ParsedQuery($query->fullText);
-            $hits = $this->hits($query->text, $options);
-        }
+        [$query, $hits] = $this->search($query, $options);
 
         $candidates = [];
         foreach ($hits as $hit) {
@@ -114,9 +119,116 @@ final readonly class Geocoder implements GeocoderInterface
     }
 
     /**
+     * The hits of the query, or of its literal reading when the country typed is a part of a name.
+     *
+     * @return array{ParsedQuery, list<SearchHit>} the reading searched and its hits
+     */
+    private function search(ParsedQuery $query, SearchOptions $options): array
+    {
+        $country = $query->country;
+        if ($country instanceof RecognizedCountry) {
+            [$literal, $hits] = $this->searchReading($country->literal, $options);
+            if ($this->namesAPlace($country, $hits)) {
+                return [$literal, $hits];
+            }
+        }
+
+        return $this->searchReading($query, $options);
+    }
+
+    /**
+     * @return array{ParsedQuery, list<SearchHit>}
+     */
+    private function searchReading(ParsedQuery $query, SearchOptions $options): array
+    {
+        $countries = $this->countries($query, $options);
+        if (null === $countries) {
+            return [$query, []];
+        }
+
+        $hits = $this->hits($query->text, $countries, $options);
+        if (null !== $query->houseNumber && !$this->hasStreet($hits)) {
+            // no street to take the number: it belongs to the name ("Praha 11", "Wien 3")
+            $query = $query->withoutHouseNumber();
+            $hits = $this->hits($query->text, $countries, $options);
+        }
+
+        return [$query, $hits];
+    }
+
+    /**
+     * The countries to search: those requested, restricted to the country typed.
+     *
+     * @return list<string>|null the countries, all when empty; null for none (the country typed is not requested)
+     */
+    private function countries(ParsedQuery $query, SearchOptions $options): ?array
+    {
+        $typed = $query->countries();
+        if ([] === $typed) {
+            return $options->countries;
+        }
+        if ([] === $options->countries) {
+            return $typed;
+        }
+        $both = array_values(array_intersect($options->countries, $typed));
+
+        return [] === $both ? null : $both;
+    }
+
+    /**
+     * Whether a hit of the literal reading matching every word is named by the country name and
+     * the words typed around it: "Via Italia", "Roma Hotel Italia" (the hotel), "Warszawa, Włochy"
+     * (the district). Its name is a run of those words holding the country name and, unless the
+     * country name was typed alone, at least one of the other words: "Penzion Slovakia" does not
+     * name "Kosice Slovakia", nor "Austria Classic Hotel Wien" "Wien, Austria".
+     *
+     * @param list<SearchHit> $hits
+     */
+    private function namesAPlace(RecognizedCountry $country, array $hits): bool
+    {
+        $before = $this->words($country->before);
+        $name = $this->words($country->name);
+        $typed = [...$before, ...$name, ...$this->words($country->after)];
+        $from = \count($before);
+        $to = $from + \count($name);
+        $minLength = $country->standsAlone() ? \count($name) : \count($name) + 1;
+
+        foreach ($hits as $hit) {
+            if (false === $hit->match()?->isComplete()) {
+                continue;
+            }
+            foreach ([$hit->document->name, ...array_values($hit->document->namesI18n)] as $documentName) {
+                $words = $this->words($documentName);
+                $length = \count($words);
+                if ($length < $minLength) {
+                    continue;
+                }
+                // a run of $length typed words covering the country name: it starts at most at $from
+                for ($start = max(0, $to - $length); $start <= $from && $start + $length <= \count($typed); ++$start) {
+                    if (\array_slice($typed, $start, $length) === $words) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function words(string $text): array
+    {
+        return preg_split('/[^\p{L}\p{N}]+/u', $this->normalizer->normalize($text), -1, \PREG_SPLIT_NO_EMPTY) ?: [];
+    }
+
+    /**
+     * @param list<string> $countries
+     *
      * @return list<SearchHit>
      */
-    private function hits(string $text, SearchOptions $options): array
+    private function hits(string $text, array $countries, SearchOptions $options): array
     {
         $limit = null === $options->preferredCountry ? $options->limit : max($options->limit, $this->rerankWindow);
         $kinds = [];
@@ -129,7 +241,7 @@ final readonly class Geocoder implements GeocoderInterface
             $kinds[$documentKind->value] = $documentKind;
         }
 
-        return $this->backend->search(new BackendQuery($text, $limit, $options->countries, array_values($kinds)));
+        return $this->backend->search(new BackendQuery($text, $limit, $countries, array_values($kinds)));
     }
 
     /**
