@@ -139,6 +139,9 @@ geo:
             # preferred country: a home village beats a foreign small town, never a city.
             max_rank_gap: 25000
             rerank_window: 15           # documents fetched for the reranker when a country is preferred
+            # Only the suggestions matching every word of the text (see "Matching" below); the
+            # Photon API keeps the partial matches, as Photon does.
+            complete_matches_only: false
 
         # The autocompleter of symfony/ux-autocomplete (3.5 or newer). A boolean or "auto" is a shorthand for "enabled".
         ux_autocomplete:
@@ -180,8 +183,12 @@ VALHALLA_URL=
 
 | Empty | What happens |
 |---|---|
-| `geocoder.meilisearch.url` | `suggest()`, `geocode()`, `findByReference()` and every operation of the index manager throw `GeocoderUnavailableException` "Meilisearch is not configured: geo.geocoder.meilisearch.url is empty." (like an unreachable Meilisearch, so a fallback geocoder takes over); `geo:search`, `geo:status`, `geo:import`, `geo:publish`, `geo:cleanup` print it and fail; the Photon API answers 503; the autocompleter lets the exception through, as it does when Meilisearch is down. |
-| `routing.url` | `route()`, `matrix()` and the status provider throw `RoutingUnavailableException` "Valhalla is not configured: geo.routing.url is empty."; `geo:route`, `geo:matrix` and `geo:route:status` print it and fail. |
+| `geocoder.meilisearch.url` | `suggest()`, `geocode()`, `findByReference()` and every operation of the index manager throw `GeocoderNotConfiguredException` "Meilisearch is not configured: geo.geocoder.meilisearch.url is empty.", a `GeocoderUnavailableException` (like an unreachable Meilisearch, so a fallback geocoder takes over); `geo:search`, `geo:status`, `geo:import`, `geo:publish`, `geo:cleanup` print it and fail; the Photon API answers 503; the autocompleter lets the exception through, as it does when Meilisearch is down. |
+| `routing.url` | `route()`, `matrix()` and the status provider throw `RoutingNotConfiguredException` "Valhalla is not configured: geo.routing.url is empty.", a `RoutingUnavailableException`; `geo:route`, `geo:matrix` and `geo:route:status` print it, with a hint, and fail. |
+
+Catch `GeocoderNotConfiguredException` / `RoutingNotConfiguredException` before the
+`…UnavailableException` to tell a service switched off on purpose from an outage (not to alert,
+not to retry); a catch of the latter alone handles both.
 
 The services concerned (`geo.geocoder`, `….address_lookup`, `….search_backend`, `….index_manager`,
 `geo.routing.router`, `….matrix`, `….status_provider`) are created by a factory choosing at runtime
@@ -236,6 +243,23 @@ final class AddressController
 Each `Suggestion` has an `id`, a `kind` (place, street, address, poi), a `name` and a `label` in
 the requested language, `coordinates`, a `countryCode`, and the town, region, postcode, street and
 house number when known.
+
+**Matching.** The search finds documents matching only some of the words: "Champs-Élysées, Paris"
+finds the Champs-Élysées of Rust (Germany) in an index without France. `$suggestion->match` tells
+how many words of the text it matched (`isCompleteMatch()`: all of them); to fall back to another
+geocoder when the address lies outside the imported countries, ask for the complete matches only
+and fall back on `[]`:
+
+```php
+$suggestions = $this->geocoder->suggest($text, new SearchOptions(locale: $locale, completeMatchesOnly: true));
+if ([] === $suggestions) {
+    // another geocoder
+}
+```
+
+Postcodes and the names of countries are not searchable: such a word makes every match partial.
+See [Matching](https://github.com/tito10047/geocoder#matching) for the details;
+`geocoder.search.complete_matches_only` sets the option for the commands and the autocompleter.
 
 ### Routes
 
@@ -482,6 +506,8 @@ The commands of a section are registered when the section is enabled.
 # the suggestions for a text, as a table
 $ php bin/console geo:search "Hlavná 12 Košice" --locale=sk --preferred-country=SK
 $ php bin/console geo:search wien --country=AT --country=SK --limit=10
+# the "Match" column: the words matched; only those matching every word (--no-complete-only: all)
+$ php bin/console geo:search "Champs-Élysées, Paris" --complete-only
 
 # the live index (documents, sizes, indexing, settings, Meilisearch version) and the live build
 # (data timestamp of each country and dump, counts, schema version of the tables)

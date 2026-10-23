@@ -155,7 +155,7 @@ return static function (ContainerConfigurator $container): void {
 
         // the configured defaults of a search, for the commands and the autocompleter
         ->set('geo.geocoder.search_options', SearchOptions::class)
-            ->args([null, abstract_arg('limit'), abstract_arg('preferred country')])
+            ->args([null, abstract_arg('limit'), abstract_arg('preferred country'), [], [], abstract_arg('complete matches only')])
 
         // the index: its naming, its manager (needs the HTTP layer, so a "url")
         ->set('geo.geocoder.index_naming', TimestampIndexNaming::class)

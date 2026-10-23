@@ -54,7 +54,7 @@ final class ConfigurationTest extends KernelTestCase
             'version' => null,
         ], $geocoder['meilisearch']);
         $this->assertSame(['house_numbers' => 'geo_house', 'translations' => 'geo_name', 'metadata' => 'geo_meta'], $geocoder['database']['tables']);
-        $this->assertSame(['default_limit' => 5, 'preferred_country' => null, 'max_rank_gap' => 25000, 'rerank_window' => 15], $geocoder['search']);
+        $this->assertSame(['default_limit' => 5, 'preferred_country' => null, 'max_rank_gap' => 25000, 'rerank_window' => 15, 'complete_matches_only' => false], $geocoder['search']);
         $this->assertSame([
             'dumps_dir' => null,
             'languages' => SelectionRules::DEFAULT_LANGUAGES,

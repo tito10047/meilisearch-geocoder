@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `geo.geocoder.search.complete_matches_only` (false by default): only the suggestions matching
+  every word of the text, for the commands and the autocompleter (the Photon API keeps the partial
+  matches, as Photon). `geo:search` shows the words each suggestion matched ("Match") and takes
+  `--complete-only` / `--no-complete-only`.
+
+### Changed
+
+- `UnconfiguredMeilisearch` throws `GeocoderNotConfiguredException` and `UnconfiguredValhalla`
+  `RoutingNotConfiguredException` (subclasses of the `…UnavailableException` thrown before, so
+  existing catch blocks still work): an empty URL can be told from a service that is down.
+  `geo:search`, `geo:route`, `geo:matrix` and `geo:route:status` add a hint to set the URL.
+
 ## [0.2.1] - 2026-10-23
 
 ### Fixed

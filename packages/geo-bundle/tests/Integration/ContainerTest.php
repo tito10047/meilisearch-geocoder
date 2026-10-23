@@ -384,6 +384,15 @@ final class ContainerTest extends KernelTestCase
         $this->assertTrue($container->getParameter(PhotonApiRouteLoader::ENABLED_PARAMETER));
     }
 
+    public function testThePhotonApiKeepsThePartialMatches(): void
+    {
+        self::bootKernel(['extension_configs' => ['geo' => Configs::geocoder(['photon_api' => true, 'search' => ['default_limit' => 7, 'complete_matches_only' => true]])]]);
+        $container = self::getContainer();
+
+        $this->assertEquals(new SearchOptions(limit: 7, completeMatchesOnly: true), $container->get('geo.geocoder.search_options'));
+        $this->assertEquals(new SearchOptions(limit: 7), $container->get('geo.geocoder.photon_api.search_options'));
+    }
+
     /**
      * @return iterable<string, array{array<string, mixed>}>
      */

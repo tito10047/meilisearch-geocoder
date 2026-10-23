@@ -28,7 +28,7 @@ use Tito10047\Geocoder\Search\Suggestion;
 final readonly class GeocoderAutocompleter implements AutocompleterInterface
 {
     /**
-     * @param SearchOptions $defaults the configured defaults (limit, preferred country)
+     * @param SearchOptions $defaults the configured defaults (limit, preferred country, complete matches only)
      */
     public function __construct(
         private GeocoderInterface $geocoder,
