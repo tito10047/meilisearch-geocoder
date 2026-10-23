@@ -19,9 +19,16 @@ use Tito10047\GeoBundle\Tests\Fake\FakeRoutingStatusProvider;
 final class Configs
 {
     /**
-     * A DSN that fails as soon as it is connected to: the directory does not exist.
+     * A DSN that fails as soon as it is connected to: its directory cannot be created (/dev/null is
+     * a file), even by root.
      */
-    public const UNREACHABLE_DSN = 'sqlite:/nonexistent-tito10047-geo/geo.sqlite';
+    public const UNREACHABLE_DSN = 'sqlite:/dev/null/tito10047-geo/geo.sqlite';
+
+    /**
+     * An environment variable resolving to an empty string (the default of its parameter in
+     * TestKernel), as an application leaves VALHALLA_URL or MEILISEARCH_URL where there is no service.
+     */
+    public const EMPTY_ENV = '%env(GEO_TEST_EMPTY)%';
 
     /**
      * The fakes of the services the commands and the autocompleter use.

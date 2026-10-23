@@ -48,8 +48,10 @@ geo:
         # Give the "url" (and "api_key"), or the id of an existing Meilisearch\Client service as "client".
         meilisearch:
             # The bundle builds the search client and the HTTP layer of the index manager from it.
+            # Resolving to an empty value at runtime switches the geocoder off (see below).
             url: null                   # e.g. '%env(MEILISEARCH_URL)%'
             # A search key is enough for searching; the index manager needs the master key or an admin key.
+            # Empty: no Authorization header, for an instance without a master key only.
             api_key: null               # e.g. '%env(MEILISEARCH_API_KEY)%'
             # An existing Meilisearch\Client service used for searching instead of one built from "url".
             # Without "url" the index manager is not available, nor what needs it: importing into
@@ -72,7 +74,7 @@ geo:
 
         # Give a "dsn" (connected lazily, on the first query), or the id of an existing PDO service as "connection".
         database:
-            dsn: null                   # e.g. 'sqlite:%kernel.project_dir%/var/geo/geo.sqlite'
+            dsn: null                   # e.g. 'sqlite:%kernel.project_dir%/var/geo/geo.sqlite' (its directory is created)
             user: null
             password: null
             connection: null            # e.g. 'app.geo_pdo'
@@ -151,7 +153,7 @@ geo:
     # Driving routes from a self-hosted Valhalla.
     routing:
         enabled: false                  # true as soon as the section is configured
-        url: ~                          # required, e.g. '%env(VALHALLA_URL)%'
+        url: ~                          # required, e.g. '%env(VALHALLA_URL)%'; empty at runtime: routing off (see below)
         timeout: 10.0                   # seconds a route may take, connecting included (default HTTP client only), >= 0.1
         radius: 200                     # metres a point may snap to a road (the route and matrix commands)
         max_matrix_location_pairs: 2500 # sources × targets of a matrix, Valhalla's max_matrix_location_pairs, >= 1
@@ -161,6 +163,47 @@ geo:
 The values are validated when the container is built: country codes in upper case, languages in
 lower case, limits and ranks in their ranges, valid index uids and table names, and the combinations
 (`url` or `client`, `dsn` or `connection`, …).
+
+### Switching the geocoder or routing off by environment
+
+An application usually configures the URLs from environment variables and leaves them empty where
+there is no service: in development, in the tests, on a server without routing data. An empty
+value is resolved at runtime, so the container builds as usual and the services are created:
+anything injecting `GeocoderInterface`, `RouterInterface`, … works as long as it does not search or
+route.
+
+```dotenv
+# .env.test: no Meilisearch, no Valhalla
+MEILISEARCH_URL=
+VALHALLA_URL=
+```
+
+| Empty | What happens |
+|---|---|
+| `geocoder.meilisearch.url` | `suggest()`, `geocode()`, `findByReference()` and every operation of the index manager throw `GeocoderUnavailableException` "Meilisearch is not configured: geo.geocoder.meilisearch.url is empty." (like an unreachable Meilisearch, so a fallback geocoder takes over); `geo:search`, `geo:status`, `geo:import`, `geo:publish`, `geo:cleanup` print it and fail; the Photon API answers 503; the autocompleter lets the exception through, as it does when Meilisearch is down. |
+| `routing.url` | `route()`, `matrix()` and the status provider throw `RoutingUnavailableException` "Valhalla is not configured: geo.routing.url is empty."; `geo:route`, `geo:matrix` and `geo:route:status` print it and fail. |
+
+The services concerned (`geo.geocoder`, `….address_lookup`, `….search_backend`, `….index_manager`,
+`geo.routing.router`, `….matrix`, `….status_provider`) are created by a factory choosing at runtime
+between the real implementation (`<id>.configured`, `<id>.valhalla`) and `UnconfiguredMeilisearch`
+/ `UnconfiguredValhalla`. A URL that is given but invalid is still an error when the service is
+created. An existing Meilisearch client (`meilisearch.client`) is used as it is.
+
+For the routing, an empty string written in the configuration itself (or a parameter resolved when
+the container is built) is refused as a missing URL: use an environment variable, or disable the
+section (`enabled: false`).
+
+**An empty `api_key`** sends no `Authorization` header: right for a Meilisearch without a master key
+(a local development instance). With a master key, every request is then refused (HTTP 401) and
+reported as unavailable: "Meilisearch cannot search the index "geo": The Authorization header is
+missing. It must use the bearer authorization method." (or "The provided API key is invalid." for
+a wrong key).
+
+**SQLite**: the directory of a file-based SQLite `dsn` (e.g. `var/geo/` of
+`sqlite:%kernel.project_dir%/var/geo/geo.sqlite`) is created, with the mode 0775, on the first
+connection, as SQLite creates the file but not its directory. A directory that cannot be created is
+a `GeocoderUnavailableException` naming it. An in-memory database and SQLite URIs
+(`sqlite:file:…?mode=…`) are left to PDO.
 
 ## Usage
 
@@ -354,16 +397,16 @@ replace it (e.g. `#[AsDecorator('geo.geocoder.label_formatter')]`).
 
 | Interface (alias) | Service id | Class |
 |---|---|---|
-| `Geocoder\Search\GeocoderInterface` | `geo.geocoder` | `Geocoder` |
-| `Geocoder\Search\AddressLookupInterface` | `geo.geocoder.address_lookup` | `AddressLookup`: an address by its official id (`findByReference()`) |
-| `Geocoder\Search\Backend\SearchBackendInterface` | `geo.geocoder.search_backend` | `MeilisearchSearchBackend` |
+| `Geocoder\Search\GeocoderInterface` | `geo.geocoder` | `Geocoder` (`geo.geocoder.configured`)¹ |
+| `Geocoder\Search\AddressLookupInterface` | `geo.geocoder.address_lookup` | `AddressLookup`: an address by its official id (`findByReference()`)¹ |
+| `Geocoder\Search\Backend\SearchBackendInterface` | `geo.geocoder.search_backend` | `MeilisearchSearchBackend`¹ |
 | `Geocoder\HouseNumber\HouseNumberStoreInterface` | `geo.geocoder.house_number_store` | `PdoHouseNumberStore` |
 | `Geocoder\Name\NameCatalogInterface` | `geo.geocoder.name_catalog` | `PdoNameCatalog` |
 | `Geocoder\Search\RerankerInterface` | `geo.geocoder.reranker` | `Reranker` |
 | `Geocoder\Search\LabelFormatterInterface` | `geo.geocoder.label_formatter` | `LabelFormatter` |
 | `Geocoder\Search\Query\QueryParserInterface` | `geo.geocoder.query_parser` | `QueryParser` |
 | `Geocoder\Search\Text\NameNormalizerInterface` | `geo.geocoder.name_normalizer` | `NameNormalizer` |
-| `Geocoder\Index\IndexManagerInterface` | `geo.geocoder.index_manager` | `MeilisearchIndexManager` (with a `url` only) |
+| `Geocoder\Index\IndexManagerInterface` | `geo.geocoder.index_manager` | `MeilisearchIndexManager` (with a `url` only)¹ |
 | `Geocoder\Index\IndexNamingInterface` | `geo.geocoder.index_naming` | `TimestampIndexNaming` |
 | | `geo.geocoder.meilisearch.client` | `Meilisearch\Client` |
 | | `geo.geocoder.meilisearch.http` | `Meilisearch\Http\Client` (with a `url` only) |
@@ -385,8 +428,8 @@ replace it (e.g. `#[AsDecorator('geo.geocoder.label_formatter')]`).
 | `GeoBundle\Artifact\ArtifactInstallerFactoryInterface` | `geo.geocoder.artifact_installer_factory` | `ArtifactInstallerFactory`: the installer of a Meilisearch version |
 | | `geo.geocoder.index_settings` | `Index\IndexSettings` of the builds |
 | | `geo.geocoder.autocompleter` | `GeocoderAutocompleter` |
-| `Routing\RouterInterface` | `geo.routing.router` | `Valhalla\ValhallaRouter` |
-| `Routing\MatrixInterface` | `geo.routing.matrix` | `Valhalla\ValhallaMatrix` |
+| `Routing\RouterInterface` | `geo.routing.router` | `Valhalla\ValhallaRouter` (`geo.routing.router.valhalla`)² |
+| `Routing\MatrixInterface` | `geo.routing.matrix` | `Valhalla\ValhallaMatrix` (`geo.routing.matrix.valhalla`)² |
 | `Routing\Valhalla\MatrixRequestEncoderInterface` | `geo.routing.matrix_request_encoder` | `MatrixRequestEncoder` |
 | `Routing\Valhalla\MatrixResponseParserInterface` | `geo.routing.matrix_response_parser` | `MatrixResponseParser` |
 | | `geo.routing.matrix_error_translator` | `ErrorTranslator::forMatrix()` |
@@ -396,8 +439,13 @@ replace it (e.g. `#[AsDecorator('geo.geocoder.label_formatter')]`).
 | `Routing\Geometry\PolylineDecoderInterface` | `geo.routing.polyline_decoder` | `PolylineDecoder` |
 | `Routing\Valhalla\CountryLocatorInterface` | `geo.routing.country_locator` | `AdminCrossingCountryLocator` |
 | `Routing\Valhalla\TollLocatorInterface` | `geo.routing.toll_locator` | `ManeuverTollLocator` |
-| `GeoBundle\Routing\RoutingStatusProviderInterface` | `geo.routing.status_provider` | `ValhallaStatusProvider` |
+| `GeoBundle\Routing\RoutingStatusProviderInterface` | `geo.routing.status_provider` | `ValhallaStatusProvider` (`geo.routing.status_provider.valhalla`)² |
 | | `geo.routing.http_client` | PSR-18 client of Valhalla |
+
+¹ With a `url`: created by `GeocoderServiceFactory`, the class shown (`<id>.configured`) or
+`UnconfiguredMeilisearch` when the URL is empty at runtime. ² Created by `RoutingServiceFactory`, the
+class shown or `UnconfiguredValhalla` when the URL is empty at runtime. See
+[Switching the geocoder or routing off by environment](#switching-the-geocoder-or-routing-off-by-environment).
 
 The database connection built from the `dsn` is a lazy service: PDO connects on the first query,
 not when the container builds the geocoder or a command; a database that cannot be reached is a

@@ -6,6 +6,7 @@ use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigura
 use Tito10047\GeoBundle\Command\GeocoderSearchCommand;
 use Tito10047\GeoBundle\Command\GeocoderStatusCommand;
 use Tito10047\GeoBundle\Database\PdoConnectionFactory;
+use Tito10047\GeoBundle\Geocoder\GeocoderServiceFactory;
 use Tito10047\GeoBundle\Http\HttpClientFactory;
 use Tito10047\Geocoder\HouseNumber\HouseNumberReferenceStoreInterface;
 use Tito10047\Geocoder\HouseNumber\HouseNumberStoreInterface;
@@ -38,12 +39,18 @@ use Tito10047\Geocoder\Storage\TableNames;
 
 use function Symfony\Component\DependencyInjection\Loader\Configurator\abstract_arg;
 use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
+use function Symfony\Component\DependencyInjection\Loader\Configurator\service_closure;
 
 /*
  * The services of the geocoder (tito10047/geocoder), loaded when "geo.geocoder" is
  * enabled. Every collaborator is a service of its own, aliased to its interface, so that an
  * application can decorate or replace any of them. The abstract arguments are set from the
  * configuration by Tito10047GeoBundle::loadExtension().
+ *
+ * With a "url", the geocoder, the address lookup, the search backend and the index manager are
+ * created by GeocoderServiceFactory: the real implementations ("….configured") when the URL is
+ * given, UnconfiguredMeilisearch when it resolves to an empty value at runtime. With a "client",
+ * they are aliases of the real implementations.
  */
 return static function (ContainerConfigurator $container): void {
     $services = $container->services();
@@ -84,8 +91,11 @@ return static function (ContainerConfigurator $container): void {
             ->args([abstract_arg('house numbers'), abstract_arg('translations'), abstract_arg('metadata')])
 
         // search
-        ->set('geo.geocoder.search_backend', MeilisearchSearchBackend::class)
+        ->set('geo.geocoder.search_backend.configured', MeilisearchSearchBackend::class)
             ->args([service('geo.geocoder.meilisearch.client'), abstract_arg('index uid')])
+        ->set('geo.geocoder.search_backend', SearchBackendInterface::class)
+            ->factory(GeocoderServiceFactory::searchBackend(...))
+            ->args([abstract_arg('url'), service_closure('geo.geocoder.search_backend.configured')])
         ->alias(SearchBackendInterface::class, 'geo.geocoder.search_backend')
         ->alias(DocumentSourceInterface::class, 'geo.geocoder.search_backend')
 
@@ -115,7 +125,7 @@ return static function (ContainerConfigurator $container): void {
         ->set('geo.geocoder.query_parser', QueryParser::class)
         ->alias(QueryParserInterface::class, 'geo.geocoder.query_parser')
 
-        ->set('geo.geocoder', Geocoder::class)
+        ->set('geo.geocoder.configured', Geocoder::class)
             ->args([
                 service('geo.geocoder.search_backend'),
                 service('geo.geocoder.house_number_store'),
@@ -125,16 +135,22 @@ return static function (ContainerConfigurator $container): void {
                 service('geo.geocoder.query_parser'),
                 abstract_arg('rerank window'),
             ])
+        ->set('geo.geocoder', GeocoderInterface::class)
+            ->factory(GeocoderServiceFactory::geocoder(...))
+            ->args([abstract_arg('url'), service_closure('geo.geocoder.configured')])
         ->alias(GeocoderInterface::class, 'geo.geocoder')
 
         // an address by its official id (ref:minvskaddress in Slovakia)
-        ->set('geo.geocoder.address_lookup', AddressLookup::class)
+        ->set('geo.geocoder.address_lookup.configured', AddressLookup::class)
             ->args([
                 service('geo.geocoder.house_number_store'),
                 service('geo.geocoder.search_backend'),
                 service('geo.geocoder.name_catalog'),
                 service('geo.geocoder.label_formatter'),
             ])
+        ->set('geo.geocoder.address_lookup', AddressLookupInterface::class)
+            ->factory(GeocoderServiceFactory::addressLookup(...))
+            ->args([abstract_arg('url'), service_closure('geo.geocoder.address_lookup.configured')])
         ->alias(AddressLookupInterface::class, 'geo.geocoder.address_lookup')
 
         // the configured defaults of a search, for the commands and the autocompleter
@@ -148,8 +164,11 @@ return static function (ContainerConfigurator $container): void {
 
         ->set('geo.geocoder.indexing_options', IndexingOptions::class)
 
-        ->set('geo.geocoder.index_manager', MeilisearchIndexManager::class)
+        ->set('geo.geocoder.index_manager.configured', MeilisearchIndexManager::class)
             ->args([service('geo.geocoder.meilisearch.http'), service('geo.geocoder.indexing_options')])
+        ->set('geo.geocoder.index_manager', IndexManagerInterface::class)
+            ->factory(GeocoderServiceFactory::indexManager(...))
+            ->args([abstract_arg('url'), service_closure('geo.geocoder.index_manager.configured')])
         ->alias(IndexManagerInterface::class, 'geo.geocoder.index_manager')
 
         // what an import selects, for the import of a next version

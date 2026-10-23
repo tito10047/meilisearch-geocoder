@@ -222,4 +222,19 @@ final class GeocoderImportCommandTest extends TestCase
 
         return $this->directory;
     }
+
+    public function testNotConfiguredMeilisearchFails(): void
+    {
+        $application = new TestApplication(Configs::geocoder(['meilisearch' => ['url' => Configs::EMPTY_ENV]]), []);
+        try {
+            $tester = $application->command('geo:import');
+
+            $tester->execute(['dumps' => [__FILE__]]);
+
+            $this->assertSame(Command::FAILURE, $tester->getStatusCode());
+            $this->assertStringContainsString('Meilisearch is not configured: geo.geocoder.meilisearch.url is empty.', $tester->getDisplay());
+        } finally {
+            $application->shutdown();
+        }
+    }
 }

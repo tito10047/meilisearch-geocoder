@@ -73,6 +73,13 @@ geo:
         url: '%env(VALHALLA_URL)%'
 ```
 
+An environment variable left empty (`MEILISEARCH_URL=`, `VALHALLA_URL=`, e.g. in development or the
+tests) switches that part off: the services are still created, searching or routing throws
+`GeocoderUnavailableException` / `RoutingUnavailableException` ("… is not configured: … is empty")
+and the commands say so. An empty `api_key` sends no `Authorization` header (an instance without a
+master key only). The directory of an SQLite `dsn` (`var/geo/`) is created on the first connection.
+See [Switching the geocoder or routing off by environment](docs/index.md#switching-the-geocoder-or-routing-off-by-environment).
+
 Then inject `Tito10047\Geocoder\Search\GeocoderInterface`, `Tito10047\Routing\RouterInterface` or
 `Tito10047\Routing\MatrixInterface`,
 or try them from the console:

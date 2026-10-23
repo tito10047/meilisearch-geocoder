@@ -6,6 +6,7 @@ use Tito10047\GeoBundle\Command\RoutingMatrixCommand;
 use Tito10047\GeoBundle\Command\RoutingRouteCommand;
 use Tito10047\GeoBundle\Command\RoutingStatusCommand;
 use Tito10047\GeoBundle\Http\HttpClientFactory;
+use Tito10047\GeoBundle\Routing\RoutingServiceFactory;
 use Tito10047\GeoBundle\Routing\RoutingStatusProviderInterface;
 use Tito10047\GeoBundle\Routing\ValhallaStatusProvider;
 use Tito10047\Routing\Geometry\PolylineDecoder;
@@ -31,12 +32,17 @@ use Tito10047\Routing\Valhalla\ValhallaRouter;
 
 use function Symfony\Component\DependencyInjection\Loader\Configurator\abstract_arg;
 use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
+use function Symfony\Component\DependencyInjection\Loader\Configurator\service_closure;
 
 /*
  * The services of the routing (tito10047/routing), loaded when "geo.routing" is
  * enabled. Every collaborator is a service of its own, aliased to its interface, so that an
  * application can decorate or replace any of them. The abstract arguments are set from the
  * configuration by Tito10047GeoBundle::loadExtension().
+ *
+ * The router, the matrix and the status provider are created by RoutingServiceFactory: the Valhalla
+ * implementations ("….valhalla") when the URL is given, UnconfiguredValhalla when it resolves to an
+ * empty value at runtime.
  */
 return static function (ContainerConfigurator $container): void {
     $services = $container->services();
@@ -71,7 +77,8 @@ return static function (ContainerConfigurator $container): void {
         ->set('geo.routing.error_translator', ErrorTranslator::class)
         ->alias(ErrorTranslatorInterface::class, 'geo.routing.error_translator')
 
-        ->set('geo.routing.router', ValhallaRouter::class)
+        // Valhalla, unless its URL resolves to an empty value at runtime (see RoutingServiceFactory)
+        ->set('geo.routing.router.valhalla', ValhallaRouter::class)
             ->args([
                 abstract_arg('Valhalla URL'),
                 service('geo.routing.http_client'),
@@ -83,6 +90,10 @@ return static function (ContainerConfigurator $container): void {
                 service('geo.routing.error_translator'),
             ])
             ->tag('monolog.logger', ['channel' => 'geo'])
+
+        ->set('geo.routing.router', RouterInterface::class)
+            ->factory(RoutingServiceFactory::router(...))
+            ->args([abstract_arg('Valhalla URL'), service_closure('geo.routing.router.valhalla')])
         ->alias(RouterInterface::class, 'geo.routing.router')
 
         // the distance matrix, over the same HTTP client
@@ -96,7 +107,7 @@ return static function (ContainerConfigurator $container): void {
         ->set('geo.routing.matrix_error_translator', ErrorTranslator::class)
             ->factory(ErrorTranslator::class.'::forMatrix')
 
-        ->set('geo.routing.matrix', ValhallaMatrix::class)
+        ->set('geo.routing.matrix.valhalla', ValhallaMatrix::class)
             ->args([
                 abstract_arg('Valhalla URL'),
                 service('geo.routing.http_client'),
@@ -109,14 +120,22 @@ return static function (ContainerConfigurator $container): void {
                 abstract_arg('maximum of location pairs'),
             ])
             ->tag('monolog.logger', ['channel' => 'geo'])
+
+        ->set('geo.routing.matrix', MatrixInterface::class)
+            ->factory(RoutingServiceFactory::matrix(...))
+            ->args([abstract_arg('Valhalla URL'), service_closure('geo.routing.matrix.valhalla')])
         ->alias(MatrixInterface::class, 'geo.routing.matrix')
 
-        ->set('geo.routing.status_provider', ValhallaStatusProvider::class)
+        ->set('geo.routing.status_provider.valhalla', ValhallaStatusProvider::class)
             ->args([
                 abstract_arg('Valhalla URL'),
                 service('geo.routing.http_client'),
                 service('geo.psr17_factory'),
             ])
+
+        ->set('geo.routing.status_provider', RoutingStatusProviderInterface::class)
+            ->factory(RoutingServiceFactory::statusProvider(...))
+            ->args([abstract_arg('Valhalla URL'), service_closure('geo.routing.status_provider.valhalla')])
         ->alias(RoutingStatusProviderInterface::class, 'geo.routing.status_provider')
 
         // commands

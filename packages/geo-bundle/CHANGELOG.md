@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- An empty `geo.routing.url` at runtime (an empty `VALHALLA_URL`) no longer makes every service
+  injecting `RouterInterface`, `MatrixInterface` or the routing status provider fail to be created:
+  they are created, and routing throws `RoutingUnavailableException` "Valhalla is not configured:
+  geo.routing.url is empty."; `geo:route:status` reports it. A given but invalid URL still fails
+  when the service is created.
+- An empty `geo.geocoder.meilisearch.url` at runtime switches the geocoder off the same way:
+  `suggest()`, `geocode()`, `findByReference()` and the index manager throw
+  `GeocoderUnavailableException` "Meilisearch is not configured: geo.geocoder.meilisearch.url is
+  empty."; `geo:search`, `geo:status`, `geo:import`, … fail with that message, the Photon API answers
+  503.
+- The directory of a file-based SQLite `dsn` (e.g. `var/geo/`) is created before connecting, so the
+  first `geo:import` no longer fails with "unable to open database file".
+- Documented the empty `api_key` (no `Authorization` header) and the above in "Switching the
+  geocoder or routing off by environment".
+
 ## [0.2.0] - 2026-10-23
 
 ### Changed

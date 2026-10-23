@@ -7,15 +7,18 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use Psr\Http\Client\ClientInterface;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Console\Command\Command;
 use Symfony\Component\HttpKernel\KernelInterface;
 use Symfony\Contracts\Service\ResetInterface;
 use Symfony\UX\Autocomplete\AutocompleterRegistry;
 use Tito10047\GeoBundle\Artifact\ArtifactInstallerFactory;
 use Tito10047\GeoBundle\Artifact\ArtifactInstallerFactoryInterface;
 use Tito10047\GeoBundle\Autocomplete\GeocoderAutocompleter;
+use Tito10047\GeoBundle\Geocoder\UnconfiguredMeilisearch;
 use Tito10047\GeoBundle\Photon\PhotonApiController;
 use Tito10047\GeoBundle\Photon\PhotonApiRouteLoader;
 use Tito10047\GeoBundle\Routing\RoutingStatusProviderInterface;
+use Tito10047\GeoBundle\Routing\UnconfiguredValhalla;
 use Tito10047\GeoBundle\Routing\ValhallaStatusProvider;
 use Tito10047\GeoBundle\Tests\App\Configs;
 use Tito10047\GeoBundle\Tests\App\TestKernel;
@@ -50,6 +53,7 @@ use Tito10047\Geocoder\Photon\PhotonSearch;
 use Tito10047\Geocoder\Photon\PhotonSearchInterface;
 use Tito10047\Geocoder\Search\AddressLookup;
 use Tito10047\Geocoder\Search\AddressLookupInterface;
+use Tito10047\Geocoder\Search\Backend\DocumentSourceInterface;
 use Tito10047\Geocoder\Search\Backend\SearchBackendInterface;
 use Tito10047\Geocoder\Search\Geocoder;
 use Tito10047\Geocoder\Search\GeocoderInterface;
@@ -61,8 +65,12 @@ use Tito10047\Geocoder\Search\Text\NameNormalizerInterface;
 use Tito10047\Geocoder\Storage\BuildStorageInterface;
 use Tito10047\Geocoder\Storage\Pdo\Dialect\SqlDialectInterface;
 use Tito10047\Geocoder\Storage\TableNames;
+use Tito10047\Routing\Coordinates as RoutingCoordinates;
+use Tito10047\Routing\Exception\InvalidArgumentException as RoutingInvalidArgumentException;
+use Tito10047\Routing\Exception\RoutingUnavailableException;
 use Tito10047\Routing\Geometry\PolylineDecoderInterface;
 use Tito10047\Routing\MatrixInterface;
+use Tito10047\Routing\RouteRequest;
 use Tito10047\Routing\RouterInterface;
 use Tito10047\Routing\Valhalla\CountryLocatorInterface;
 use Tito10047\Routing\Valhalla\ErrorTranslatorInterface;
@@ -398,6 +406,95 @@ final class ContainerTest extends KernelTestCase
         $this->assertFalse($container->has(PhotonSearchInterface::class));
         $this->assertFalse($container->getParameter(PhotonApiRouteLoader::ENABLED_PARAMETER));
         $this->assertInstanceOf(PhotonApiRouteLoader::class, $container->get('geo.photon_api.route_loader'));
+    }
+
+    public function testRoutingWithAnEmptyUrlIsCreatedButNotConfigured(): void
+    {
+        self::bootKernel(['extension_configs' => ['geo' => Configs::routing(['url' => Configs::EMPTY_ENV])]]);
+        $container = self::getContainer();
+
+        foreach ([RouterInterface::class, MatrixInterface::class, RoutingStatusProviderInterface::class] as $id) {
+            $this->assertInstanceOf(UnconfiguredValhalla::class, $container->get($id), $id);
+        }
+        // the services injecting them
+        foreach (['geo.routing.command.route', 'geo.routing.command.matrix', 'geo.routing.command.status'] as $id) {
+            $this->assertInstanceOf(Command::class, $container->get($id), $id);
+        }
+        $router = $container->get(RouterInterface::class);
+        $this->assertInstanceOf(RouterInterface::class, $router);
+
+        $this->expectException(RoutingUnavailableException::class);
+        $this->expectExceptionMessage('Valhalla is not configured: geo.routing.url is empty.');
+        $router->route(new RouteRequest([new RoutingCoordinates(48.1486, 17.1077), new RoutingCoordinates(48.7164, 21.2611)]));
+    }
+
+    public function testAnEmptyEnvironmentVariableSwitchesTheRoutingOff(): void
+    {
+        $_SERVER['GEO_TEST_VALHALLA_URL'] = '';
+        try {
+            self::bootKernel(['extension_configs' => ['geo' => Configs::routing(['url' => '%env(GEO_TEST_VALHALLA_URL)%'])]]);
+
+            $this->assertInstanceOf(UnconfiguredValhalla::class, self::getContainer()->get(RouterInterface::class));
+        } finally {
+            unset($_SERVER['GEO_TEST_VALHALLA_URL']);
+        }
+    }
+
+    public function testRoutingWithAnInvalidUrlFailsWhenCreated(): void
+    {
+        self::bootKernel(['extension_configs' => ['geo' => Configs::routing(['url' => 'valhalla:8002'])]]);
+
+        $this->expectException(RoutingInvalidArgumentException::class);
+        $this->expectExceptionMessage('The Valhalla URL must be an absolute HTTP or HTTPS URL, "valhalla:8002" given.');
+        self::getContainer()->get(RouterInterface::class);
+    }
+
+    public function testGeocoderWithAnEmptyUrlIsCreatedButNotConfigured(): void
+    {
+        self::bootKernel(['extension_configs' => ['geo' => Configs::geocoder([
+            'meilisearch' => ['url' => Configs::EMPTY_ENV, 'api_key' => Configs::EMPTY_ENV],
+            'photon_api' => true,
+        ])]]);
+        $container = self::getContainer();
+
+        foreach ([GeocoderInterface::class, AddressLookupInterface::class, SearchBackendInterface::class, DocumentSourceInterface::class, IndexManagerInterface::class] as $id) {
+            $this->assertInstanceOf(UnconfiguredMeilisearch::class, $container->get($id), $id);
+        }
+        // the services injecting them
+        $this->assertInstanceOf(Importer::class, $container->get(ImporterInterface::class));
+        $this->assertInstanceOf(PhotonApiController::class, $container->get('geo.geocoder.photon_api.controller'));
+        foreach (['geo.geocoder.command.search', 'geo.geocoder.command.status', 'geo.geocoder.command.import', 'geo.geocoder.command.publish', 'geo.geocoder.command.cleanup'] as $id) {
+            $this->assertInstanceOf(Command::class, $container->get($id), $id);
+        }
+        if (TestKernel::hasUxAutocomplete()) {
+            $this->assertInstanceOf(GeocoderAutocompleter::class, $container->get('geo.geocoder.autocompleter'));
+        }
+    }
+
+    /**
+     * @return iterable<string, array{class-string, \Closure(object): mixed}>
+     */
+    public static function geocoderCalls(): iterable
+    {
+        yield 'suggest' => [GeocoderInterface::class, static fn (object $geocoder): mixed => $geocoder instanceof GeocoderInterface ? $geocoder->suggest('Hlavná 12 Košice') : null];
+        yield 'geocode' => [GeocoderInterface::class, static fn (object $geocoder): mixed => $geocoder instanceof GeocoderInterface ? $geocoder->geocode('Hlavná 12 Košice') : null];
+        yield 'findByReference' => [AddressLookupInterface::class, static fn (object $lookup): mixed => $lookup instanceof AddressLookupInterface ? $lookup->findByReference('1234567') : null];
+    }
+
+    /**
+     * @param class-string            $id
+     * @param \Closure(object): mixed $call
+     */
+    #[DataProvider('geocoderCalls')]
+    public function testGeocoderWithAnEmptyUrlIsUnavailable(string $id, \Closure $call): void
+    {
+        self::bootKernel(['extension_configs' => ['geo' => Configs::geocoder(['meilisearch' => ['url' => Configs::EMPTY_ENV]])]]);
+        $service = self::getContainer()->get($id);
+        $this->assertIsObject($service);
+
+        $this->expectException(GeocoderUnavailableException::class);
+        $this->expectExceptionMessage('Meilisearch is not configured: geo.geocoder.meilisearch.url is empty.');
+        $call($service);
     }
 
     /**

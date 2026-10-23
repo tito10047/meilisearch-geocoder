@@ -15,11 +15,12 @@ final readonly class TestApplication
     private TestKernel $kernel;
 
     /**
-     * @param array<string, mixed> $config the configuration of the bundle
+     * @param array<string, mixed>        $config the configuration of the bundle
+     * @param array<string, class-string> $fakes  the faked services, see TestKernel::__construct(); [] for the real ones
      */
-    public function __construct(array $config)
+    public function __construct(array $config, array $fakes = Configs::FAKES)
     {
-        $this->kernel = new TestKernel(extensionConfigs: ['geo' => $config], fakes: Configs::FAKES);
+        $this->kernel = new TestKernel(extensionConfigs: ['geo' => $config], fakes: $fakes);
         $this->kernel->boot();
     }
 

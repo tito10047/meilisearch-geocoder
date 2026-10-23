@@ -113,4 +113,19 @@ final class RoutingMatrixCommandTest extends TestCase
         $this->assertSame(Command::FAILURE, $tester->getStatusCode());
         $this->assertStringContainsString('error 154', preg_replace('/\s+/', ' ', $tester->getDisplay()) ?? '');
     }
+
+    public function testNotConfiguredValhallaFails(): void
+    {
+        $application = new TestApplication(Configs::routing(['url' => Configs::EMPTY_ENV]), []);
+        try {
+            $tester = $application->command('geo:matrix');
+
+            $tester->execute(['--source' => ['48.1486,17.1077'], '--target' => ['48.7164,21.2611']]);
+
+            $this->assertSame(Command::FAILURE, $tester->getStatusCode());
+            $this->assertStringContainsString('Valhalla is not configured: geo.routing.url is empty.', $tester->getDisplay());
+        } finally {
+            $application->shutdown();
+        }
+    }
 }
