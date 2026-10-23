@@ -41,6 +41,31 @@ final class PdoBuildStorageTest extends TestCase
         $this->assertEquals($build, $this->storage->read($this->build));
     }
 
+    public function testRecordsThePublicationWhichGoesLiveWithTheTables(): void
+    {
+        Builds::store($this->pdo, $this->build);
+        $this->assertNull($this->storage->recordedPublication($this->build));
+
+        $this->storage->recordPublication($this->build, '2026-10-23T12:00:00.123456789Z');
+        $this->storage->publish($this->build, $this->live);
+
+        $this->assertSame('2026-10-23T12:00:00.123456789Z', $this->storage->recordedPublication($this->live));
+    }
+
+    public function testRecordsNoPublicationWithoutTheTables(): void
+    {
+        $this->expectException(BuildNotFoundException::class);
+
+        $this->storage->recordPublication($this->build, 'x');
+    }
+
+    public function testReadsNoPublicationWithoutTheTables(): void
+    {
+        $this->expectException(BuildNotFoundException::class);
+
+        $this->storage->recordedPublication($this->build);
+    }
+
     public function testRefusesToCreateTablesThatExist(): void
     {
         $this->pdo->exec('CREATE TABLE geo_name_20261023120000 (x INTEGER)');

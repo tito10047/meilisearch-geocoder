@@ -61,6 +61,25 @@ interface BuildStorageInterface
     public function exists(TableNames $tables): bool;
 
     /**
+     * Records in the metadata of the tables that the publication of their build started, with
+     * the fingerprint of its index (IndexManagerInterface::fingerprint()) taken before the swap:
+     * it tells a later run which index is the build's once it was swapped or renamed. It goes
+     * live with the tables.
+     *
+     * @throws BuildNotFoundException when the tables hold no build
+     * @throws RuntimeException       when it cannot be written
+     */
+    public function recordPublication(TableNames $tables, string $indexFingerprint): void;
+
+    /**
+     * The fingerprint of the index recorded by recordPublication(), if any.
+     *
+     * @throws BuildNotFoundException when the tables hold no build
+     * @throws RuntimeException       when it cannot be read
+     */
+    public function recordedPublication(TableNames $tables): ?string;
+
+    /**
      * Renames the tables of a build to the live names, at once, and drops the live tables they
      * replace (there may be none on a first publication).
      *

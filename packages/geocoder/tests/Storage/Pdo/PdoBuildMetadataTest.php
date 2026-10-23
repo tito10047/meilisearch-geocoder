@@ -4,6 +4,7 @@ namespace Tito10047\Geocoder\Tests\Storage\Pdo;
 
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Tito10047\Geocoder\Exception\InvalidArgumentException;
 use Tito10047\Geocoder\Exception\StorageException;
 use Tito10047\Geocoder\Import\Exception\BuildNotFoundException;
 use Tito10047\Geocoder\Storage\Pdo\PdoBuildMetadata;
@@ -51,6 +52,54 @@ final class PdoBuildMetadataTest extends TestCase
         $metadata->write($build);
 
         $this->assertEquals($build, $metadata->read($this->tables));
+    }
+
+    public function testRecordsThePublicationOnceAndKeepsTheBuildReadable(): void
+    {
+        $metadata = new PdoBuildMetadata($this->pdo);
+        $build = Builds::build($this->tables);
+        $metadata->write($build);
+        $this->assertNull($metadata->readPublication($this->tables));
+
+        $metadata->writePublication($this->tables, '2026-10-23T12:00:00.1Z');
+        $metadata->writePublication($this->tables, '2026-10-23T12:00:00.2Z');
+
+        $this->assertSame('2026-10-23T12:00:00.2Z', $metadata->readPublication($this->tables));
+        $this->assertSame('2026-10-23T12:00:00.2Z', $this->rows()['publication.index_fingerprint']);
+        $this->assertEquals($build, $metadata->read($this->tables));
+    }
+
+    public function testRecordsNoPublicationWithoutABuild(): void
+    {
+        $metadata = new PdoBuildMetadata($this->pdo);
+
+        try {
+            $metadata->writePublication($this->tables, 'x');
+            $this->fail('A publication was recorded without a build.');
+        } catch (BuildNotFoundException) {
+            $this->assertSame([], $this->rows());
+        }
+
+        $this->expectException(BuildNotFoundException::class);
+
+        $metadata->readPublication($this->tables);
+    }
+
+    public function testRejectsAnEmptyFingerprint(): void
+    {
+        $metadata = new PdoBuildMetadata($this->pdo);
+        $metadata->write(Builds::build($this->tables));
+
+        $this->expectException(InvalidArgumentException::class);
+
+        $metadata->writePublication($this->tables, '');
+    }
+
+    public function testFailsToRecordThePublicationInAMissingTable(): void
+    {
+        $this->expectException(StorageException::class);
+
+        (new PdoBuildMetadata($this->pdo))->readPublication(new TableNames(metadata: 'missing_meta'));
     }
 
     public function testReadsNoBuildFromAnEmptyTable(): void
