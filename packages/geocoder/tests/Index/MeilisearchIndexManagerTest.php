@@ -6,6 +6,8 @@ use PHPUnit\Framework\TestCase;
 use Tito10047\Geocoder\Exception\InvalidArgumentException;
 use Tito10047\Geocoder\Index\Exception\MeilisearchException;
 use Tito10047\Geocoder\Index\Exception\TaskFailedException;
+use Tito10047\Geocoder\Index\Exception\TaskNotFoundException;
+use Tito10047\Geocoder\Index\Exception\TaskTimeoutException;
 use Tito10047\Geocoder\Index\IndexingOptions;
 use Tito10047\Geocoder\Index\IndexSettings;
 use Tito10047\Geocoder\Index\IndexStatus;
@@ -15,6 +17,9 @@ use Tito10047\Geocoder\Tests\Index\Fixtures\FakeHttpClient;
 
 final class MeilisearchIndexManagerTest extends TestCase
 {
+    private const BUILD_CREATED = '2026-10-23T12:00:00.123456789Z';
+    private const LIVE_CREATED = '2026-10-16T12:00:00.987654321Z';
+    private const NO_TASK = ['results' => [], 'total' => 0, 'limit' => 1, 'from' => null, 'next' => null];
     private const NOT_FOUND = ['message' => 'Index `geo` not found.', 'code' => 'index_not_found', 'type' => 'invalid_request', 'link' => ''];
 
     public function testCreateAppliesTheSettingsBeforeAnyDocument(): void
@@ -115,25 +120,106 @@ final class MeilisearchIndexManagerTest extends TestCase
     public function testSwapWithTheLiveIndex(): void
     {
         $http = (new FakeHttpClient())
-            ->expect('GET', '/indexes/geo', ['uid' => 'geo', 'primaryKey' => 'id'])
+            ->expect('GET', '/indexes/geo_20261023120000', $this->index('geo_20261023120000', self::BUILD_CREATED))
+            ->expect('GET', '/indexes/geo', $this->index('geo', self::LIVE_CREATED))
             ->expectTask('POST', '/swap-indexes', 7, 'indexSwap', null)
             ->expectTaskStatuses([7 => 'succeeded'], 'indexSwap', null);
 
         $this->manager($http)->swap('geo_20261023120000', 'geo');
 
-        $this->assertSame([['indexes' => ['geo_20261023120000', 'geo']]], $http->jsonBody(1));
+        $this->assertSame([['indexes' => ['geo_20261023120000', 'geo']]], $http->jsonBody(2));
+        $this->assertSame(0, $http->remaining());
     }
 
     public function testFirstSwapRenames(): void
     {
         $http = (new FakeHttpClient())
+            ->expect('GET', '/indexes/geo_20261023120000', $this->index('geo_20261023120000', self::BUILD_CREATED))
             ->expect('GET', '/indexes/geo', self::NOT_FOUND, 404)
             ->expectTask('POST', '/swap-indexes', 7, 'indexSwap', null)
             ->expectTaskStatuses([7 => 'succeeded'], 'indexSwap', null);
 
         $this->manager($http)->swap('geo_20261023120000', 'geo');
 
-        $this->assertSame([['indexes' => ['geo_20261023120000', 'geo'], 'rename' => true]], $http->jsonBody(1));
+        $this->assertSame([['indexes' => ['geo_20261023120000', 'geo'], 'rename' => true]], $http->jsonBody(2));
+    }
+
+    public function testSwapFailsWhenTheBuildIsMissing(): void
+    {
+        $http = (new FakeHttpClient())->expect('GET', '/indexes/geo_20261023120000', self::NOT_FOUND, 404);
+
+        $this->expectException(MeilisearchException::class);
+        $this->expectExceptionMessage('Cannot swap the index geo_20261023120000 in: it does not exist.');
+
+        $this->manager($http)->swap('geo_20261023120000', 'geo');
+    }
+
+    public function testSwapReportsAFailedSwap(): void
+    {
+        $http = (new FakeHttpClient())
+            ->expect('GET', '/indexes/geo_20261023120000', $this->index('geo_20261023120000', self::BUILD_CREATED))
+            ->expect('GET', '/indexes/geo', $this->index('geo', self::LIVE_CREATED))
+            ->expectTask('POST', '/swap-indexes', 7, 'indexSwap', null)
+            ->expectTaskStatuses([7 => 'failed'], 'indexSwap', null);
+
+        $this->expectException(TaskFailedException::class);
+
+        $this->manager($http)->swap('geo_20261023120000', 'geo');
+    }
+
+    public function testSwapHiddenFromTheKeyIsConfirmedByTheIndexes(): void
+    {
+        // a key restricted to "geo*" does not see the swap, a task of no index
+        $http = (new FakeHttpClient())
+            ->expect('GET', '/indexes/geo_20261023120000', $this->index('geo_20261023120000', self::BUILD_CREATED))
+            ->expect('GET', '/indexes/geo', $this->index('geo', self::LIVE_CREATED))
+            ->expectTask('POST', '/swap-indexes', 7, 'indexSwap', null)
+            ->expect('GET', '/tasks/?uids=7&limit=1', self::NO_TASK)
+            // not processed yet
+            ->expect('GET', '/indexes/geo', $this->index('geo', self::LIVE_CREATED))
+            // processed: the creation times moved with the indexes
+            ->expect('GET', '/indexes/geo', $this->index('geo', self::BUILD_CREATED))
+            ->expect('GET', '/indexes/geo_20261023120000', $this->index('geo_20261023120000', self::LIVE_CREATED));
+
+        $this->manager($http)->swap('geo_20261023120000', 'geo');
+
+        $this->assertSame(0, $http->remaining());
+    }
+
+    public function testRenameHiddenFromTheKeyIsConfirmedByTheIndexes(): void
+    {
+        $http = (new FakeHttpClient())
+            ->expect('GET', '/indexes/geo_20261023120000', $this->index('geo_20261023120000', self::BUILD_CREATED))
+            ->expect('GET', '/indexes/geo', self::NOT_FOUND, 404)
+            ->expectTask('POST', '/swap-indexes', 7, 'indexSwap', null)
+            ->expect('GET', '/tasks/?uids=7&limit=1', self::NO_TASK)
+            ->expect('GET', '/indexes/geo', $this->index('geo', self::BUILD_CREATED))
+            ->expect('GET', '/indexes/geo_20261023120000', self::NOT_FOUND, 404);
+
+        $this->manager($http)->swap('geo_20261023120000', 'geo');
+
+        $this->assertSame(0, $http->remaining());
+    }
+
+    public function testSwapHiddenFromTheKeyTimesOutWithoutItsEffect(): void
+    {
+        $http = (new FakeHttpClient())
+            ->expect('GET', '/indexes/geo_20261023120000', $this->index('geo_20261023120000', self::BUILD_CREATED))
+            ->expect('GET', '/indexes/geo', self::NOT_FOUND, 404)
+            ->expectTask('POST', '/swap-indexes', 7, 'indexSwap', null)
+            ->expect('GET', '/tasks/?uids=7&limit=1', self::NO_TASK);
+        for ($i = 0; $i < 1000; ++$i) {
+            $http->expect('GET', '/indexes/geo', self::NOT_FOUND, 404);
+        }
+        $manager = new MeilisearchIndexManager($http->meilisearch(), new IndexingOptions(taskTimeout: 0.05, pollInterval: 0.01));
+
+        try {
+            $manager->swap('geo_20261023120000', 'geo');
+            $this->fail('A swap without effect was confirmed.');
+        } catch (TaskTimeoutException $e) {
+            $this->assertSame([7], $e->taskUids);
+            $this->assertStringContainsString('task 7 (indexSwap) cannot be read with this API key, and its effect (the index geo_20261023120000 renamed to geo) did not appear', $e->getMessage());
+        }
     }
 
     public function testSwapRejectsTheSameIndex(): void
@@ -245,6 +331,49 @@ final class MeilisearchIndexManagerTest extends TestCase
         $this->manager($http)->status('geo');
     }
 
+    public function testFingerprintIsTheCreationTime(): void
+    {
+        $http = (new FakeHttpClient())
+            ->expect('GET', '/indexes/geo', $this->index('geo', self::LIVE_CREATED))
+            ->expect('GET', '/indexes/geo', self::NOT_FOUND, 404);
+        $manager = $this->manager($http);
+
+        $this->assertSame(self::LIVE_CREATED, $manager->fingerprint('geo'));
+        $this->assertNull($manager->fingerprint('geo'));
+    }
+
+    public function testFingerprintRejectsAnIndexWithoutCreationTime(): void
+    {
+        $http = (new FakeHttpClient())->expect('GET', '/indexes/geo', ['uid' => 'geo', 'primaryKey' => 'id']);
+
+        $this->expectException(MeilisearchException::class);
+        $this->expectExceptionMessage('without its creation time');
+
+        $this->manager($http)->fingerprint('geo');
+    }
+
+    public function testVersion(): void
+    {
+        $http = (new FakeHttpClient())->expect('GET', '/version', ['commitSha' => '47d0c34', 'commitDate' => 'unknown', 'pkgVersion' => '1.35.1']);
+
+        $this->assertSame('1.35.1', $this->manager($http)->version());
+    }
+
+    public function testSnapshotHiddenFromTheKeyFails(): void
+    {
+        $http = (new FakeHttpClient())
+            ->expectTask('POST', '/snapshots', 9, 'snapshotCreation', null)
+            ->expect('GET', '/tasks/?uids=9&limit=1', self::NO_TASK);
+
+        try {
+            $this->manager($http)->snapshot();
+            $this->fail('A snapshot that cannot be followed was accepted.');
+        } catch (MeilisearchException $e) {
+            $this->assertStringContainsString('"indexes": ["*"]', $e->getMessage());
+            $this->assertInstanceOf(TaskNotFoundException::class, $e->getPrevious());
+        }
+    }
+
     public function testSnapshot(): void
     {
         $http = (new FakeHttpClient())
@@ -278,6 +407,14 @@ final class MeilisearchIndexManagerTest extends TestCase
     private function manager(FakeHttpClient $http): MeilisearchIndexManager
     {
         return new MeilisearchIndexManager($http->meilisearch(), new IndexingOptions(pollInterval: 0.0));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function index(string $uid, string $createdAt): array
+    {
+        return ['uid' => $uid, 'createdAt' => $createdAt, 'updatedAt' => $createdAt, 'primaryKey' => 'id'];
     }
 
     /**

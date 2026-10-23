@@ -62,6 +62,9 @@ use Tito10047\Geocoder\Search\Query\QueryParserInterface;
 use Tito10047\Geocoder\Search\RerankerInterface;
 use Tito10047\Geocoder\Search\SearchOptions;
 use Tito10047\Geocoder\Search\Text\NameNormalizerInterface;
+use Tito10047\Geocoder\Status\GeocoderState;
+use Tito10047\Geocoder\Status\GeocoderStatusProvider;
+use Tito10047\Geocoder\Status\GeocoderStatusProviderInterface;
 use Tito10047\Geocoder\Storage\BuildStorageInterface;
 use Tito10047\Geocoder\Storage\Pdo\Dialect\SqlDialectInterface;
 use Tito10047\Geocoder\Storage\TableNames;
@@ -132,6 +135,7 @@ final class ContainerTest extends KernelTestCase
         yield 'selection rules' => ['geo.geocoder.selection_rules', SelectionRules::class];
         yield 'search options' => ['geo.geocoder.search_options', SearchOptions::class];
         yield 'importer' => [ImporterInterface::class, Importer::class];
+        yield 'status provider' => [GeocoderStatusProviderInterface::class, GeocoderStatusProvider::class];
         yield 'file exporter' => [FileExporterInterface::class, FileExporter::class];
         yield 'converter' => [ConverterInterface::class, ExportAwareConverter::class];
         yield 'clock' => [ClockInterface::class, SystemClock::class];
@@ -284,6 +288,7 @@ final class ContainerTest extends KernelTestCase
         $this->assertFalse($container->has(IndexManagerInterface::class));
         $this->assertFalse($container->has('geo.geocoder.meilisearch.http'));
         $this->assertFalse($container->has(ImporterInterface::class));
+        $this->assertFalse($container->has(GeocoderStatusProviderInterface::class));
         $this->assertFalse($container->has(ArtifactBuilderInterface::class));
         // files only: the export and the installation of artifacts
         $this->assertInstanceOf(FileExporter::class, $container->get(FileExporterInterface::class));
@@ -478,6 +483,61 @@ final class ContainerTest extends KernelTestCase
         if (TestKernel::hasUxAutocomplete()) {
             $this->assertInstanceOf(GeocoderAutocompleter::class, $container->get('geo.geocoder.autocompleter'));
         }
+    }
+
+    public function testIndexUidFromAnEnvironmentVariable(): void
+    {
+        self::bootKernel(['extension_configs' => ['geo' => Configs::geocoder(['meilisearch' => ['url' => Configs::EMPTY_ENV, 'index' => Configs::INDEX_ENV]])]]);
+        $container = self::getContainer();
+
+        $naming = $container->get(IndexNamingInterface::class);
+        $this->assertInstanceOf(IndexNamingInterface::class, $naming);
+        $this->assertSame('places', $naming->liveUid());
+        $provider = $container->get(GeocoderStatusProviderInterface::class);
+        $this->assertInstanceOf(GeocoderStatusProviderInterface::class, $provider);
+        $this->assertSame('places', $provider->status()->indexUid);
+    }
+
+    public function testIndexUidFromAnEnvironmentVariableWithoutDefault(): void
+    {
+        $_SERVER['GEO_TEST_RUNTIME_INDEX'] = 'tankovac_geo';
+        try {
+            self::bootKernel(['extension_configs' => ['geo' => Configs::geocoder(['meilisearch' => ['url' => 'http://127.0.0.1:7700', 'index' => Configs::RUNTIME_INDEX_ENV]])]]);
+
+            $naming = self::getContainer()->get(IndexNamingInterface::class);
+            $this->assertInstanceOf(IndexNamingInterface::class, $naming);
+            $this->assertSame('tankovac_geo', $naming->liveUid());
+        } finally {
+            unset($_SERVER['GEO_TEST_RUNTIME_INDEX']);
+        }
+    }
+
+    public function testInvalidIndexUidFromAnEnvironmentVariableFailsWhenUsed(): void
+    {
+        $_SERVER['GEO_TEST_RUNTIME_INDEX'] = 'geo index';
+        try {
+            self::bootKernel(['extension_configs' => ['geo' => Configs::geocoder(['meilisearch' => ['url' => 'http://127.0.0.1:7700', 'index' => Configs::RUNTIME_INDEX_ENV]])]]);
+
+            self::getContainer()->get(IndexNamingInterface::class);
+            $this->fail('The invalid index uid was accepted.');
+        } catch (InvalidArgumentException $e) {
+            $this->assertStringContainsString('"geo index" is not a valid index uid', $e->getMessage());
+        } finally {
+            unset($_SERVER['GEO_TEST_RUNTIME_INDEX']);
+        }
+    }
+
+    public function testGeocoderWithAnEmptyUrlReportsItIsNotConfigured(): void
+    {
+        self::bootKernel(['extension_configs' => ['geo' => Configs::geocoder(['meilisearch' => ['url' => Configs::EMPTY_ENV, 'index' => 'places']])]]);
+        $provider = self::getContainer()->get(GeocoderStatusProviderInterface::class);
+        $this->assertInstanceOf(GeocoderStatusProviderInterface::class, $provider);
+
+        $status = $provider->status();
+
+        $this->assertSame(GeocoderState::NotConfigured, $status->state);
+        $this->assertSame('places', $status->indexUid);
+        $this->assertSame(UnconfiguredMeilisearch::MESSAGE, $status->error);
     }
 
     /**

@@ -97,6 +97,23 @@ final readonly class Importer implements ImporterInterface
         }
     }
 
+    /**
+     * Publishes in this order, each step resumable:
+     *
+     * 1. checks the build (its index, its tables and their metadata, the schema version);
+     * 2. records the fingerprint of the build index in the metadata of its tables, once;
+     * 3. swaps the build index in under the live uid, unless the live index has that fingerprint
+     *    already (a former run swapped it in);
+     * 4. renames the build tables to the live names; when that fails right after the swap of
+     *    this run, the swap is undone, so that the index and the tables stay of one build;
+     * 5. deletes the replaced live index (left under the build uid by the swap);
+     * 6. removes the builds started before this one.
+     *
+     * A run that stopped anywhere (a failure, a timeout, a killed process) leaves a state the next
+     * run with the same build converges from: before step 3 nothing changed; between steps 3 and
+     * 4 the fingerprint tells that the index is live and the tables follow; after step 4 the
+     * build is in the live tables (pass the live build, see build()) and steps 5 and 6 finish.
+     */
     public function publish(Build $build): Build
     {
         $uid = $build->indexUid;
@@ -104,10 +121,31 @@ final readonly class Importer implements ImporterInterface
             throw new InvalidArgumentException(\sprintf('"%s" is not the uid of a build of the index %s.', $uid, $this->naming->liveUid()));
         }
         // everything checked before the index changes: the tables come second
-        $this->assertComplete($uid, $build->tables);
+        $fingerprint = $this->assertComplete($uid, $build->tables);
+        $this->storage->recordPublication($build->tables, $fingerprint);
+        $tablesLive = $build->tables == $this->tables;
 
-        $this->publisher->publish($uid);
-        $this->storage->publish($build->tables, $this->tables);
+        $swapped = false;
+        if ($this->indexes->fingerprint($this->naming->liveUid()) !== $fingerprint) {
+            $this->publisher->swapIn($uid);
+            $swapped = true;
+        } else {
+            $this->logger->info('The index of the build {build} is live already: finishing its publication.', ['build' => $uid]);
+        }
+
+        if (!$tablesLive) {
+            try {
+                $this->storage->publish($build->tables, $this->tables);
+            } catch (\Throwable $exception) {
+                if ($swapped) {
+                    $this->swapBack($uid, $exception);
+                }
+
+                throw $exception;
+            }
+        }
+
+        $this->publisher->removeReplaced($uid);
         $this->logger->info('The build {build} is live.', ['build' => $uid]);
 
         // a build started later belongs to an import that may still run
@@ -117,6 +155,10 @@ final readonly class Importer implements ImporterInterface
         return $build->withTables($this->tables);
     }
 
+    /**
+     * Also the build whose publication stopped after its index was swapped in: its index is live,
+     * its tables are still those of the build; publishing it again finishes the publication.
+     */
     public function build(string $indexUid): Build
     {
         $tables = $this->tables->withSuffix($this->naming->buildSuffix($indexUid));
@@ -153,13 +195,15 @@ final readonly class Importer implements ImporterInterface
     }
 
     /**
+     * Checks that the tables hold the complete build and that its index exists, under the build
+     * uid or (when its publication was started) as the live index.
+     *
+     * @return string the fingerprint of the build index: the one recorded when its publication started, if it did
+     *
      * @throws BuildNotFoundException when the index, the tables or their metadata of the build are missing
      */
-    private function assertComplete(string $uid, TableNames $tables): void
+    private function assertComplete(string $uid, TableNames $tables): string
     {
-        if (!$this->indexes->exists($uid)) {
-            throw new BuildNotFoundException(\sprintf('The index %s of the build does not exist: was it published or removed already?', $uid));
-        }
         // the metadata is written last: tables without it are those of a failed import
         $stored = $this->storage->read($tables);
         if ($stored->indexUid !== $uid) {
@@ -168,6 +212,23 @@ final readonly class Importer implements ImporterInterface
         if ($stored->schemaVersion !== $this->storage->schemaVersion()) {
             throw new RuntimeException(\sprintf('The build %s has the schema version %d; this version of the library uses %d: import the dumps again.', $uid, $stored->schemaVersion, $this->storage->schemaVersion()));
         }
+
+        $recorded = $this->storage->recordedPublication($tables);
+        if (null !== $recorded) {
+            // a publication was started: the index is under the build uid or live, wherever the swap left it
+            if ($this->indexes->fingerprint($uid) !== $recorded && $this->indexes->fingerprint($this->naming->liveUid()) !== $recorded) {
+                throw new BuildNotFoundException(\sprintf('The index of the build %s exists neither under its uid nor as the live index %s: was it removed?', $uid, $this->naming->liveUid()));
+            }
+
+            return $recorded;
+        }
+
+        $fingerprint = $this->indexes->fingerprint($uid);
+        if (null === $fingerprint) {
+            throw new BuildNotFoundException(\sprintf('The index %s of the build does not exist: was it published or removed already?', $uid));
+        }
+
+        return $fingerprint;
     }
 
     /**
@@ -207,6 +268,20 @@ final readonly class Importer implements ImporterInterface
         }
 
         return $builds;
+    }
+
+    /**
+     * Undoes the swap of a publication whose tables could not be published.
+     */
+    private function swapBack(string $uid, \Throwable $cause): void
+    {
+        try {
+            $this->publisher->swapBack($uid);
+            $this->logger->warning('The tables of the build {build} cannot be published: its index was swapped back out.', ['build' => $uid, 'error' => $cause->getMessage(), 'exception' => $cause]);
+        } catch (\Throwable $exception) {
+            // the next publication of the build finds its index live and publishes the tables
+            $this->logger->error('The tables of the build {build} cannot be published and its index cannot be swapped back out: publish the build again to finish. {error}', ['build' => $uid, 'error' => $exception->getMessage(), 'exception' => $exception]);
+        }
     }
 
     private function discard(string $uid, TableNames $tables, bool $indexCreated, bool $tablesCreated): void

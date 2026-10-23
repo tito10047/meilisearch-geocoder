@@ -11,6 +11,8 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 use Tito10047\GeoBundle\Attribution;
 use Tito10047\GeoBundle\Command\Output\BuildPrinter;
 use Tito10047\Geocoder\Exception\ExceptionInterface;
+use Tito10047\Geocoder\Import\Build;
+use Tito10047\Geocoder\Import\Exception\BuildNotFoundException;
 use Tito10047\Geocoder\Import\ImporterInterface;
 
 /**
@@ -22,6 +24,9 @@ tables to the live names, at once; the index and the tables it replaces are remo
 older builds:
 
   <info>php %command.full_name% geo_20261023120000</info>
+
+When a publication fails or is interrupted, run the same command again: it finishes the
+publication from wherever it stopped (the index and the tables always end up of one build).
 TXT)]
 final class GeocoderPublishCommand extends Command
 {
@@ -42,7 +47,7 @@ final class GeocoderPublishCommand extends Command
         $uid = $input->getArgument('build');
 
         try {
-            $build = $this->importer->publish($this->importer->build($uid));
+            $build = $this->importer->publish($this->build($uid));
         } catch (ExceptionInterface $e) {
             $io->error($e->getMessage());
 
@@ -54,5 +59,29 @@ final class GeocoderPublishCommand extends Command
         $io->success(\sprintf('The build %s is live.', $build->indexUid));
 
         return Command::SUCCESS;
+    }
+
+    /**
+     * The build, also when a former run published its tables already and stopped before the end:
+     * publishing it from the live tables finishes the publication.
+     *
+     * @throws ExceptionInterface
+     */
+    private function build(string $uid): Build
+    {
+        try {
+            return $this->importer->build($uid);
+        } catch (BuildNotFoundException $e) {
+            try {
+                $live = $this->importer->live();
+            } catch (ExceptionInterface) {
+                throw $e;
+            }
+            if ($live->indexUid !== $uid) {
+                throw $e;
+            }
+
+            return $live;
+        }
     }
 }

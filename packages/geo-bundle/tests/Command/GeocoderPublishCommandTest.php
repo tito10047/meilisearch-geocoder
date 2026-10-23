@@ -8,11 +8,14 @@ use Symfony\Component\Console\Command\Command;
 use Tito10047\GeoBundle\Attribution;
 use Tito10047\GeoBundle\Tests\App\Configs;
 use Tito10047\GeoBundle\Tests\App\TestApplication;
+use Tito10047\GeoBundle\Tests\Fake\Builds;
 use Tito10047\GeoBundle\Tests\Fake\FakeImporter;
 use Tito10047\Geocoder\Exception\GeocoderUnavailableException;
 use Tito10047\Geocoder\Exception\InvalidArgumentException;
+use Tito10047\Geocoder\Import\Build;
 use Tito10047\Geocoder\Import\Exception\BuildNotFoundException;
 use Tito10047\Geocoder\Index\Exception\MeilisearchException;
+use Tito10047\Geocoder\Storage\TableNames;
 
 final class GeocoderPublishCommandTest extends TestCase
 {
@@ -44,6 +47,45 @@ final class GeocoderPublishCommandTest extends TestCase
         $display = $tester->getDisplay(true);
         $this->assertStringContainsString('The build geo_20261020080000 is live.', $display);
         $this->assertStringContainsString(Attribution::OPENSTREETMAP, $display);
+    }
+
+    public function testFinishesAPublicationWhoseTablesAreLiveAlready(): void
+    {
+        $this->importer->buildException = new BuildNotFoundException('There is no build in the tables geo_house_20261020080000.');
+        $this->importer->live = Builds::build('geo_20261020080000')->withTables(new TableNames());
+        $tester = $this->application->command(self::COMMAND);
+
+        $tester->execute(['build' => 'geo_20261020080000']);
+
+        $tester->assertCommandIsSuccessful();
+        // the live build is published again: the rest of the publication is done
+        $this->assertSame(['geo_20261020080000'], $this->importer->published);
+        $this->assertStringContainsString('The build geo_20261020080000 is live.', $tester->getDisplay(true));
+    }
+
+    /**
+     * @return iterable<string, array{Build|null, \Throwable|null}>
+     */
+    public static function otherLiveBuilds(): iterable
+    {
+        yield 'another build is live' => [Builds::build('geo_20261019080000'), null];
+        yield 'nothing is live' => [null, null];
+        yield 'the live build cannot be read' => [null, new GeocoderUnavailableException('The database went away.')];
+    }
+
+    #[DataProvider('otherLiveBuilds')]
+    public function testAMissingBuildThatIsNotLiveFails(?Build $live, ?\Throwable $liveException): void
+    {
+        $this->importer->buildException = new BuildNotFoundException('There is no build in the tables geo_house_20261020080000.');
+        $this->importer->live = $live;
+        $this->importer->liveException = $liveException;
+        $tester = $this->application->command(self::COMMAND);
+
+        $tester->execute(['build' => 'geo_20261020080000']);
+
+        $this->assertSame(Command::FAILURE, $tester->getStatusCode());
+        $this->assertSame([], $this->importer->published);
+        $this->assertStringContainsString('There is no build in the tables geo_house_20261020080000.', (string) preg_replace('/\s+/', ' ', $tester->getDisplay(true)));
     }
 
     /**

@@ -76,9 +76,7 @@ final readonly class PdoBuildStorage implements BuildStorageInterface
 
     public function read(TableNames $tables): Build
     {
-        if (!TablePairs::contains($this->tables(), $tables->metadata)) {
-            throw new BuildNotFoundException(\sprintf('There is no build in the tables %s: the table %s does not exist.', $tables->houseNumbers, $tables->metadata));
-        }
+        $this->assertBuild($tables);
 
         return $this->metadata->read($tables);
     }
@@ -93,6 +91,19 @@ final readonly class PdoBuildStorage implements BuildStorageInterface
         }
 
         return false;
+    }
+
+    public function recordPublication(TableNames $tables, string $indexFingerprint): void
+    {
+        $this->assertBuild($tables);
+        $this->metadata->writePublication($tables, $indexFingerprint);
+    }
+
+    public function recordedPublication(TableNames $tables): ?string
+    {
+        $this->assertBuild($tables);
+
+        return $this->metadata->readPublication($tables);
     }
 
     public function publish(TableNames $build, TableNames $live): void
@@ -155,6 +166,16 @@ final readonly class PdoBuildStorage implements BuildStorageInterface
             }
         } catch (\PDOException) {
             // nothing more can be done: the caller is handling a failure already
+        }
+    }
+
+    /**
+     * @throws BuildNotFoundException when the metadata table does not exist
+     */
+    private function assertBuild(TableNames $tables): void
+    {
+        if (!TablePairs::contains($this->tables(), $tables->metadata)) {
+            throw new BuildNotFoundException(\sprintf('There is no build in the tables %s: the table %s does not exist.', $tables->houseNumbers, $tables->metadata));
         }
     }
 

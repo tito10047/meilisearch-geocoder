@@ -121,19 +121,50 @@ final readonly class MeilisearchApi
 
     public function indexExists(string $uid): bool
     {
-        try {
-            (new Indexes($this->http, $uid))->fetchRawInfo();
+        return null !== $this->indexInfo($uid);
+    }
 
-            return true;
+    /**
+     * When the index was created, to the nanosecond ("2026-10-23T14:27:21.027114682Z"): it moves
+     * with the index on a swap or a rename, so it tells the indexes apart.
+     *
+     * @return string|null null when the index does not exist
+     */
+    public function indexCreatedAt(string $uid): ?string
+    {
+        $info = $this->indexInfo($uid);
+        if (null === $info) {
+            return null;
+        }
+        $createdAt = $info['createdAt'] ?? null;
+        if (!\is_string($createdAt) || '' === $createdAt) {
+            throw new MeilisearchException(\sprintf('Meilisearch returned the index %s without its creation time.', $uid));
+        }
+
+        return $createdAt;
+    }
+
+    /**
+     * @return array<array-key, mixed>|null null when the index does not exist
+     */
+    private function indexInfo(string $uid): ?array
+    {
+        try {
+            $info = (new Indexes($this->http, $uid))->fetchRawInfo();
         } catch (ApiException $e) {
             if ('index_not_found' === $e->errorCode) {
-                return false;
+                return null;
             }
 
             throw new MeilisearchException(\sprintf('Cannot read the index %s from Meilisearch: %s', $uid, $e->getMessage()), 0, $e);
         } catch (MeilisearchExceptionInterface|ClientExceptionInterface|\JsonException|\TypeError $e) {
             throw new MeilisearchException(\sprintf('Cannot read the index %s from Meilisearch: %s', $uid, $e->getMessage()), 0, $e);
         }
+        if (null === $info) {
+            throw new MeilisearchException(\sprintf('Meilisearch returned an empty answer when trying to read the index %s.', $uid));
+        }
+
+        return $info;
     }
 
     /**

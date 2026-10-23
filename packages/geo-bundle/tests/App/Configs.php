@@ -30,6 +30,15 @@ final class Configs
      */
     public const EMPTY_ENV = '%env(GEO_TEST_EMPTY)%';
 
+    /** An environment variable resolving to the index uid "places". */
+    public const INDEX_ENV = '%env(GEO_TEST_INDEX)%';
+
+    /**
+     * An environment variable without a default: a test sets it at runtime (its value is not
+     * known when the container is built, so the configuration cannot validate it).
+     */
+    public const RUNTIME_INDEX_ENV = '%env(GEO_TEST_RUNTIME_INDEX)%';
+
     /**
      * The fakes of the services the commands and the autocompleter use.
      *

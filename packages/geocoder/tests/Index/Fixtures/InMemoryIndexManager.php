@@ -13,7 +13,7 @@ use Tito10047\Geocoder\Tests\Fake\InMemoryDocumentWriter;
  * Indexes as named labels: enough to check what is swapped and deleted.
  *
  * The documents, the settings hash and the writer of an index follow its label (its content)
- * through the swaps. snapshot() writes the labels into a file of the snapshot directory, when
+ * through the swaps; the label is the fingerprint. snapshot() writes the labels into a file of the snapshot directory, when
  * one is given.
  */
 final class InMemoryIndexManager implements IndexManagerInterface
@@ -27,6 +27,12 @@ final class InMemoryIndexManager implements IndexManagerInterface
     public ?string $snapshotDirectory = null;
     /** @var string|null the operation ("create", "compact", …) that throws */
     public ?string $failOn = null;
+    /** @var int from which call the failing operation throws: 2 lets the first one succeed */
+    public int $failFromCall = 1;
+    /** @var \Throwable|null what the failing operation throws instead of a RuntimeException */
+    public ?\Throwable $failure = null;
+    /** @var array<string, int> calls by operation */
+    private array $calls = [];
 
     /**
      * @param array<string, string> $indexes index uid => label of its content
@@ -81,13 +87,30 @@ final class InMemoryIndexManager implements IndexManagerInterface
     public function delete(string $uid): void
     {
         $this->log[] = 'delete '.$uid;
+        $this->fail('delete');
         $this->get($uid);
         unset($this->indexes[$uid]);
     }
 
     public function exists(string $uid): bool
     {
+        $this->fail('exists');
+
         return isset($this->indexes[$uid]);
+    }
+
+    public function fingerprint(string $uid): ?string
+    {
+        $this->fail('fingerprint');
+
+        return $this->indexes[$uid] ?? null;
+    }
+
+    public function version(): string
+    {
+        $this->fail('version');
+
+        return '1.35.1';
     }
 
     public function indexUids(): array
@@ -97,6 +120,7 @@ final class InMemoryIndexManager implements IndexManagerInterface
 
     public function status(string $uid): IndexStatus
     {
+        $this->fail('status');
         $label = $this->get($uid);
 
         return new IndexStatus($uid, \count(isset($this->writers[$label]) ? $this->writers[$label]->documents : []), 0, 0, false, $this->settingsHashes[$label] ?? null, '1.35.1');
@@ -113,8 +137,9 @@ final class InMemoryIndexManager implements IndexManagerInterface
 
     private function fail(string $operation): void
     {
-        if ($operation === $this->failOn) {
-            throw new RuntimeException(\sprintf('The %s failed.', $operation));
+        $this->calls[$operation] = ($this->calls[$operation] ?? 0) + 1;
+        if ($operation === $this->failOn && $this->calls[$operation] >= $this->failFromCall) {
+            throw $this->failure ?? new RuntimeException(\sprintf('The %s failed.', $operation));
         }
     }
 

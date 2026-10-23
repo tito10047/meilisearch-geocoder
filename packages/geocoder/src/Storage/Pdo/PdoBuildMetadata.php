@@ -28,6 +28,7 @@ final readonly class PdoBuildMetadata
     private const DUMPS = 'dumps';
     private const DATA_TIMESTAMP_PREFIX = 'data_timestamp.';
     private const COUNT_PREFIX = 'count.';
+    private const PUBLICATION = 'publication.index_fingerprint';
     private const TIMESTAMP_FORMAT = \DateTimeInterface::ATOM;
 
     public function __construct(private \PDO $pdo)
@@ -118,6 +119,76 @@ final readonly class PdoBuildMetadata
         } catch (InvalidArgumentException|\JsonException $exception) {
             throw new StorageException(\sprintf('The metadata of the build in %s is invalid: %s', $tables->metadata, $exception->getMessage()), 0, $exception);
         }
+    }
+
+    /**
+     * Records the fingerprint of the index of the build whose publication starts, replacing an
+     * earlier one.
+     *
+     * @throws BuildNotFoundException when the table holds no build
+     * @throws StorageException       when it cannot be written
+     */
+    public function writePublication(TableNames $tables, string $indexFingerprint): void
+    {
+        if ('' === $indexFingerprint) {
+            throw new InvalidArgumentException('The fingerprint of the index of a build must not be empty.');
+        }
+
+        $ownsTransaction = !$this->pdo->inTransaction();
+        try {
+            if ($ownsTransaction) {
+                $this->pdo->beginTransaction();
+            }
+            if (null === $this->value($tables, self::INDEX_UID)) {
+                throw new BuildNotFoundException(\sprintf('The table %s holds no build.', $tables->metadata));
+            }
+            $this->pdo->prepare(\sprintf('DELETE FROM %s WHERE meta_key = ?', $tables->metadata))->execute([self::PUBLICATION]);
+            $this->pdo->prepare(\sprintf('INSERT INTO %s (meta_key, meta_value) VALUES (?, ?)', $tables->metadata))->execute([self::PUBLICATION, $indexFingerprint]);
+            if ($ownsTransaction) {
+                $this->pdo->commit();
+            }
+        } catch (\PDOException|BuildNotFoundException $exception) {
+            if ($ownsTransaction && $this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+            if ($exception instanceof BuildNotFoundException) {
+                throw $exception;
+            }
+
+            throw new StorageException(\sprintf('Recording the publication of the build in %s failed: %s', $tables->metadata, $exception->getMessage()), 0, $exception);
+        }
+    }
+
+    /**
+     * The fingerprint recorded by writePublication(), if any.
+     *
+     * @throws BuildNotFoundException when the table holds no build
+     * @throws StorageException       when it cannot be read
+     */
+    public function readPublication(TableNames $tables): ?string
+    {
+        try {
+            if (null === $this->value($tables, self::INDEX_UID)) {
+                throw new BuildNotFoundException(\sprintf('The table %s holds no build.', $tables->metadata));
+            }
+
+            return $this->value($tables, self::PUBLICATION);
+        } catch (\PDOException $exception) {
+            throw new StorageException(\sprintf('Reading the publication of the build from %s failed: %s', $tables->metadata, $exception->getMessage()), 0, $exception);
+        }
+    }
+
+    /**
+     * @throws \PDOException
+     */
+    private function value(TableNames $tables, string $key): ?string
+    {
+        $statement = $this->pdo->prepare(\sprintf('SELECT meta_value FROM %s WHERE meta_key = ?', $tables->metadata));
+        $statement->execute([$key]);
+        $value = $statement->fetchColumn();
+        $statement->closeCursor();
+
+        return \is_string($value) ? $value : null;
     }
 
     /**

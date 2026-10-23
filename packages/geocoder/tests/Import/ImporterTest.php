@@ -6,6 +6,7 @@ use PHPUnit\Framework\TestCase;
 use Tito10047\Geocoder\Exception\InvalidArgumentException;
 use Tito10047\Geocoder\Exception\InvalidDumpException;
 use Tito10047\Geocoder\Exception\RuntimeException;
+use Tito10047\Geocoder\Exception\StorageException;
 use Tito10047\Geocoder\Import\Build;
 use Tito10047\Geocoder\Import\ConverterInterface;
 use Tito10047\Geocoder\Import\Exception\BuildNotFoundException;
@@ -14,10 +15,12 @@ use Tito10047\Geocoder\Import\Importer;
 use Tito10047\Geocoder\Import\Photon\PhotonConverter;
 use Tito10047\Geocoder\Index\IndexSettings;
 use Tito10047\Geocoder\Index\TimestampIndexNaming;
+use Tito10047\Geocoder\Storage\BuildStorageInterface;
 use Tito10047\Geocoder\Storage\Pdo\PdoBuildStorage;
 use Tito10047\Geocoder\Storage\Pdo\PdoSchema;
 use Tito10047\Geocoder\Storage\TableNames;
 use Tito10047\Geocoder\Tests\Fake\FailingConverter;
+use Tito10047\Geocoder\Tests\Fake\FailingPublishStorage;
 use Tito10047\Geocoder\Tests\Fake\FrozenClock;
 use Tito10047\Geocoder\Tests\Fake\RecordingProgress;
 use Tito10047\Geocoder\Tests\Fake\Sql;
@@ -292,6 +295,161 @@ final class ImporterTest extends TestCase
         $this->importer()->live();
     }
 
+    public function testUndoesTheSwapWhenTheTablesCannotBePublished(): void
+    {
+        $storage = new FailingPublishStorage($this->storage);
+        $importer = $this->importer(storage: $storage);
+        $first = $importer->import([self::DUMP]);
+        $importer->publish($first);
+        $this->clock->advance('+1 hour');
+        $second = $importer->import([self::DUMP]);
+        $storage->publishFailures = 1;
+
+        try {
+            $importer->publish($second);
+            $this->fail('The publication did not fail.');
+        } catch (StorageException) {
+        }
+
+        // the index and the tables stay of one build
+        $this->assertSame(['geo' => $first->indexUid, $second->indexUid => $second->indexUid], $this->indexes->indexes);
+        $this->assertSame($first->indexUid, $importer->live()->indexUid);
+
+        $importer->publish($importer->build($second->indexUid));
+
+        $this->assertSame(['geo' => $second->indexUid], $this->indexes->indexes);
+        $this->assertSame($second->indexUid, $importer->live()->indexUid);
+    }
+
+    public function testUndoesTheRenameWhenTheTablesOfTheFirstBuildCannotBePublished(): void
+    {
+        $storage = new FailingPublishStorage($this->storage);
+        $importer = $this->importer(storage: $storage);
+        $build = $importer->import([self::DUMP]);
+        $storage->publishFailures = 1;
+
+        try {
+            $importer->publish($build);
+            $this->fail('The publication did not fail.');
+        } catch (StorageException) {
+        }
+
+        $this->assertSame([self::BUILD => self::BUILD], $this->indexes->indexes);
+        $this->assertSame(['swap '.self::BUILD.' geo', 'swap geo '.self::BUILD], \array_slice($this->indexes->log, -2));
+
+        $importer->publish($importer->build(self::BUILD));
+
+        $this->assertSame(['geo' => self::BUILD], $this->indexes->indexes);
+        $this->assertSame(self::BUILD, $importer->live()->indexUid);
+    }
+
+    public function testFinishesAFirstPublicationWhoseRenameCouldNotBeUndone(): void
+    {
+        $storage = new FailingPublishStorage($this->storage);
+        $importer = $this->importer(storage: $storage);
+        $build = $importer->import([self::DUMP]);
+        $storage->publishFailures = 1;
+        $this->indexes->failOn = 'swap';
+        $this->indexes->failFromCall = 2;
+
+        try {
+            $importer->publish($build);
+            $this->fail('The publication did not fail.');
+        } catch (StorageException) {
+        }
+        // the state left by the first integration: the index live, the tables not
+        $this->assertSame(['geo' => self::BUILD], $this->indexes->indexes);
+        $this->indexes->failOn = null;
+        $log = \count($this->indexes->log);
+
+        $live = $importer->publish($importer->build(self::BUILD));
+
+        $this->assertSame(self::BUILD, $live->indexUid);
+        $this->assertSame(self::BUILD, $importer->live()->indexUid);
+        $this->assertSame(['geo' => self::BUILD], $this->indexes->indexes);
+        $this->assertSame([], \array_slice($this->indexes->log, $log), 'The index was touched again.');
+        $this->assertSame([], $this->storage->suffixes(new TableNames()));
+    }
+
+    public function testFinishesAPublicationWhoseSwapCouldNotBeUndone(): void
+    {
+        $storage = new FailingPublishStorage($this->storage);
+        $importer = $this->importer(storage: $storage);
+        $first = $importer->import([self::DUMP]);
+        $importer->publish($first);
+        $this->clock->advance('+1 hour');
+        $second = $importer->import([self::DUMP]);
+        $storage->publishFailures = 1;
+        $this->indexes->failOn = 'swap';
+        // the swap in succeeds, the swap back fails
+        $this->indexes->failFromCall = 3;
+
+        try {
+            $importer->publish($second);
+            $this->fail('The publication did not fail.');
+        } catch (StorageException) {
+        }
+        $this->assertSame(['geo' => $second->indexUid, $second->indexUid => $first->indexUid], $this->indexes->indexes);
+        $this->indexes->failOn = null;
+
+        $importer->publish($importer->build($second->indexUid));
+
+        $this->assertSame(['geo' => $second->indexUid], $this->indexes->indexes);
+        $this->assertSame($second->indexUid, $importer->live()->indexUid);
+        $this->assertSame('delete '.$second->indexUid, $this->indexes->log[\count($this->indexes->log) - 1]);
+    }
+
+    public function testFinishesAPublicationStoppedAfterTheTables(): void
+    {
+        $importer = $this->importer();
+        $first = $importer->import([self::DUMP]);
+        $importer->publish($first);
+        $this->clock->advance('+1 hour');
+        $second = $importer->import([self::DUMP]);
+        $this->indexes->failOn = 'delete';
+
+        try {
+            $importer->publish($second);
+            $this->fail('The publication did not fail.');
+        } catch (RuntimeException) {
+        }
+        $this->indexes->failOn = null;
+        // the tables of the build are live: it is published from there
+        $this->assertSame($second->indexUid, $importer->live()->indexUid);
+
+        $live = $importer->publish($importer->live());
+
+        $this->assertSame($second->indexUid, $live->indexUid);
+        $this->assertSame(['geo' => $second->indexUid], $this->indexes->indexes);
+    }
+
+    public function testPublishingTheLiveBuildAgainChangesNothing(): void
+    {
+        $importer = $this->importer();
+        $build = $importer->import([self::DUMP]);
+        $importer->publish($build);
+        $log = \count($this->indexes->log);
+
+        $live = $importer->publish($importer->live());
+
+        $this->assertEquals($importer->live(), $live);
+        $this->assertSame(['geo' => self::BUILD], $this->indexes->indexes);
+        $this->assertSame([], \array_slice($this->indexes->log, $log));
+    }
+
+    public function testFindsNoBuildWhoseIndexWasRemovedDuringItsPublication(): void
+    {
+        $importer = $this->importer();
+        $build = $importer->import([self::DUMP]);
+        $this->storage->recordPublication($build->tables, self::BUILD);
+        $this->indexes->delete(self::BUILD);
+
+        $this->expectException(BuildNotFoundException::class);
+        $this->expectExceptionMessage('exists neither under its uid nor as the live index geo');
+
+        $importer->build(self::BUILD);
+    }
+
     public function testCleansUpTheBuildsExceptThoseToKeep(): void
     {
         $importer = $this->importer();
@@ -310,9 +468,9 @@ final class ImporterTest extends TestCase
         $this->assertSame([], $importer->cleanup());
     }
 
-    private function importer(ConverterInterface $converter = new PhotonConverter()): Importer
+    private function importer(ConverterInterface $converter = new PhotonConverter(), ?BuildStorageInterface $storage = null): Importer
     {
-        return new Importer($converter, $this->indexes, $this->storage, new TimestampIndexNaming(), new IndexSettings(), new TableNames(), $this->clock);
+        return new Importer($converter, $this->indexes, $storage ?? $this->storage, new TimestampIndexNaming(), new IndexSettings(), new TableNames(), $this->clock);
     }
 
     private function value(string $sql): string
