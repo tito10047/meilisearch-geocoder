@@ -24,6 +24,8 @@ final readonly class Document
      * @param string                $region      the region (state) the document is in ("" when unknown)
      * @param string                $countryCode ISO 3166-1 alpha-2, upper case
      * @param int                   $rank        the custom ranking rule "rank:desc": type of place × 1000 + importance × 999
+     * @param string                $suburb      the part of the town the document is in, in its local name ("" when the address names none)
+     * @param string                $county      the county (district) the document is in, in its local name ("" when unknown)
      *
      * @throws InvalidArgumentException when a value is invalid
      */
@@ -41,6 +43,8 @@ final readonly class Document
         public ?string $postcode,
         public Coordinates $coordinates,
         public int $rank,
+        public string $suburb = '',
+        public string $county = '',
     ) {
         if ('' === $id) {
             throw new InvalidArgumentException('The id of a document must not be empty.');
@@ -59,7 +63,7 @@ final readonly class Document
     /**
      * The document as stored in Meilisearch; empty translations are left out.
      *
-     * @return array{id: string, kind: string, type: string, name: string, names: list<string>, cities: list<string>, names_i18n?: array<string, string>, city: string, region: string, cc: string, postcode: string|null, _geo: array{lat: float, lng: float}, rank: int}
+     * @return array{id: string, kind: string, type: string, name: string, names: list<string>, cities: list<string>, names_i18n?: array<string, string>, suburb: string, city: string, county: string, region: string, cc: string, postcode: string|null, _geo: array{lat: float, lng: float}, rank: int}
      */
     public function toArray(): array
     {
@@ -70,7 +74,9 @@ final readonly class Document
             'name' => $this->name,
             'names' => $this->names,
             'cities' => $this->cities,
+            'suburb' => $this->suburb,
             'city' => $this->city,
+            'county' => $this->county,
             'region' => $this->region,
             'cc' => $this->countryCode,
             'postcode' => $this->postcode,
@@ -88,7 +94,7 @@ final readonly class Document
      * Reads a document stored in Meilisearch (a search hit) or in an NDJSON file.
      *
      * The fields that are only searched ("names", "cities") may be missing: an index does not
-     * have to display them.
+     * have to display them. So may the suburb and the county, which documents of an older format lack.
      *
      * @param array<array-key, mixed> $document
      *
@@ -125,6 +131,8 @@ final readonly class Document
             postcode: $postcode,
             coordinates: new Coordinates(self::float($geo, 'lat'), self::float($geo, 'lng')),
             rank: self::int($document, 'rank'),
+            suburb: self::string($document, 'suburb', ''),
+            county: self::string($document, 'county', ''),
         );
     }
 

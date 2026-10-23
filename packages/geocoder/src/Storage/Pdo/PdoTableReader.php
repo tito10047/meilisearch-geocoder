@@ -39,7 +39,7 @@ final readonly class PdoTableReader
      */
     public function houseNumbers(TableNames $tables): \Generator
     {
-        $sql = \sprintf('SELECT street_key, number, postcode, lat, lon FROM %s', $tables->houseNumbers);
+        $sql = \sprintf('SELECT street_key, number, postcode, lat, lon, suburb, reference FROM %s', $tables->houseNumbers);
         foreach ($this->rows($sql) as $row) {
             try {
                 yield new HouseNumber(
@@ -47,6 +47,8 @@ final readonly class PdoTableReader
                     (string) $row[1],
                     null === $row[2] ? null : (string) $row[2],
                     new Coordinates((float) $row[3], (float) $row[4]),
+                    null === $row[5] ? null : (string) $row[5],
+                    null === $row[6] ? null : (string) $row[6],
                 );
             } catch (InvalidArgumentException $exception) {
                 throw new StorageException(\sprintf('A row of %s is not a house number: %s', $tables->houseNumbers, $exception->getMessage()), 0, $exception);

@@ -10,6 +10,7 @@ use Tito10047\Geocoder\Exception\InvalidArgumentException;
 use Tito10047\Geocoder\Import\ImportCounts;
 use Tito10047\Geocoder\Index\IndexSettings;
 use Tito10047\Geocoder\Storage\Pdo\PdoBuildStorage;
+use Tito10047\Geocoder\Storage\Pdo\PdoSchema;
 use Tito10047\Geocoder\Storage\TableNames;
 use Tito10047\Geocoder\Tests\Fake\PublishedBuild;
 use Tito10047\Geocoder\Tests\Fake\Sql;
@@ -39,7 +40,7 @@ final class ArtifactBuilderTest extends TestCase
         $manifest = $artifact->manifest;
         $this->assertSame('1.35.1', $manifest->meilisearchVersion);
         $this->assertSame((new IndexSettings())->hash(), $manifest->settingsHash);
-        $this->assertSame(1, $manifest->schemaVersion);
+        $this->assertSame(PdoSchema::VERSION, $manifest->schemaVersion);
         $this->assertSame('geo_20261023120000', $manifest->indexUid);
         $this->assertSame('geo', $manifest->liveUid);
         $this->assertEquals(new \DateTimeImmutable('2026-10-23 12:00:00 UTC'), $manifest->startedAt);

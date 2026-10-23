@@ -105,7 +105,7 @@ final class SearchQualityTest extends TestCase
 
         // the house numbers and the translations are not measured: empty tables
         $connection = new \PDO('sqlite::memory:');
-        $connection->exec('CREATE TABLE geo_house (street_key BIGINT NOT NULL, number VARCHAR(32) NOT NULL, orientation VARCHAR(32) NULL, postcode VARCHAR(16) NULL, lat DOUBLE PRECISION NOT NULL, lon DOUBLE PRECISION NOT NULL)');
+        $connection->exec('CREATE TABLE geo_house (street_key BIGINT NOT NULL, number VARCHAR(32) NOT NULL, orientation VARCHAR(32) NULL, postcode VARCHAR(16) NULL, lat DOUBLE PRECISION NOT NULL, lon DOUBLE PRECISION NOT NULL, suburb VARCHAR(255) NULL, reference VARCHAR(32) NULL)');
         $connection->exec('CREATE TABLE geo_name (cc CHAR(2) NOT NULL, kind VARCHAR(8) NOT NULL, name VARCHAR(255) NOT NULL, lang VARCHAR(3) NOT NULL, translation VARCHAR(255) NOT NULL)');
 
         $this->geocoder = GeocoderFactory::create($client, $connection, $index);

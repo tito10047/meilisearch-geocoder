@@ -7,10 +7,11 @@ use Tito10047\Geocoder\Name\NameKind;
 use Tito10047\Geocoder\Name\Translation;
 
 /**
- * Reads the translations of towns and regions from the address keys "city:xx" and "state:xx",
- * and those of countries from the "CountryInfo" record.
+ * Reads the translations of the parts of towns, the towns, the counties and the regions from the
+ * address keys "suburb:xx", "city:xx", "county:xx" and "state:xx", and those of countries from the
+ * "CountryInfo" record.
  *
- * A town or a region is named in the documents by its local name, so only the translations that
+ * A town, a county or a region is named in the documents by its local name, so only the translations that
  * differ from it are kept. A country is named by its code, which no one reads: all its
  * translations are kept, the one in its own language included.
  */
@@ -40,6 +41,14 @@ final readonly class PhotonTranslationExtractor implements TranslationExtractorI
         $town = $this->address->town($place);
         foreach ($this->address->townTranslations($place, $town) as $language => $translation) {
             $translations[] = new Translation($place->countryCode, NameKind::City, $town, $language, $translation);
+        }
+        $suburb = $this->address->suburb($place);
+        foreach ($this->address->suburbTranslations($place) as $language => $translation) {
+            $translations[] = new Translation($place->countryCode, NameKind::Suburb, $suburb, $language, $translation);
+        }
+        $county = $this->address->county($place);
+        foreach ($this->address->countyTranslations($place) as $language => $translation) {
+            $translations[] = new Translation($place->countryCode, NameKind::County, $county, $language, $translation);
         }
         $region = $this->address->region($place);
         foreach ($this->address->regionTranslations($place) as $language => $translation) {

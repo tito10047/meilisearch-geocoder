@@ -10,11 +10,13 @@ use Tito10047\Geocoder\Search\Backend\MeilisearchSearchBackend;
 use Tito10047\Geocoder\Storage\TableNames;
 
 /**
- * Builds the geocoder with the default collaborators, for the applications without a container:
+ * Builds the geocoder and the lookup of addresses with the default collaborators, for the
+ * applications without a container:
  *
  *     $geocoder = GeocoderFactory::create(new Client('http://127.0.0.1:7700', $key), new \PDO('sqlite:geo.sqlite'));
+ *     $lookup = GeocoderFactory::createAddressLookup(new Client('http://127.0.0.1:7700', $key), new \PDO('sqlite:geo.sqlite'));
  *
- * To replace a collaborator, construct Geocoder directly.
+ * To replace a collaborator, construct Geocoder or AddressLookup directly.
  */
 final class GeocoderFactory
 {
@@ -38,6 +40,27 @@ final class GeocoderFactory
             new PdoHouseNumberStore($connection, $tables),
             $catalog,
             new Reranker($maxRankGap),
+            new LabelFormatter($catalog),
+        );
+    }
+
+    /**
+     * @param string $indexUid the Meilisearch index holding the documents
+     *
+     * @throws InvalidArgumentException when a value is invalid
+     */
+    public static function createAddressLookup(
+        Client $client,
+        \PDO $connection,
+        string $indexUid = 'geo',
+        TableNames $tables = new TableNames(),
+    ): AddressLookup {
+        $catalog = new PdoNameCatalog($connection, $tables);
+
+        return new AddressLookup(
+            new PdoHouseNumberStore($connection, $tables),
+            new MeilisearchSearchBackend($client, $indexUid),
+            $catalog,
             new LabelFormatter($catalog),
         );
     }

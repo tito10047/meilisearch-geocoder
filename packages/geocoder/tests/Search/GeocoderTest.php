@@ -395,6 +395,25 @@ final class GeocoderTest extends TestCase
         $this->assertSame(['606/42', null], array_map(static fn (Suggestion $suggestion): ?string => $suggestion->houseNumber, $withoutExact));
     }
 
+    public function testGivesTheSuburbTheCountyAndTheReference(): void
+    {
+        $street = Documents::create('s'.self::HLAVNA_KEY, 'Hlavná', 'SK', DocumentKind::Street, 'street', 25000, 'Košice', 'Košický kraj',
+            postcode: '040 01', suburb: 'Staré Mesto', county: 'okres Košice I');
+        $houseNumbers = new FakeHouseNumberStore([
+            new HouseNumber(new StreetKey(self::HLAVNA_KEY), '12', null, new Coordinates(48.72, 21.25), 'Sever', '7101722639'),
+        ]);
+
+        [$address, $streetSuggestion] = $this->geocoder(new FakeSearchBackend([$street]), $houseNumbers)->suggest('Hlavná 12');
+
+        $this->assertSame('Sever', $address->suburb);
+        $this->assertSame('okres Košice I', $address->county);
+        $this->assertSame('7101722639', $address->reference);
+        $this->assertSame('Hlavná 12, Košice, SK', $address->label);
+        $this->assertSame('Staré Mesto', $streetSuggestion->suburb);
+        $this->assertSame('okres Košice I', $streetSuggestion->county);
+        $this->assertNull($streetSuggestion->reference);
+    }
+
     private function geocoder(FakeSearchBackend $backend, ?FakeHouseNumberStore $houseNumbers = null, ?RerankerInterface $reranker = null): Geocoder
     {
         $catalog = new FakeNameCatalog(self::TRANSLATIONS);

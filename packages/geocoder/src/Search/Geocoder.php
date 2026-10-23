@@ -8,7 +8,6 @@ use Tito10047\Geocoder\Exception\InvalidArgumentException;
 use Tito10047\Geocoder\HouseNumber\HouseNumber;
 use Tito10047\Geocoder\HouseNumber\HouseNumberStoreInterface;
 use Tito10047\Geocoder\Name\NameCatalogInterface;
-use Tito10047\Geocoder\Name\NameKind;
 use Tito10047\Geocoder\Search\Backend\BackendQuery;
 use Tito10047\Geocoder\Search\Backend\SearchBackendInterface;
 use Tito10047\Geocoder\Search\Backend\SearchHit;
@@ -31,7 +30,7 @@ use Tito10047\Geocoder\StreetKey;
  *     before their street; when no street is found at all, the number is a part of the name
  *     ("Praha 11", "Wien 3") and the whole text is searched again;
  *  4. every suggestion is named in the requested language (the translations of the document, the
- *     towns and regions from the name catalog) and labelled;
+ *     parts of towns, towns, counties and regions from the name catalog) and labelled;
  *  5. the reranker reorders them (knowing the ranks of their documents) and the first $limit are
  *     returned.
  */
@@ -39,7 +38,8 @@ final readonly class Geocoder implements GeocoderInterface
 {
     public const DEFAULT_RERANK_WINDOW = 15;
     private const MIN_LENGTH = 2;
-    private const ADDRESS_TYPE = 'house';
+
+    private SuggestionFactory $suggestions;
 
     /**
      * @param positive-int $rerankWindow the number of documents fetched for the reranker when a country is preferred
@@ -49,15 +49,16 @@ final readonly class Geocoder implements GeocoderInterface
     public function __construct(
         private SearchBackendInterface $backend,
         private HouseNumberStoreInterface $houseNumbers,
-        private NameCatalogInterface $catalog,
+        NameCatalogInterface $catalog,
         private RerankerInterface $reranker,
-        private LabelFormatterInterface $labelFormatter,
+        LabelFormatterInterface $labelFormatter,
         private QueryParserInterface $parser = new QueryParser(),
         private int $rerankWindow = self::DEFAULT_RERANK_WINDOW,
     ) {
         if ($rerankWindow < 1) {
             throw new InvalidArgumentException(\sprintf('The rerank window must be positive, %d given.', $rerankWindow));
         }
+        $this->suggestions = new SuggestionFactory($catalog, $labelFormatter);
     }
 
     /**
@@ -81,7 +82,7 @@ final readonly class Geocoder implements GeocoderInterface
         $candidates = [];
         foreach ($hits as $hit) {
             $document = $hit->document;
-            $suggestion = $this->suggestion($document, $options->language());
+            $suggestion = $this->suggestions->fromDocument($document, $options->language());
             if (null !== $query->houseNumber && DocumentKind::Street === $document->kind) {
                 foreach ($this->addresses($document, $suggestion, $query->houseNumber, $options) as $address) {
                     $candidates[] = new RankedSuggestion($address, $document->rank, $hit->matchingWords);
@@ -138,57 +139,10 @@ final readonly class Geocoder implements GeocoderInterface
             return [];
         }
 
-        return array_map(fn (HouseNumber $houseNumber): Suggestion => $this->labelled(new Suggestion(
-            id: $street->id.'#'.$houseNumber->number,
-            kind: Kind::Address,
-            type: self::ADDRESS_TYPE,
-            name: $streetSuggestion->name.' '.$houseNumber->number,
-            label: '',
-            coordinates: $houseNumber->coordinates,
-            countryCode: $street->countryCode,
-            city: $streetSuggestion->city,
-            region: $streetSuggestion->region,
-            postcode: $houseNumber->postcode ?? $street->postcode,
-            street: $streetSuggestion->name,
-            houseNumber: $houseNumber->number,
-        ), $options->language()), $this->houseNumbers->find($streetKey, $number, $options->limit));
-    }
-
-    private function suggestion(Document $document, ?string $language): Suggestion
-    {
-        return $this->labelled(new Suggestion(
-            id: $document->id,
-            kind: match ($document->kind) {
-                DocumentKind::Place => Kind::Place,
-                DocumentKind::Street => Kind::Street,
-                DocumentKind::Poi => Kind::Poi,
-            },
-            type: $document->type,
-            name: null === $language ? $document->name : ($document->namesI18n[$language] ?? $document->name),
-            label: '',
-            coordinates: $document->coordinates,
-            countryCode: $document->countryCode,
-            city: $this->translate($document->countryCode, NameKind::City, $document->city, $language),
-            region: $this->translate($document->countryCode, NameKind::Region, $document->region, $language),
-            postcode: $document->postcode,
-        ), $language);
-    }
-
-    private function labelled(Suggestion $suggestion, ?string $language): Suggestion
-    {
-        return $suggestion->withLabel($this->labelFormatter->format($suggestion, $language));
-    }
-
-    private function translate(string $countryCode, NameKind $kind, string $name, ?string $language): ?string
-    {
-        if ('' === $name) {
-            return null;
-        }
-        if (null === $language) {
-            return $name;
-        }
-
-        return $this->catalog->translate($countryCode, $kind, $name, $language) ?? $name;
+        return array_map(
+            fn (HouseNumber $houseNumber): Suggestion => $this->suggestions->address($street, $streetSuggestion, $houseNumber, $options->language()),
+            $this->houseNumbers->find($streetKey, $number, $options->limit),
+        );
     }
 
     /**

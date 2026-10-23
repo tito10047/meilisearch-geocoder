@@ -15,7 +15,7 @@ final class IndexSettingsTest extends TestCase
     {
         $this->assertSame([
             'searchableAttributes' => ['names', 'cities'],
-            'displayedAttributes' => ['id', 'kind', 'type', 'name', 'names_i18n', 'city', 'region', 'cc', 'postcode', '_geo', 'rank'],
+            'displayedAttributes' => ['id', 'kind', 'type', 'name', 'names_i18n', 'suburb', 'city', 'county', 'region', 'cc', 'postcode', '_geo', 'rank'],
             'filterableAttributes' => [[
                 'attributePatterns' => ['cc', 'kind'],
                 'features' => ['facetSearch' => false, 'filter' => ['equality' => true, 'comparison' => false]],
@@ -65,7 +65,7 @@ final class IndexSettingsTest extends TestCase
     {
         // GET /indexes/{uid}/settings of Meilisearch 1.35.1 after applying the defaults
         $settings = [
-            'displayedAttributes' => ['id', 'kind', 'type', 'name', 'names_i18n', 'city', 'region', 'cc', 'postcode', '_geo', 'rank'],
+            'displayedAttributes' => ['id', 'kind', 'type', 'name', 'names_i18n', 'suburb', 'city', 'county', 'region', 'cc', 'postcode', '_geo', 'rank'],
             'searchableAttributes' => ['names', 'cities'],
             'filterableAttributes' => [['attributePatterns' => ['cc', 'kind'], 'features' => ['facetSearch' => false, 'filter' => ['equality' => true, 'comparison' => false]]]],
             'sortableAttributes' => [],

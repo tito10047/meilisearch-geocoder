@@ -45,6 +45,8 @@ final class PdoHouseNumberStoreTest extends TestCase
         foreach ($rows as $row) {
             $insert->execute($row);
         }
+        $this->connection->exec("UPDATE geo_house SET suburb = 'Šaca', reference = '7101722639' WHERE number = '9/12'");
+        $this->connection->exec("UPDATE geo_house SET suburb = '' WHERE number = '120'");
     }
 
     /**
@@ -89,7 +91,43 @@ final class PdoHouseNumberStoreTest extends TestCase
         $this->assertEqualsWithDelta(48.5, $found[0]->coordinates->latitude, \PHP_FLOAT_EPSILON);
         $this->assertEqualsWithDelta(21.5, $found[0]->coordinates->longitude, \PHP_FLOAT_EPSILON);
 
-        $this->assertNull((new PdoHouseNumberStore($this->connection))->find(new StreetKey(self::STREET), '120', 1)[0]->postcode);
+        $this->assertSame('Šaca', $found[0]->suburb);
+        $this->assertSame('7101722639', $found[0]->reference);
+
+        $other = (new PdoHouseNumberStore($this->connection))->find(new StreetKey(self::STREET), '120', 1)[0];
+        $this->assertNull($other->postcode);
+        // an empty column is none
+        $this->assertNull($other->suburb);
+        $this->assertNull($other->reference);
+    }
+
+    public function testFindsByReference(): void
+    {
+        $store = new PdoHouseNumberStore($this->connection);
+
+        $found = $store->findByReference('7101722639');
+
+        $this->assertNotNull($found);
+        $this->assertSame(self::STREET, $found->streetKey->value);
+        $this->assertSame('9/12', $found->number);
+        $this->assertSame('Šaca', $found->suburb);
+        $this->assertSame('7101722639', $found->reference);
+        $this->assertNull($store->findByReference('7101722638'));
+        $this->assertNull($store->findByReference('710172263'));
+    }
+
+    public function testFindsAReferenceOfSeveralObjects(): void
+    {
+        $this->connection->exec("UPDATE geo_house SET reference = '42' WHERE number IN ('12a', '12B')");
+
+        $this->assertContains((new PdoHouseNumberStore($this->connection))->findByReference('42')?->number, ['12a', '12B']);
+    }
+
+    public function testWrapsTheDatabaseErrorsOfTheReferences(): void
+    {
+        $this->expectException(GeocoderUnavailableException::class);
+
+        (new PdoHouseNumberStore($this->connection, new TableNames(houseNumbers: 'missing_house')))->findByReference('1');
     }
 
     public function testReadsOnlyTheStreet(): void
@@ -103,7 +141,7 @@ final class PdoHouseNumberStoreTest extends TestCase
     public function testUsesTheTableNames(): void
     {
         $this->createTable('custom_house');
-        $this->connection->exec("INSERT INTO custom_house VALUES (1, '7', NULL, NULL, 1.0, 2.0)");
+        $this->connection->exec("INSERT INTO custom_house VALUES (1, '7', NULL, NULL, 1.0, 2.0, NULL, NULL)");
 
         $found = (new PdoHouseNumberStore($this->connection, new TableNames(houseNumbers: 'custom_house')))->find(new StreetKey(1), '7', 5);
 
@@ -140,7 +178,7 @@ final class PdoHouseNumberStoreTest extends TestCase
 
     public function testRejectsAnInvalidRow(): void
     {
-        $this->connection->exec('INSERT INTO geo_house VALUES (7, \'1\', NULL, NULL, 91.0, 0.0)');
+        $this->connection->exec('INSERT INTO geo_house VALUES (7, \'1\', NULL, NULL, 91.0, 0.0, NULL, NULL)');
 
         $this->expectException(GeocoderUnavailableException::class);
 
@@ -150,9 +188,10 @@ final class PdoHouseNumberStoreTest extends TestCase
     private function createTable(string $table): void
     {
         $this->connection->exec(<<<SQL
-            CREATE TABLE {$table} (street_key BIGINT NOT NULL, number VARCHAR(32) NOT NULL, orientation VARCHAR(32) NULL, postcode VARCHAR(16) NULL, lat DOUBLE PRECISION NOT NULL, lon DOUBLE PRECISION NOT NULL);
+            CREATE TABLE {$table} (street_key BIGINT NOT NULL, number VARCHAR(32) NOT NULL, orientation VARCHAR(32) NULL, postcode VARCHAR(16) NULL, lat DOUBLE PRECISION NOT NULL, lon DOUBLE PRECISION NOT NULL, suburb VARCHAR(255) NULL, reference VARCHAR(32) NULL);
             CREATE INDEX {$table}_number ON {$table} (street_key, number);
             CREATE INDEX {$table}_orientation ON {$table} (street_key, orientation);
+            CREATE INDEX {$table}_reference ON {$table} (reference);
             SQL);
     }
 }

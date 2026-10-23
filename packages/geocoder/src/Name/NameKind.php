@@ -7,7 +7,9 @@ namespace Tito10047\Geocoder\Name;
  */
 enum NameKind: string
 {
+    case Suburb = 'suburb';
     case City = 'city';
+    case County = 'county';
     case Region = 'region';
     case Country = 'country';
 }

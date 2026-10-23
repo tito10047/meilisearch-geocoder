@@ -3,6 +3,7 @@
 namespace Tito10047\Geocoder\Search\Backend;
 
 use Meilisearch\Client;
+use Meilisearch\Exceptions\ApiException;
 use Meilisearch\Exceptions\ExceptionInterface as MeilisearchException;
 use Psr\Http\Client\ClientExceptionInterface;
 use Tito10047\Geocoder\Document\Document;
@@ -11,14 +12,17 @@ use Tito10047\Geocoder\Exception\GeocoderUnavailableException;
 use Tito10047\Geocoder\Exception\InvalidArgumentException;
 
 /**
- * Searches the documents in a Meilisearch index.
+ * Searches the documents in a Meilisearch index, and reads them by id.
  */
-final readonly class MeilisearchSearchBackend implements SearchBackendInterface
+final readonly class MeilisearchSearchBackend implements SearchBackendInterface, DocumentSourceInterface
 {
+    /** The ids Meilisearch accepts; any other cannot be a document. */
+    private const DOCUMENT_ID = '/^[A-Za-z0-9_-]{1,511}$/D';
+
     /**
      * Only what a suggestion needs: the searched-only fields ("names", "cities") are the largest.
      */
-    private const ATTRIBUTES = ['id', 'kind', 'type', 'name', 'names_i18n', 'city', 'region', 'cc', 'postcode', '_geo', 'rank'];
+    private const ATTRIBUTES = ['id', 'kind', 'type', 'name', 'names_i18n', 'suburb', 'city', 'county', 'region', 'cc', 'postcode', '_geo', 'rank'];
 
     /**
      * @param string $indexUid the index (or the alias swapped in by an import) holding the documents
@@ -68,6 +72,35 @@ final readonly class MeilisearchSearchBackend implements SearchBackendInterface
         }
 
         return \array_slice($found, 0, $query->limit);
+    }
+
+    public function document(string $id): ?Document
+    {
+        // the client puts the id into the path as it is
+        if (1 !== preg_match(self::DOCUMENT_ID, $id)) {
+            return null;
+        }
+
+        try {
+            $document = $this->client->index($this->indexUid)->getDocument($id, self::ATTRIBUTES);
+        } catch (ApiException $e) {
+            if ('document_not_found' === $e->errorCode) {
+                return null;
+            }
+
+            throw new GeocoderUnavailableException(\sprintf('Meilisearch cannot read the document "%s" of the index "%s": %s', $id, $this->indexUid, $e->getMessage()), 0, $e);
+        } catch (MeilisearchException|ClientExceptionInterface|\JsonException $e) {
+            throw new GeocoderUnavailableException(\sprintf('Meilisearch cannot read the document "%s" of the index "%s": %s', $id, $this->indexUid, $e->getMessage()), 0, $e);
+        }
+
+        if (!\is_array($document)) {
+            throw new GeocoderUnavailableException(\sprintf('Meilisearch answered the document "%s" of the index "%s" with something that is not an object.', $id, $this->indexUid));
+        }
+        try {
+            return Document::fromArray($document);
+        } catch (InvalidArgumentException $e) {
+            throw new GeocoderUnavailableException(\sprintf('The index "%s" holds an invalid document: %s', $this->indexUid, $e->getMessage()), 0, $e);
+        }
     }
 
     /**

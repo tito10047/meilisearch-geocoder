@@ -62,6 +62,8 @@ final readonly class PhotonDocumentFactory implements DocumentFactoryInterface
             postcode: null,
             coordinates: $place->centroid,
             rank: $this->rules->rank($this->rules->streetRank, 0.0),
+            suburb: $this->address->suburb($place),
+            county: $this->address->county($place),
         );
     }
 
@@ -87,6 +89,8 @@ final readonly class PhotonDocumentFactory implements DocumentFactoryInterface
             postcode: null,
             coordinates: $place->centroid,
             rank: $this->rules->rank($this->rules->streetRank, 0.0),
+            suburb: $this->address->suburb($place),
+            county: $this->address->county($place),
         );
     }
 
@@ -96,12 +100,28 @@ final readonly class PhotonDocumentFactory implements DocumentFactoryInterface
             return null;
         }
 
+        $suburb = $this->address->suburb($place);
+
         return new HouseNumber(
             StreetKey::fromAddress($place->countryCode, $this->address->town($place), $this->address->street($place)),
             $place->houseNumber,
             $place->postcode,
             $place->centroid,
+            '' === trim($suburb) ? null : $suburb,
+            $this->reference($place),
         );
+    }
+
+    /**
+     * The official id of the address, from the "extra" tag of its country; one the tables cannot
+     * hold (longer than HouseNumber::MAX_REFERENCE_LENGTH) is left out rather than cut.
+     */
+    private function reference(Place $place): ?string
+    {
+        $key = $this->rules->referenceKey($place->countryCode);
+        $reference = null === $key ? null : $place->extraTag($key);
+
+        return null !== $reference && HouseNumber::isValidReference($reference) ? $reference : null;
     }
 
     private function named(Place $place, DocumentKind $kind, string $town, int $baseRank): ?Document
@@ -126,6 +146,8 @@ final readonly class PhotonDocumentFactory implements DocumentFactoryInterface
             postcode: $place->postcode,
             coordinates: $place->centroid,
             rank: $this->rules->rank($baseRank, $place->importance),
+            suburb: $this->address->suburb($place),
+            county: $this->address->county($place),
         );
     }
 

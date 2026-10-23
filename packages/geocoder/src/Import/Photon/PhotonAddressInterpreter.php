@@ -46,6 +46,16 @@ final readonly class PhotonAddressInterpreter implements AddressInterpreterInter
         return $place->address['state'] ?? '';
     }
 
+    public function suburb(Place $place): string
+    {
+        return $place->address['suburb'] ?? '';
+    }
+
+    public function county(Place $place): string
+    {
+        return $place->address['county'] ?? '';
+    }
+
     public function townTranslations(Place $place, string $town): array
     {
         if ('' === $town) {
@@ -64,6 +74,20 @@ final readonly class PhotonAddressInterpreter implements AddressInterpreterInter
         $region = $this->region($place);
 
         return '' === $region ? [] : $this->translations($place->address, 'state', $region);
+    }
+
+    public function suburbTranslations(Place $place): array
+    {
+        $suburb = $this->suburb($place);
+
+        return '' === $suburb ? [] : $this->translations($place->address, 'suburb', $suburb);
+    }
+
+    public function countyTranslations(Place $place): array
+    {
+        $county = $this->county($place);
+
+        return '' === $county ? [] : $this->translations($place->address, 'county', $county);
     }
 
     /**

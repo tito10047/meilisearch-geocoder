@@ -44,7 +44,7 @@ final class MeilisearchDocumentWriterTest extends TestCase
         $this->assertSame('Bearer secret', $http->request(0)->getHeaderLine('Authorization'));
         $lines = explode("\n", (string) $http->request(0)->getBody());
         $this->assertSame(['a', 'b', ''], array_map(static fn (string $line): string => '' === $line ? '' : json_decode($line, true, 512, \JSON_THROW_ON_ERROR)['id'], $lines));
-        $this->assertSame("{\"id\":\"e\",\"kind\":\"street\",\"type\":\"street\",\"name\":\"Hlavná e\",\"names\":[\"Hlavná e\"],\"cities\":[\"Košice\",\"Kassa\"],\"city\":\"Košice\",\"region\":\"Košický kraj\",\"cc\":\"SK\",\"postcode\":null,\"_geo\":{\"lat\":48.7,\"lng\":21.25},\"rank\":25000,\"names_i18n\":{\"hu\":\"Fő utca\"}}\n", (string) $http->request(3)->getBody());
+        $this->assertSame("{\"id\":\"e\",\"kind\":\"street\",\"type\":\"street\",\"name\":\"Hlavná e\",\"names\":[\"Hlavná e\"],\"cities\":[\"Košice\",\"Kassa\"],\"suburb\":\"\",\"city\":\"Košice\",\"county\":\"\",\"region\":\"Košický kraj\",\"cc\":\"SK\",\"postcode\":null,\"_geo\":{\"lat\":48.7,\"lng\":21.25},\"rank\":25000,\"names_i18n\":{\"hu\":\"Fő utca\"}}\n", (string) $http->request(3)->getBody());
     }
 
     public function testOneTaskAtATime(): void

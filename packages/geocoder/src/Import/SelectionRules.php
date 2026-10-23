@@ -51,13 +51,21 @@ final readonly class SelectionRules
         'via_ferrata', 'raceway', 'proposed', 'emergency_bay', 'passing_place', 'stop_line', 'traffic_mirror'];
 
     /**
-     * @param array<string, int>          $placeTypes   OSM values of the key "place" that are places, with their base rank
-     * @param array<string, list<string>> $pois         OSM key => its values that are points of interest
-     * @param int                         $poiRank      the base rank of a point of interest
-     * @param int                         $streetRank   the base rank of a street
-     * @param list<string>                $languages    ISO 639-1: the translations kept in the documents and the catalog of names
-     * @param float                       $placeDedupKm places of the same name and country closer than this are one place (the most important is kept)
+     * The "extra" tag holding the official id of an address, by country: in Slovakia the id of the
+     * register of addresses (its "buildingIndex"), on 91.5 % of the addresses of the dump. The Czech
+     * dump has none (Photon does not export "ref:ruian:addr").
+     */
+    public const DEFAULT_REFERENCE_KEYS = ['SK' => 'ref:minvskaddress'];
+
+    /**
+     * @param array<string, int>          $placeTypes             OSM values of the key "place" that are places, with their base rank
+     * @param array<string, list<string>> $pois                   OSM key => its values that are points of interest
+     * @param int                         $poiRank                the base rank of a point of interest
+     * @param int                         $streetRank             the base rank of a street
+     * @param list<string>                $languages              ISO 639-1: the translations kept in the documents and the catalog of names
+     * @param float                       $placeDedupKm           places of the same name and country closer than this are one place (the most important is kept)
      * @param list<string>                $streetExcludedHighways the values of the OSM key "highway" that are not streets, even named
+     * @param array<string, string>       $referenceKeys          ISO 3166-1 alpha-2 => the "extra" tag holding the official id of an address there
      *
      * @throws InvalidArgumentException when a value is invalid
      */
@@ -69,6 +77,7 @@ final readonly class SelectionRules
         public array $languages = self::DEFAULT_LANGUAGES,
         public float $placeDedupKm = 5.0,
         public array $streetExcludedHighways = self::DEFAULT_STREET_EXCLUDED_HIGHWAYS,
+        public array $referenceKeys = self::DEFAULT_REFERENCE_KEYS,
     ) {
         foreach ($placeTypes as $type => $rank) {
             if (!\is_string($type) || '' === $type || !\is_int($rank) || $rank < 0) {
@@ -93,6 +102,11 @@ final readonly class SelectionRules
         if (!array_is_list($streetExcludedHighways) || [] !== array_filter($streetExcludedHighways, static fn (mixed $value): bool => !\is_string($value) || '' === $value)) {
             throw new InvalidArgumentException('The highways that are not streets must be a list of OSM values.');
         }
+        foreach ($referenceKeys as $countryCode => $key) {
+            if (!\is_string($countryCode) || 1 !== preg_match('/^[A-Z]{2}$/D', $countryCode) || !\is_string($key) || '' === $key) {
+                throw new InvalidArgumentException('The reference keys must map ISO 3166-1 alpha-2 codes in upper case to OSM keys.');
+            }
+        }
     }
 
     /**
@@ -109,6 +123,16 @@ final readonly class SelectionRules
     public function isStreet(string $highwayValue): bool
     {
         return !\in_array($highwayValue, $this->streetExcludedHighways, true);
+    }
+
+    /**
+     * The "extra" tag holding the official id of an address in the country, or null when it has none.
+     *
+     * @param string $countryCode ISO 3166-1 alpha-2, upper case
+     */
+    public function referenceKey(string $countryCode): ?string
+    {
+        return $this->referenceKeys[$countryCode] ?? null;
     }
 
     public function isPoi(string $osmKey, string $osmValue): bool

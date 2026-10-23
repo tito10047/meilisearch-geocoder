@@ -25,7 +25,9 @@ final class Documents
         string $region = '',
         array $namesI18n = [],
         ?string $postcode = null,
+        string $suburb = '',
+        string $county = '',
     ): Document {
-        return new Document($id, $kind, $type, $name, [$name], [], $namesI18n, $city, $region, $countryCode, $postcode, new Coordinates(48.0, 17.0), $rank);
+        return new Document($id, $kind, $type, $name, [$name], [], $namesI18n, $city, $region, $countryCode, $postcode, new Coordinates(48.0, 17.0), $rank, $suburb, $county);
     }
 }

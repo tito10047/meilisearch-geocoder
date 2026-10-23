@@ -4,13 +4,15 @@ namespace Tito10047\Geocoder\Tests\Fake;
 
 use Tito10047\Geocoder\Document\Document;
 use Tito10047\Geocoder\Search\Backend\BackendQuery;
+use Tito10047\Geocoder\Search\Backend\DocumentSourceInterface;
 use Tito10047\Geocoder\Search\Backend\SearchBackendInterface;
 use Tito10047\Geocoder\Search\Backend\SearchHit;
 
 /**
- * Answers every search with the same hits (cut to the limit) and remembers the queries.
+ * Answers every search with the same hits (cut to the limit) and remembers the queries; reads
+ * the documents of the hits by id.
  */
-final class FakeSearchBackend implements SearchBackendInterface
+final class FakeSearchBackend implements SearchBackendInterface, DocumentSourceInterface
 {
     /**
      * @var list<BackendQuery>
@@ -35,5 +37,16 @@ final class FakeSearchBackend implements SearchBackendInterface
         $this->queries[] = $query;
 
         return \array_slice($this->hits, 0, $query->limit);
+    }
+
+    public function document(string $id): ?Document
+    {
+        foreach ($this->hits as $hit) {
+            if ($hit->document->id === $id) {
+                return $hit->document;
+            }
+        }
+
+        return null;
     }
 }

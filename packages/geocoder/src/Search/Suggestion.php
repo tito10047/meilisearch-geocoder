@@ -19,6 +19,10 @@ final readonly class Suggestion
      * @param string|null $region      the region, in the requested language when known
      * @param string|null $street      the street of an address (Kind::Address)
      * @param string|null $houseNumber the house number of an address (Kind::Address)
+     * @param string|null $suburb      the part of the town, in the requested language when known: "Medvedzie" of Tvrdošín
+     * @param string|null $county      the county (district), in the requested language when known: "okres Tvrdošín"
+     * @param string|null $reference   the official id of an address when the data has one (Kind::Address): in Slovakia
+     *                                 the id of the register of addresses ("ref:minvskaddress")
      */
     public function __construct(
         public string $id,
@@ -33,12 +37,15 @@ final readonly class Suggestion
         public ?string $postcode = null,
         public ?string $street = null,
         public ?string $houseNumber = null,
+        public ?string $suburb = null,
+        public ?string $county = null,
+        public ?string $reference = null,
     ) {
     }
 
     public function withLabel(string $label): self
     {
         return new self($this->id, $this->kind, $this->type, $this->name, $label, $this->coordinates, $this->countryCode,
-            $this->city, $this->region, $this->postcode, $this->street, $this->houseNumber);
+            $this->city, $this->region, $this->postcode, $this->street, $this->houseNumber, $this->suburb, $this->county, $this->reference);
     }
 }

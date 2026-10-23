@@ -229,6 +229,8 @@ final class PhotonConverterTest extends TestCase
             $houseNumber->postcode ?? '',
             json_encode($houseNumber->coordinates->latitude, \JSON_THROW_ON_ERROR),
             json_encode($houseNumber->coordinates->longitude, \JSON_THROW_ON_ERROR),
+            $houseNumber->suburb ?? '',
+            $houseNumber->reference ?? '',
         ], $this->houseNumbers->houseNumbers);
         usort($rows, static fn (array $a, array $b): int => [(int) $a[0], ...\array_slice($a, 1)] <=> [(int) $b[0], ...\array_slice($b, 1)]);
 

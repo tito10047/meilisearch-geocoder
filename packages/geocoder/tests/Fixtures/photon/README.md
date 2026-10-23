@@ -20,13 +20,17 @@ It holds:
   (no OSM object).
 
 To keep it small, the geometries, bounding boxes, `extra` and `categories` fields, the `county:*`
-keys and the translations of the address in other languages were removed. Nothing else was changed.
+keys and the translations of the address in other languages were removed. Nothing else was changed,
+except that the houses got back the one `extra` tag the library reads: `ref:minvskaddress` (the id
+of the Slovak register of addresses), taken from the same dump for the 129 houses that have it.
 
 `expected-documents.ndjson` and `expected-house-numbers.csv` are the output of the prototype
 (`_lab/scripts/convert-i18n.php` with the house numbers of `convert.php`, variant D of the
 documents) for this sample, sorted, in the canonical form of `Document::toArray()` — except that
 the second document of the node `N13544973832` (two points of interest, the same id) is left out:
-the library writes each document id once, keeping the first record.
+the library writes each document id once, keeping the first record. The fields the prototype did
+not have were added from the library's output (checked to change nothing else): the `suburb` and
+`county` of the documents, the `suburb` and `reference` of the house numbers.
 
 ## Licence
 

@@ -24,6 +24,19 @@ final class PhotonTranslationExtractorTest extends TestCase
         ], $translations);
     }
 
+    public function testTranslationsOfTheSuburbAndTheCounty(): void
+    {
+        $extractor = new PhotonTranslationExtractor(['hu']);
+
+        $translations = $extractor->fromPlace(Places::create(address: ['suburb' => 'Medvedzie', 'suburb:hu' => 'Medvéd', 'village' => 'Tvrdošín',
+            'county' => 'okres Tvrdošín', 'county:hu' => 'Turdossini járás']));
+
+        $this->assertEquals([
+            new Translation('SK', NameKind::Suburb, 'Medvedzie', 'hu', 'Medvéd'),
+            new Translation('SK', NameKind::County, 'okres Tvrdošín', 'hu', 'Turdossini járás'),
+        ], $translations);
+    }
+
     public function testNoTranslationsWithoutAValidCountry(): void
     {
         $this->assertSame([], (new PhotonTranslationExtractor(['hu']))->fromPlace(Places::create(countryCode: '')));
