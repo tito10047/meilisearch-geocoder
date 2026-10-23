@@ -78,6 +78,17 @@ final class PdoNameCatalogTest extends TestCase
         $this->assertNull($catalog->translate('AT', NameKind::City, 'Wien', 'sk'));
     }
 
+    public function testResetForgetsTheAnswers(): void
+    {
+        $catalog = new PdoNameCatalog($this->connection);
+        $catalog->translate('AT', NameKind::City, 'Wien', 'sk');
+        $this->connection->exec("UPDATE geo_name SET translation = 'Vieden' WHERE lang = 'sk'");
+
+        $catalog->reset();
+
+        $this->assertSame('Vieden', $catalog->translate('AT', NameKind::City, 'Wien', 'sk'));
+    }
+
     public function testRemembersNothingWithAZeroMemo(): void
     {
         $catalog = new PdoNameCatalog($this->connection, memoSize: 0);

@@ -3,6 +3,7 @@
 namespace Tito10047\Geocoder\Tests\Search\Integration;
 
 use Meilisearch\Client;
+use Meilisearch\Exceptions\ApiException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
@@ -16,11 +17,17 @@ use Tito10047\Geocoder\Search\Suggestion;
  * quality-city.py) against a real index: does the expected place come first while typing?
  *
  * Needs the variant D index of _docs/01-merania.md; skipped unless MEILISEARCH_URL is set
- * (MEILISEARCH_KEY and MEILISEARCH_INDEX, "geo" by default, too). The scores are written to STDERR.
+ * (MEILISEARCH_KEY and MEILISEARCH_INDEX, "geo" by default, too) and when that index is missing
+ * or holds fewer than MIN_DOCUMENTS documents. The scores are written to STDERR.
  */
 #[Group('integration')]
 final class SearchQualityTest extends TestCase
 {
+    /**
+     * Fewer documents than this are not the full index the scores were measured on.
+     */
+    private const MIN_DOCUMENTS = 1000;
+
     /**
      * The typed text, the expected name (null for any) and country, as a trip planner expects them.
      */
@@ -81,17 +88,27 @@ final class SearchQualityTest extends TestCase
         }
         $key = getenv('MEILISEARCH_KEY');
         $index = getenv('MEILISEARCH_INDEX');
+        $index = \is_string($index) && '' !== $index ? $index : 'geo';
+        $client = new Client($url, \is_string($key) && '' !== $key ? $key : null);
+
+        // the scores are those of the full index: a missing index or a small one (an integration
+        // test's fixture) is not a failure of the ranking
+        try {
+            $documents = $client->index($index)->stats()['numberOfDocuments'] ?? null;
+        } catch (ApiException $exception) {
+            $this->markTestSkipped(\sprintf('The index "%s" cannot be read (%s): the quality checks need the full variant D index.', $index, $exception->getMessage()));
+        }
+        $documents = \is_int($documents) ? $documents : 0;
+        if ($documents < self::MIN_DOCUMENTS) {
+            $this->markTestSkipped(\sprintf('The index "%s" holds %d documents, fewer than %d: the quality checks need the full variant D index.', $index, $documents, self::MIN_DOCUMENTS));
+        }
 
         // the house numbers and the translations are not measured: empty tables
         $connection = new \PDO('sqlite::memory:');
         $connection->exec('CREATE TABLE geo_house (street_key BIGINT NOT NULL, number VARCHAR(32) NOT NULL, orientation VARCHAR(32) NULL, postcode VARCHAR(16) NULL, lat DOUBLE PRECISION NOT NULL, lon DOUBLE PRECISION NOT NULL)');
         $connection->exec('CREATE TABLE geo_name (cc CHAR(2) NOT NULL, kind VARCHAR(8) NOT NULL, name VARCHAR(255) NOT NULL, lang VARCHAR(3) NOT NULL, translation VARCHAR(255) NOT NULL)');
 
-        $this->geocoder = GeocoderFactory::create(
-            new Client($url, \is_string($key) && '' !== $key ? $key : null),
-            $connection,
-            \is_string($index) && '' !== $index ? $index : 'geo',
-        );
+        $this->geocoder = GeocoderFactory::create($client, $connection, $index);
     }
 
     /**

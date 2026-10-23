@@ -12,7 +12,8 @@ use Tito10047\Geocoder\Storage\TableNames;
  * The suggestions of one search share their towns and countries: the answers are remembered by
  * the instance, up to $memoSize of them (then all forgotten at once), so that the memory of a
  * long-running worker does not grow with the catalog. The memo may outlive an import: a worker
- * should use a new instance per request, or at least after the data is published.
+ * should call reset() between requests (Symfony does it through the "kernel.reset" tag), or at
+ * least after the data is published.
  */
 final class PdoNameCatalog implements NameCatalogInterface
 {
@@ -55,6 +56,15 @@ final class PdoNameCatalog implements NameCatalogInterface
         }
 
         return $translation;
+    }
+
+    /**
+     * Forgets every remembered answer, e.g. between the requests of a long-running worker or
+     * after a publication changed the names.
+     */
+    public function reset(): void
+    {
+        $this->memo = [];
     }
 
     private function query(string $countryCode, NameKind $kind, string $name, string $language): ?string
