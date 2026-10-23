@@ -27,8 +27,10 @@ final class InMemoryIndexManager implements IndexManagerInterface
     public ?string $snapshotDirectory = null;
     /** @var string|null the operation ("create", "compact", …) that throws */
     public ?string $failOn = null;
-    /** @var int the call of from which it throws: 2 lets the first one succeed */
+    /** @var int from which call the failing operation throws: 2 lets the first one succeed */
     public int $failFromCall = 1;
+    /** @var \Throwable|null what the failing operation throws instead of a RuntimeException */
+    public ?\Throwable $failure = null;
     /** @var array<string, int> calls by operation */
     private array $calls = [];
 
@@ -137,7 +139,7 @@ final class InMemoryIndexManager implements IndexManagerInterface
     {
         $this->calls[$operation] = ($this->calls[$operation] ?? 0) + 1;
         if ($operation === $this->failOn && $this->calls[$operation] >= $this->failFromCall) {
-            throw new RuntimeException(\sprintf('The %s failed.', $operation));
+            throw $this->failure ?? new RuntimeException(\sprintf('The %s failed.', $operation));
         }
     }
 
