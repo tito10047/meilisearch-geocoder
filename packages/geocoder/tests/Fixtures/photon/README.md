@@ -24,7 +24,9 @@ keys and the translations of the address in other languages were removed. Nothin
 
 `expected-documents.ndjson` and `expected-house-numbers.csv` are the output of the prototype
 (`_lab/scripts/convert-i18n.php` with the house numbers of `convert.php`, variant D of the
-documents) for this sample, sorted, in the canonical form of `Document::toArray()`.
+documents) for this sample, sorted, in the canonical form of `Document::toArray()` — except that
+the second document of the node `N13544973832` (two points of interest, the same id) is left out:
+the library writes each document id once, keeping the first record.
 
 ## Licence
 

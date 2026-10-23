@@ -7,6 +7,7 @@ use Tito10047\Geocoder\Exception\InvalidArgumentException;
 use Tito10047\Geocoder\Exception\StorageException;
 use Tito10047\Geocoder\Storage\Pdo\PdoSchema;
 use Tito10047\Geocoder\Storage\TableNames;
+use Tito10047\Geocoder\Tests\Fake\UnknownOptionsDialect;
 
 final class PdoSchemaTest extends TestCase
 {
@@ -72,6 +73,15 @@ final class PdoSchemaTest extends TestCase
             $this->assertInstanceOf(\PDOException::class, $exception->getPrevious());
             $this->assertStringContainsString('CREATE TABLE geo_house_build', $exception->getMessage());
         }
+    }
+
+    public function testAppendsTheTableOptionsOfTheDialect(): void
+    {
+        // SQLite keeps no table options it does not know: options it refuses show they were sent
+        $this->expectException(StorageException::class);
+        $this->expectExceptionMessage('lon DOUBLE PRECISION NOT NULL) UNKNOWN OPTIONS"');
+
+        (new PdoSchema($this->pdo, new UnknownOptionsDialect()))->createTables($this->tables);
     }
 
     public function testRequiresAConnectionThatThrows(): void

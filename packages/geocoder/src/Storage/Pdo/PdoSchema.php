@@ -4,10 +4,13 @@ namespace Tito10047\Geocoder\Storage\Pdo;
 
 use Tito10047\Geocoder\Exception\InvalidArgumentException;
 use Tito10047\Geocoder\Exception\StorageException;
+use Tito10047\Geocoder\Storage\Pdo\Dialect\SqlDialectInterface;
+use Tito10047\Geocoder\Storage\Pdo\Dialect\SqlDialects;
 use Tito10047\Geocoder\Storage\TableNames;
 
 /**
- * Creates and drops the tables of the geocoder, in SQL that SQLite, MariaDB/MySQL and PostgreSQL share.
+ * Creates and drops the tables of the geocoder, in SQL that SQLite, MariaDB/MySQL and PostgreSQL share;
+ * the options of the tables come from the dialect (a binary collation on MariaDB/MySQL).
  *
  * The secondary indexes of the house numbers are created apart, once the table is loaded: tens
  * of millions of rows load much faster into a table without them.
@@ -15,12 +18,24 @@ use Tito10047\Geocoder\Storage\TableNames;
 final readonly class PdoSchema
 {
     /**
-     * @throws InvalidArgumentException when the connection does not throw its errors
+     * The version of the tables, stored with the metadata of a build: a database or an artifact
+     * of another version needs a new import.
+     */
+    public const VERSION = 1;
+
+    private SqlDialectInterface $dialect;
+
+    /**
+     * @param SqlDialectInterface|null $dialect the dialect of the connection; chosen by its driver when null
+     *
+     * @throws InvalidArgumentException when the connection does not throw its errors or its driver is not supported
      */
     public function __construct(
         private \PDO $pdo,
+        ?SqlDialectInterface $dialect = null,
     ) {
         PdoErrorMode::assertExceptions($pdo);
+        $this->dialect = $dialect ?? SqlDialects::forConnection($pdo);
     }
 
     /**
@@ -30,10 +45,11 @@ final readonly class PdoSchema
      */
     public function createTables(TableNames $tables): void
     {
+        $options = $this->dialect->tableOptions();
         $this->execute([
-            \sprintf('CREATE TABLE %s (street_key BIGINT NOT NULL, number VARCHAR(32) NOT NULL, orientation VARCHAR(32) NULL, postcode VARCHAR(16) NULL, lat DOUBLE PRECISION NOT NULL, lon DOUBLE PRECISION NOT NULL)', $tables->houseNumbers),
-            \sprintf('CREATE TABLE %s (cc CHAR(2) NOT NULL, kind VARCHAR(8) NOT NULL, name VARCHAR(255) NOT NULL, lang VARCHAR(3) NOT NULL, translation VARCHAR(255) NOT NULL, PRIMARY KEY (cc, kind, name, lang))', $tables->translations),
-            \sprintf('CREATE TABLE %s (meta_key VARCHAR(64) NOT NULL PRIMARY KEY, meta_value TEXT NOT NULL)', $tables->metadata),
+            \sprintf('CREATE TABLE %s (street_key BIGINT NOT NULL, number VARCHAR(32) NOT NULL, orientation VARCHAR(32) NULL, postcode VARCHAR(16) NULL, lat DOUBLE PRECISION NOT NULL, lon DOUBLE PRECISION NOT NULL)%s', $tables->houseNumbers, $options),
+            \sprintf('CREATE TABLE %s (cc CHAR(2) NOT NULL, kind VARCHAR(8) NOT NULL, name VARCHAR(255) NOT NULL, lang VARCHAR(3) NOT NULL, translation VARCHAR(255) NOT NULL, PRIMARY KEY (cc, kind, name, lang))%s', $tables->translations, $options),
+            \sprintf('CREATE TABLE %s (meta_key VARCHAR(64) NOT NULL PRIMARY KEY, meta_value TEXT NOT NULL)%s', $tables->metadata, $options),
         ]);
     }
 

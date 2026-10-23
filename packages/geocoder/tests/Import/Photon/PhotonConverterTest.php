@@ -48,7 +48,23 @@ final class PhotonConverterTest extends TestCase
         $this->assertSame(self::FIXTURES.'/slovakia-sample.jsonl', $summary->dump);
         $this->assertEquals(new \DateTimeImmutable('2026-10-17T23:02:06+00:00'), $summary->dataTimestamp);
         $this->assertSame(['SK'], $summary->countryCodes);
-        $this->assertEquals(new ImportCounts(places: 4, streets: 13, pois: 5, houseNumbers: 134), $summary->counts);
+        $this->assertEquals(new ImportCounts(places: 4, streets: 13, pois: 4, houseNumbers: 134), $summary->counts);
+    }
+
+    /**
+     * The node N13544973832 is two records of the dump ("leisure=resort" and "tourism=zoo"):
+     * one document, the first.
+     */
+    public function testWritesEachDocumentIdOnce(): void
+    {
+        (new PhotonConverter())->convert(self::FIXTURES.'/slovakia-sample.jsonl', $this->documents, $this->houseNumbers, $this->translations);
+
+        $ids = array_map(static fn (Document $document): string => $document->id, $this->documents->documents);
+        $this->assertSame(array_values(array_unique($ids)), $ids);
+
+        $node = array_values(array_filter($this->documents->documents, static fn (Document $document): bool => 'N13544973832' === $document->id));
+        $this->assertCount(1, $node);
+        $this->assertSame('resort', $node[0]->type);
     }
 
     public function testConvertsACompressedDump(): void
@@ -112,7 +128,7 @@ final class PhotonConverterTest extends TestCase
         foreach ($progress->calls as [$dump]) {
             $this->assertSame(self::FIXTURES.'/slovakia-sample.jsonl', $dump);
         }
-        $this->assertEquals(new ImportCounts(places: 4, streets: 13, pois: 5, houseNumbers: 134), $progress->calls[3][1]);
+        $this->assertEquals(new ImportCounts(places: 4, streets: 13, pois: 4, houseNumbers: 134), $progress->calls[3][1]);
         $this->assertSame(0, $progress->calls[0][1]->streets);
     }
 
