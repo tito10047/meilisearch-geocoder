@@ -1,6 +1,6 @@
 # Meilisearch geocoder — prehľad
 
-Stav: **výskum a merania hotové (2026-10-22), kód knižnice ešte neexistuje.**
+Stav: **v0.1 implementovaná (2026-10-23)**: balíky `geocoder`, `routing` a `geo-bundle` v `packages/`, kontrakty a pravidlá kódu v `CLAUDE.md`. Výskum a merania hotové 2026-10-22.
 
 ## O čo ide
 
