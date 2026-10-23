@@ -9,22 +9,29 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Tito10047\GeoBundle\Attribution;
+use Tito10047\GeoBundle\Command\Output\BuildPrinter;
+use Tito10047\GeoBundle\Command\Output\Numbers;
 use Tito10047\Geocoder\Exception\ExceptionInterface;
+use Tito10047\Geocoder\Import\Exception\BuildNotFoundException;
+use Tito10047\Geocoder\Import\ImporterInterface;
 use Tito10047\Geocoder\Index\IndexManagerInterface;
 use Tito10047\Geocoder\Index\IndexSettings;
 
 /**
- * Prints the state of the live index: its size, whether it is being indexed, its settings.
+ * Prints the state of the live index (its size, whether it is being indexed, its settings) and
+ * of the live build (its data timestamps and counts per dump, the schema version of its tables).
  */
 #[AsCommand(name: 'tito10047-geo:geocoder:status', description: 'Prints the state of the live index of the geocoder')]
 final class GeocoderStatusCommand extends Command
 {
     /**
-     * @param string $indexUid the uid of the live index
+     * @param string                 $indexUid the uid of the live index
+     * @param ImporterInterface|null $importer reads the metadata of the live build; none printed when null
      */
     public function __construct(
         private readonly IndexManagerInterface $indexes,
         private readonly string $indexUid,
+        private readonly ?ImporterInterface $importer = null,
     ) {
         parent::__construct();
     }
@@ -49,15 +56,39 @@ final class GeocoderStatusCommand extends Command
 
         $io->definitionList(
             ['Index' => $status->uid],
-            ['Documents' => number_format($status->documents, 0, '.', ' ')],
+            ['Documents' => Numbers::format($status->documents)],
             ['Stored documents' => Helper::formatMemory($status->rawDocumentDbSize)],
             ['Meilisearch database' => Helper::formatMemory($status->databaseSize).' (every index)'],
             ['Indexing' => $status->indexing ? 'yes' : 'no'],
             ['Settings' => $settings],
             ['Meilisearch' => $status->meilisearchVersion],
         );
+        $this->printLiveBuild($io);
         $io->text(Attribution::OPENSTREETMAP);
 
         return Command::SUCCESS;
+    }
+
+    private function printLiveBuild(SymfonyStyle $io): void
+    {
+        if (!$this->importer instanceof ImporterInterface) {
+            return;
+        }
+
+        try {
+            $build = $this->importer->live();
+        } catch (BuildNotFoundException) {
+            $io->note('No build was published yet: the index was not made by the import of this bundle, or its tables are missing.');
+
+            return;
+        } catch (ExceptionInterface $e) {
+            // the index answered: its state is printed even when the database does not
+            $io->warning('The live build cannot be read: '.$e->getMessage());
+
+            return;
+        }
+
+        $io->section('Live build');
+        (new BuildPrinter())->print($io, $build);
     }
 }

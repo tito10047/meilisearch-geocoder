@@ -1,0 +1,28 @@
+<?php
+
+namespace Tito10047\GeoBundle\Database;
+
+use Tito10047\Geocoder\Exception\GeocoderUnavailableException;
+
+/**
+ * Opens the connection the bundle builds from the configured DSN.
+ *
+ * The connection is lazy: it is opened by the first query of whichever service uses it, often
+ * outside the code of that service catching its PDO errors. A database that cannot be reached
+ * is then reported like by the geocoder itself, so that the search falls back and the commands
+ * fail with a message instead of a stack trace.
+ */
+final class PdoConnectionFactory
+{
+    /**
+     * @throws GeocoderUnavailableException when the database cannot be connected to
+     */
+    public static function connect(string $dsn, ?string $user = null, ?string $password = null): \PDO
+    {
+        try {
+            return new \PDO($dsn, $user, $password, [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]);
+        } catch (\PDOException $exception) {
+            throw new GeocoderUnavailableException(\sprintf('The database of the geocoder cannot be connected to: %s', $exception->getMessage()), 0, $exception);
+        }
+    }
+}

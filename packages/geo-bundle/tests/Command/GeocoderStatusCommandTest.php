@@ -8,7 +8,10 @@ use Symfony\Component\Console\Command\Command;
 use Tito10047\GeoBundle\Attribution;
 use Tito10047\GeoBundle\Tests\App\Configs;
 use Tito10047\GeoBundle\Tests\App\TestApplication;
+use Tito10047\GeoBundle\Tests\Fake\Builds;
+use Tito10047\GeoBundle\Tests\Fake\FakeImporter;
 use Tito10047\GeoBundle\Tests\Fake\FakeIndexManager;
+use Tito10047\Geocoder\Exception\GeocoderUnavailableException;
 use Tito10047\Geocoder\Index\Exception\MeilisearchException;
 use Tito10047\Geocoder\Index\IndexSettings;
 use Tito10047\Geocoder\Index\IndexStatus;
@@ -54,6 +57,46 @@ final class GeocoderStatusCommandTest extends TestCase
         $this->assertStringContainsString('1.35.1', $display);
         $this->assertStringContainsString($settings, $display);
         $this->assertStringContainsString(Attribution::OPENSTREETMAP, $display);
+    }
+
+    public function testPrintsTheLiveBuild(): void
+    {
+        $this->indexes->status = new IndexStatus('places', 212000, 3_000_000_000, 4_000_000_000, false, (new IndexSettings())->hash(), '1.35.1');
+        $this->application->service('tito10047_geo.geocoder.importer', FakeImporter::class)->live = Builds::build();
+        $tester = $this->application->command('tito10047-geo:geocoder:status');
+
+        $tester->execute([]);
+
+        $tester->assertCommandIsSuccessful();
+        $display = $tester->getDisplay(true);
+        $this->assertStringContainsString('Live build', $display);
+        $this->assertStringContainsString(Builds::UID, $display);
+        $this->assertStringContainsString('CZ 2026-10-16, SK 2026-10-17', $display);
+        $this->assertStringContainsString('4 234 567', $display);
+        $this->assertStringContainsString('Schema version', $display);
+    }
+
+    public function testSaysWhenNoBuildWasPublished(): void
+    {
+        $this->indexes->status = new IndexStatus('places', 212000, 3_000_000_000, 4_000_000_000, false, null, '1.35.1');
+        $tester = $this->application->command('tito10047-geo:geocoder:status');
+
+        $tester->execute([]);
+
+        $tester->assertCommandIsSuccessful();
+        $this->assertStringContainsString('No build was published yet', $tester->getDisplay(true));
+    }
+
+    public function testWarnsWhenTheLiveBuildCannotBeRead(): void
+    {
+        $this->indexes->status = new IndexStatus('places', 212000, 3_000_000_000, 4_000_000_000, false, null, '1.35.1');
+        $this->application->service('tito10047_geo.geocoder.importer', FakeImporter::class)->liveException = new GeocoderUnavailableException('The database of the geocoder cannot be connected to: unable to open database file');
+        $tester = $this->application->command('tito10047-geo:geocoder:status');
+
+        $tester->execute([]);
+
+        $tester->assertCommandIsSuccessful();
+        $this->assertStringContainsString('The live build cannot be read: The database of the geocoder cannot be connected to', (string) preg_replace('/\s+/', ' ', $tester->getDisplay(true)));
     }
 
     public function testMissingIndexFails(): void
