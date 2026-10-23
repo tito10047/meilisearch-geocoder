@@ -108,10 +108,16 @@ final readonly class FileExportConverter implements ConverterInterface
             throw new InvalidArgumentException(\sprintf('The export "%s" is damaged: its dumps hold %s, its files %s.', $dump, $this->describe($expected), $this->describe($read)));
         }
 
-        return array_map(
+        $summaries = array_map(
             static fn (DumpSummary $summary): DumpSummary => new DumpSummary(DumpSummary::nameOf($summary->dump), $summary->dataTimestamp, $summary->countryCodes, $summary->counts),
             $build->dumps,
         );
+        if ([] === $summaries) {
+            // a build cannot be made of no dumps: the metadata was not written by FileExporter
+            throw new InvalidArgumentException(\sprintf('The export "%s" names no dumps.', $dump));
+        }
+
+        return $summaries;
     }
 
     private function describe(ImportCounts $counts): string

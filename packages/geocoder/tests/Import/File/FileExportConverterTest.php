@@ -97,8 +97,7 @@ final class FileExportConverterTest extends TestCase
             $importer->publish($importer->import($paths));
         }
 
-        $metadata = 'SELECT meta_key, meta_value FROM geo_meta ORDER BY meta_key';
-        $this->assertSame($direct->query($metadata)?->fetchAll(\PDO::FETCH_KEY_PAIR), $fromExport->query($metadata)?->fetchAll(\PDO::FETCH_KEY_PAIR));
+        $this->assertSame($this->metadata($direct), $this->metadata($fromExport));
         $this->assertSame('2026-10-10T20:00:00+00:00', Sql::value($fromExport, "SELECT meta_value FROM geo_meta WHERE meta_key = 'data_timestamp.SK'"));
         $this->assertStringNotContainsString('/', Sql::value($fromExport, "SELECT meta_value FROM geo_meta WHERE meta_key = 'dumps'"));
     }
@@ -189,6 +188,17 @@ final class FileExportConverterTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
 
         new FileExportConverter(0);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function metadata(\PDO $pdo): array
+    {
+        $statement = $pdo->query('SELECT meta_key, meta_value FROM geo_meta ORDER BY meta_key');
+        $this->assertInstanceOf(\PDOStatement::class, $statement);
+
+        return $statement->fetchAll(\PDO::FETCH_KEY_PAIR);
     }
 
     /**
