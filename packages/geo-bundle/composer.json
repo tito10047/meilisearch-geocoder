@@ -32,7 +32,7 @@
         "symfony/http-foundation": "^7.4.17 || ^8.1.5",
         "symfony/http-kernel": "^7.4.17 || ^8.1.5",
         "symfony/routing": "^7.4.17 || ^8.1.5",
-        "tito10047/geocoder": "^0.3",
+        "tito10047/geocoder": "^0.3.1",
         "tito10047/routing": "^0.3"
     },
     "suggest": {

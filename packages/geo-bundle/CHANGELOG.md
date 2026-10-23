@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-23
+
 ### Added
 
 - The services `geo.geocoder.country_recognizer` (`CatalogCountryRecognizer`, alias
@@ -147,7 +149,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 First published version. Superseded the same day by 0.2.0, which renamed the configuration key and the commands of the bundle.
 
-[Unreleased]: https://github.com/tito10047/geo-bundle/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/tito10047/geo-bundle/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/tito10047/geo-bundle/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/tito10047/geo-bundle/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/tito10047/geo-bundle/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/tito10047/geo-bundle/compare/v0.1.0...v0.2.0
