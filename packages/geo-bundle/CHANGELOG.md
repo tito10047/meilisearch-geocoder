@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - First version of Tito10047GeoBundle.
+- Command `tito10047-geo:geocoder:download [region…] [--force]`: the Photon dumps of the given or
+  configured regions into `import.dumps_dir`, again only when they changed.
+- `geocoder.import` options `regions`, `download_url`, `download_http_client`,
+  `street_excluded_highways` and `reference_keys`.
 - Photon-compatible HTTP API (`geocoder.photon_api`, disabled by default): `GET /api` from
   `@Tito10047GeoBundle/config/routes.php` (a route loader adding no route while disabled), Photon's
   parameters and GeoJSON, 400/503 as `{"message": …}`, `Cache-Control: public, max-age`

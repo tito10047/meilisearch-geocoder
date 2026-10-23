@@ -109,6 +109,24 @@ tito10047_geo:
             poi_rank: 20
             street_rank: 25
             place_dedup_km: 5.0         # places of the same name and country closer than this are one
+            # Values of the OSM key "highway" that are no streets even when named. Replaces the defaults as a whole.
+            street_excluded_highways: [bus_stop, platform, stop, crossing, traffic_signals, street_lamp, milestone,
+                                       give_way, turning_circle, turning_loop, mini_roundabout, speed_camera, elevator,
+                                       emergency_access_point, motorway_junction, rest_area, services, toll_gantry,
+                                       trailhead, via_ferrata, raceway, proposed, emergency_bay, passing_place,
+                                       stop_line, traffic_mirror]
+            # The "extra" tag holding the official id of an address (Suggestion::$reference), by country.
+            # Replaces the defaults as a whole.
+            reference_keys:
+                SK: 'ref:minvskaddress'   # the id of the Slovak register of addresses
+            # The regions the download command downloads into "dumps_dir".
+            regions: []                 # e.g. [europe/slovakia, europe/czech-republic]
+            # The base URL of the dumps, laid out as GraphHopper's:
+            # <url>/<region>/photon-dump-<name>-1.0-latest.jsonl.zst
+            download_url: 'https://download1.graphhopper.com/public/'
+            # A PSR-18 client service downloading the dumps, instead of the default one (Symfony
+            # HttpClient, no limit on the whole download, 60 s without data).
+            download_http_client: null
 
         # The defaults of a search: the commands and the autocompleter use them; code calling
         # GeocoderInterface passes its own SearchOptions.
@@ -357,6 +375,8 @@ replace it (e.g. `#[AsDecorator('tito10047_geo.geocoder.label_formatter')]`).
 | `Geocoder\Import\ConverterInterface` | `tito10047_geo.geocoder.import.converter` | `File\ExportAwareConverter`: exports through `…import.export_converter` (`FileExportConverter`), dumps through `…import.photon_converter` (`PhotonConverter` with the `import` rules) |
 | `Geocoder\Import\File\FileExporterInterface` | `tito10047_geo.geocoder.file_exporter` | `FileExporter` |
 | `Geocoder\Import\ClockInterface` | `tito10047_geo.geocoder.import.clock` | `SystemClock` (names the builds) |
+| `Geocoder\Import\Download\DumpDownloaderInterface` | `tito10047_geo.geocoder.import.dump_downloader` | `HttpDumpDownloader` over `…import.download_http_client` |
+| `Geocoder\Import\Download\RegionUrlResolverInterface` | `tito10047_geo.geocoder.import.region_url_resolver` | `GraphHopperRegionUrlResolver` with the `download_url` |
 | `Geocoder\Storage\BuildStorageInterface` | `tito10047_geo.geocoder.build_storage` | `PdoBuildStorage` (lazy) |
 | `Geocoder\Storage\Pdo\Dialect\SqlDialectInterface` | `tito10047_geo.geocoder.sql_dialect` | by the driver of the connection (lazy) |
 | `Geocoder\Artifact\ArtifactBuilderInterface` | `tito10047_geo.geocoder.artifact_builder` | `ArtifactBuilder` (lazy; with a `url` and a `snapshot_dir` only) |
@@ -399,7 +419,11 @@ problems met in production:
   client of Valhalla is `CurlHttpClient` (or `AmpHttpClient` without `ext-curl`), which reads the
   body by its length and reuses the connection; `timeout` limits the whole request.
 
-Configure `http_client` with the id of your own PSR-18 client service to replace them.
+- **Downloads of the dumps**: hundreds of megabytes, so no limit on the whole download, only
+  60 seconds without data.
+
+Configure `http_client` (`import.download_http_client` for the downloads) with the id of your own
+PSR-18 client service to replace them.
 
 ## Commands
 
@@ -428,6 +452,27 @@ $ php bin/console tito10047-geo:routing:status
 
 Every command prints the OpenStreetMap attribution, and ends with a message and the exit code 1
 (no stack trace) when the search engine, the database, a dump or an artifact fails.
+
+### Downloading the dumps
+
+```console
+# the regions of import.regions into import.dumps_dir, e.g. europe/slovakia as slovakia.jsonl.zst
+$ php bin/console tito10047-geo:geocoder:download
+# given regions; --force downloads even a dump that has not changed
+$ php bin/console tito10047-geo:geocoder:download europe/slovakia europe/austria --force
+```
+
+A region is the path of the download server (`europe/slovakia`, `europe/germany/bayern`; see
+https://download1.graphhopper.com/public/). A dump is downloaded beside the previous copy, its
+Photon header checked (a `.zst` is decompressed at its head only) and only then renamed over it:
+an interrupted or failed download leaves the old copy. The `ETag` and `Last-Modified` of each
+download are kept beside the dump (`slovakia.jsonl.zst.download.json`), so the next run asks the
+server only for a changed dump and skips an unchanged one. Run it from cron before the import,
+e.g. weekly (GraphHopper publishes new dumps about once a week):
+
+```console
+$ php bin/console tito10047-geo:geocoder:download && php bin/console tito10047-geo:geocoder:import
+```
 
 ### Importing the data
 

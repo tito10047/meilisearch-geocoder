@@ -87,7 +87,18 @@ Pravidlá:
   railway=station; amenity ∈ hospital, university, college, ferry_terminal, bus_station;
   historic=castle. Základ `rank` 20.
 - **Ulice**: `osm_key=highway` s menom → jedna na (krajina, obec, meno); ulica známa len
-  z adries tiež vznikne. `rank` 25 000.
+  z adries tiež vznikne. `rank` 25 000. V knižnici (v0.2) bez `highway` hodnôt, ktoré nie sú
+  cesty (`SelectionRules::$streetExcludedHighways`: bus_stop, platform, motorway_junction,
+  rest_area, services, proposed, via_ferrata, raceway, trailhead, speed_camera, …): prototyp
+  bral každý pomenovaný `highway`, takže zastávky („Nová Sedlica, stred“) boli ulice. Celý SK
+  výpis (2026-10): pomenované nie-cesty bus_stop 19 180, platform 364, motorway_junction 322,
+  proposed 142, via_ferrata 54, services 45, rest_area 30, raceway 8, ostatné po 1–2.
+  **Ulíc ubudlo 11 074 zo 48 393 (22,9 %)**, z toho zastávky 10 702, križovatky diaľnic 112,
+  nástupištia 76, plánované cesty 48, ferraty 40, odpočívadlá a čerpacie stanice 23. Ulica,
+  ktorá má domy, ostáva (vzniká aj z adries), takže skutočná ulica sa stratiť nemôže, ak má
+  aspoň jeden dom alebo jeden úsek cesty s tým istým menom v tej istej obci; vypadnuté „ulice“
+  menom ulice (napr. zastávka „Bottova“ v Michalovciach) žiadny dom ani cestu toho mena nemajú.
+  Úseky vo výstavbe (`construction`) ostávajú.
 - `rank` = základ × 1000 + `round(importance × 999)` (Roma 90 767, Rimini 90 639).
 - **Dedup obcí**: rovnaké (krajina, meno) do 5 km = jedna, ostáva vyšší `rank`, PSČ sa doplní.
   POI: rovnaké meno + typ + súradnice zaokrúhlené na 0,01°.
@@ -97,6 +108,18 @@ Pravidlá:
   nadradená obec alebo prázdne.
 - `street_key` = prvých 15 hex znakov `xxh64("CC|obec|ulica")` ako int; id ulice v indexe
   `s<street_key>`. Adresa bez ulice (len `address.place`) → ulica = názov miesta.
+- **Časť obce a okres** (v0.2): dokument má `suburb` (`address.suburb`, napr. časť Medvedzie
+  mesta Tvrdošín) a `county` (`address.county`, „okres Tvrdošín“), preklady v `geo_name`
+  (`kind` suburb/county). SK: `county` má 1 631 916 z 1 631 919 domov, `suburb` 850 797 (52 %).
+  Domy jednej ulice nemusia byť v jednej časti: 2 266 z 31 769 ulíc s domami (7,1 %) má viac
+  častí (198 827 domov na nich, 17 264 domov mimo väčšinovej časti svojej ulice — napr.
+  Tatranská Lomnica / Tatranské Matliare, priemyselné obvody Prešova), preto má časť obce aj
+  každý dom (`geo_house.suburb`) a adresa ju berie pred časťou ulice.
+- **Oficiálne id adresy** (v0.2): `extra` tag podľa krajiny (`SelectionRules::$referenceKeys`,
+  predvolene `SK => ref:minvskaddress` = `buildingIndex` registra adries) → `geo_house.reference`
+  a `Suggestion::$reference`; SK: 1 493 357 z 1 631 919 domov (91,5 %). CZ výpis nemá ekvivalent:
+  `ref:ruian` je len na 28 zo 4 136 980 záznamov s číslom domu (nie adresné body), `ref:ruian:addr`
+  Photon neexportuje.
 
 ### Dokument v Meilisearchi
 
