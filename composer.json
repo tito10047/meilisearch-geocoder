@@ -38,7 +38,8 @@
         "rector/rector": "^2.6.4",
         "symfony/browser-kit": "^7.4.17 || ^8.1.5",
         "symfony/error-handler": "^7.4.17 || ^8.1.5",
-        "symfony/filesystem": "^7.4.17 || ^8.1.5"
+        "symfony/filesystem": "^7.4.17 || ^8.1.5",
+        "symfony/ux-autocomplete": "^2.36 || ^3.5"
     },
     "replace": {
         "tito10047/geo-bundle": "self.version",
