@@ -2,7 +2,8 @@
 
 Self-hosted geocoding, address autocomplete and routing for Symfony: OpenStreetMap data on Meilisearch and Valhalla
 
-> Work in progress: the bundle is not usable yet.
+> Work in progress (0.1): searching addresses, routes, the commands and the UX Autocomplete
+> integration work; the import of the data comes with the next version.
 
 [![CI](https://github.com/tito10047/meilisearch-geocoder/actions/workflows/ci.yml/badge.svg)](https://github.com/tito10047/meilisearch-geocoder/actions/workflows/ci.yml)
 
@@ -12,6 +13,9 @@ Read-only split of the [tito10047/meilisearch-geocoder](https://github.com/tito1
 
 - PHP 8.2 or higher (8.4 or higher with Symfony 8)
 - Symfony 7.4 LTS or 8.1 and higher
+- Meilisearch 1.18 or higher (tuned on 1.35.1) for the addresses, Valhalla for the routes
+- `ext-curl` (or `amphp/http-client`) for the routes
+- optionally `symfony/ux-autocomplete` 3.5 or higher (PHP 8.4) for the autocomplete field
 
 ## Installation
 
@@ -52,9 +56,42 @@ return [
 ];
 ```
 
+## Configuration
+
+Configure the parts you need; each section is enabled by configuring it:
+
+```yaml
+# config/packages/tito10047_geo.yaml
+tito10047_geo:
+    geocoder:
+        meilisearch:
+            url: '%env(MEILISEARCH_URL)%'
+            api_key: '%env(MEILISEARCH_API_KEY)%'
+        database:
+            dsn: 'sqlite:%kernel.project_dir%/var/geo/geo.sqlite'
+    routing:
+        url: '%env(VALHALLA_URL)%'
+```
+
+Then inject `Tito10047\Geocoder\Search\GeocoderInterface` or `Tito10047\Routing\RouterInterface`,
+or try them from the console:
+
+```console
+php bin/console tito10047-geo:geocoder:search "Hlavná 12 Košice" --locale=sk
+php bin/console tito10047-geo:routing:route 48.1486,17.1077 48.7164,21.2611
+```
+
 ## Documentation
 
-Read the [documentation](docs/index.md) to learn how to use the bundle.
+Read the [documentation](docs/index.md) to learn how to use the bundle: the full configuration
+reference, the services, the commands and the Symfony UX Autocomplete integration.
+
+## OpenStreetMap attribution
+
+The data comes from [OpenStreetMap](https://www.openstreetmap.org/) and is available under the
+[Open Database License](https://www.openstreetmap.org/copyright). The bundle distributes no data,
+but an application displaying addresses or routes must credit the contributors:
+"© OpenStreetMap contributors".
 
 ## Development
 
