@@ -33,5 +33,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (data timestamps per country, counts, schema version).
 - The name catalog is tagged `kernel.reset`: long-running workers forget the remembered translations
   between requests.
+- The distance matrix of tito10047/routing: service `tito10047_geo.routing.matrix` aliased to
+  `MatrixInterface` (same HTTP client as the router), its encoder, parser and error translator,
+  configuration `routing.max_matrix_location_pairs` (2500), and the command
+  `tito10047-geo:routing:matrix --source=… --target=… [--costing] [--radius]` printing a table.
 - The connection built from the `dsn` reports an unreachable database as
   `GeocoderUnavailableException` instead of a `PDOException`.

@@ -25,24 +25,8 @@ final class RequestEncoder implements RequestEncoderInterface
     public function encode(RouteRequest $request): string
     {
         $body = [
-            'locations' => array_map(static fn (Coordinates $point): array => [
-                'lat' => $point->latitude,
-                'lon' => $point->longitude,
-                'radius' => $request->radiusMeters,
-            ], $request->points),
-            'costing' => $request->costing->value,
-        ];
-
-        $options = [];
-        if ($request->avoidTolls) {
-            $options['use_tolls'] = 0;
-        }
-        if ($request->avoidHighways) {
-            $options['use_highways'] = 0;
-        }
-        if ([] !== $options) {
-            $body['costing_options'] = [$request->costing->value => $options];
-        }
+            'locations' => array_map(static fn (Coordinates $point): array => RequestParts::location($point, $request->radiusMeters), $request->points),
+        ] + RequestParts::costing($request->costing, $request->avoidTolls, $request->avoidHighways);
 
         if (2 === \count($request->points) && $request->alternatives > 1) {
             $body['alternates'] = $request->alternatives - 1;

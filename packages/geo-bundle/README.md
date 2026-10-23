@@ -73,7 +73,8 @@ tito10047_geo:
         url: '%env(VALHALLA_URL)%'
 ```
 
-Then inject `Tito10047\Geocoder\Search\GeocoderInterface` or `Tito10047\Routing\RouterInterface`,
+Then inject `Tito10047\Geocoder\Search\GeocoderInterface`, `Tito10047\Routing\RouterInterface` or
+`Tito10047\Routing\MatrixInterface`,
 or try them from the console:
 
 ```console
@@ -95,6 +96,7 @@ php bin/console tito10047-geo:geocoder:search "Hlavná 12 Košice" [--locale=sk]
 
 # routes
 php bin/console tito10047-geo:routing:route 48.1486,17.1077 48.7164,21.2611 [--alternatives=3]
+php bin/console tito10047-geo:routing:matrix --source=48.1486,17.1077 --target=49.2231,18.7394 --target=48.3069,18.0864 [--costing=auto]
 php bin/console tito10047-geo:routing:status
 ```
 

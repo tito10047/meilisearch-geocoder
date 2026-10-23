@@ -69,7 +69,7 @@ final class ConfigurationTest extends KernelTestCase
     public function testRoutingDefaults(): void
     {
         $this->assertSame(
-            ['url' => 'http://127.0.0.1:8002', 'enabled' => true, 'timeout' => 10.0, 'radius' => 200, 'http_client' => null],
+            ['url' => 'http://127.0.0.1:8002', 'enabled' => true, 'timeout' => 10.0, 'radius' => 200, 'max_matrix_location_pairs' => 2500, 'http_client' => null],
             $this->process(Configs::routing())['routing'],
         );
     }
@@ -96,6 +96,7 @@ final class ConfigurationTest extends KernelTestCase
         yield 'Meilisearch version from the environment' => [Configs::geocoder(['meilisearch' => ['url' => 'http://m:7700', 'version' => '%env(MEILISEARCH_VERSION)%']]), '%env(MEILISEARCH_VERSION)%', 'geocoder.meilisearch.version'];
         yield 'routing radius zero' => [Configs::routing(['radius' => 0]), 0, 'routing.radius'];
         yield 'routing timeout' => [Configs::routing(['timeout' => 2.5]), 2.5, 'routing.timeout'];
+        yield 'matrix location pairs' => [Configs::routing(['max_matrix_location_pairs' => 10000]), 10000, 'routing.max_matrix_location_pairs'];
         yield 'routing explicitly disabled' => [['routing' => ['enabled' => false]], false, 'routing.enabled'];
         yield 'environment variable' => [Configs::routing(['url' => '%env(VALHALLA_URL)%']), '%env(VALHALLA_URL)%', 'routing.url'];
     }
@@ -152,6 +153,7 @@ final class ConfigurationTest extends KernelTestCase
         yield 'routing without url' => [['routing' => ['timeout' => 5]], 'needs the "url" of Valhalla'];
         yield 'routing negative radius' => [Configs::routing(['radius' => -1]), 'Should be greater than or equal to 0'];
         yield 'routing too short timeout' => [Configs::routing(['timeout' => 0.01]), 'Should be greater than or equal to 0.1'];
+        yield 'no matrix location pairs' => [Configs::routing(['max_matrix_location_pairs' => 0]), 'Should be greater than or equal to 1'];
     }
 
     /**

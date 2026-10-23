@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `MatrixInterface` with `MatrixRequest` (sources, targets, costing, snapping radius, avoiding
+  tolls and motorways) and `Matrix` (distance and duration per pair, null for a pair without a
+  route, `entries()` of `MatrixEntry`, `nearestTarget()`).
+- `ValhallaMatrix` over Valhalla's `/sources_to_targets` (concise answer), refusing matrices
+  larger than its `maxLocationPairs` (2,500 by default, as Valhalla); every error of the matrix
+  is a `RoutingUnavailableException` (`ErrorTranslator::forMatrix()`: Valhalla answers 170 for a
+  point outside the data).
+- `ErrorTranslator` takes the error codes that mean "no route".
+
 - `RouterInterface` with `RouteRequest` (points, alternatives, costing, snapping radius 200 m by
   default, avoiding tolls and motorways as a preference) and `Route` (distance, duration,
   geometry, countries in the order driven, tolled distance per country).

@@ -8,6 +8,7 @@ use Tito10047\GeoBundle\Tests\Fake\FakeFileExporter;
 use Tito10047\GeoBundle\Tests\Fake\FakeGeocoder;
 use Tito10047\GeoBundle\Tests\Fake\FakeImporter;
 use Tito10047\GeoBundle\Tests\Fake\FakeIndexManager;
+use Tito10047\GeoBundle\Tests\Fake\FakeMatrix;
 use Tito10047\GeoBundle\Tests\Fake\FakeRouter;
 use Tito10047\GeoBundle\Tests\Fake\FakeRoutingStatusProvider;
 
@@ -34,6 +35,7 @@ final class Configs
         'tito10047_geo.geocoder.artifact_builder' => FakeArtifactBuilder::class,
         'tito10047_geo.geocoder.artifact_installer_factory' => FakeArtifactInstallerFactory::class,
         'tito10047_geo.routing.router' => FakeRouter::class,
+        'tito10047_geo.routing.matrix' => FakeMatrix::class,
         'tito10047_geo.routing.status_provider' => FakeRoutingStatusProvider::class,
     ];
 

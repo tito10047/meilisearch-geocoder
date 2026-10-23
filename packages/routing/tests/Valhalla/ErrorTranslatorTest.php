@@ -30,6 +30,37 @@ final class ErrorTranslatorTest extends TestCase
     }
 
     /**
+     * @return iterable<string, array{string, int}>
+     */
+    public static function provideMatrixErrors(): iterable
+    {
+        yield 'point outside the data' => ['matrix-outside-data', 170];
+        yield 'points too far apart' => ['matrix-too-far', 154];
+    }
+
+    #[DataProvider('provideMatrixErrors')]
+    public function testEveryRecordedErrorOfTheMatrixIsUnavailable(string $fixture, int $code): void
+    {
+        $exception = ErrorTranslator::forMatrix()->translate(400, Fixture::responseBody($fixture));
+
+        $this->assertInstanceOf(RoutingUnavailableException::class, $exception);
+        $this->assertSame($code, $exception->getCode());
+    }
+
+    public function testTheMatrixTranslatorHasNoNotFoundCodes(): void
+    {
+        foreach ([170, 441, 442] as $code) {
+            $this->assertInstanceOf(RoutingUnavailableException::class, ErrorTranslator::forMatrix()->translate(400, self::error($code, 'No route')));
+        }
+    }
+
+    public function testTheNotFoundCodesCanBeConfigured(): void
+    {
+        $this->assertInstanceOf(RouteNotFoundException::class, (new ErrorTranslator([154]))->translate(400, self::error(154, 'Too far')));
+        $this->assertInstanceOf(RoutingUnavailableException::class, (new ErrorTranslator([154]))->translate(400, self::error(442, 'No path')));
+    }
+
+    /**
      * @param class-string $class
      */
     #[DataProvider('provideErrors')]
