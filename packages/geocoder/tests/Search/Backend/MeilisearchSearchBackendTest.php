@@ -9,6 +9,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Client\NetworkExceptionInterface;
 use Psr\Http\Message\RequestInterface;
+use Tito10047\Geocoder\Document\Document;
 use Tito10047\Geocoder\Document\DocumentKind;
 use Tito10047\Geocoder\Exception\GeocoderUnavailableException;
 use Tito10047\Geocoder\Exception\InvalidArgumentException;
@@ -157,7 +158,7 @@ final class MeilisearchSearchBackendTest extends TestCase
 
         $found = $this->backend($http, 'geo_test')->document('R109166');
 
-        $this->assertNotNull($found);
+        $this->assertInstanceOf(Document::class, $found);
         $this->assertSame('R109166', $found->id);
         $this->assertSame('Innere Stadt', $found->suburb);
         $this->assertSame('Wien', $found->county);

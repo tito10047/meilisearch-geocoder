@@ -2,6 +2,8 @@
 
 namespace Tito10047\Geocoder\Search;
 
+use Tito10047\Geocoder\Document\Document;
+use Tito10047\Geocoder\HouseNumber\HouseNumber;
 use Tito10047\Geocoder\HouseNumber\HouseNumberReferenceStoreInterface;
 use Tito10047\Geocoder\Name\NameCatalogInterface;
 use Tito10047\Geocoder\Search\Backend\DocumentSourceInterface;
@@ -34,11 +36,11 @@ final readonly class AddressLookup implements AddressLookupInterface
         }
 
         $houseNumber = $this->houseNumbers->findByReference($reference);
-        if (null === $houseNumber) {
+        if (!$houseNumber instanceof HouseNumber) {
             return null;
         }
         $street = $this->documents->document($houseNumber->streetKey->documentId());
-        if (null === $street) {
+        if (!$street instanceof Document) {
             return null;
         }
 

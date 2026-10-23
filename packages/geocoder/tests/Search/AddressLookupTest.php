@@ -10,6 +10,7 @@ use Tito10047\Geocoder\Search\AddressLookup;
 use Tito10047\Geocoder\Search\Kind;
 use Tito10047\Geocoder\Search\LabelFormatter;
 use Tito10047\Geocoder\Search\SearchOptions;
+use Tito10047\Geocoder\Search\Suggestion;
 use Tito10047\Geocoder\StreetKey;
 use Tito10047\Geocoder\Tests\Fake\Documents;
 use Tito10047\Geocoder\Tests\Fake\FakeHouseNumberStore;
@@ -35,7 +36,7 @@ final class AddressLookupTest extends TestCase
 
         $address = $lookup->findByReference(' 7101722639 ');
 
-        $this->assertNotNull($address);
+        $this->assertInstanceOf(Suggestion::class, $address);
         $this->assertSame('s'.self::STREET.'#606/42', $address->id);
         $this->assertSame(Kind::Address, $address->kind);
         $this->assertSame('house', $address->type);

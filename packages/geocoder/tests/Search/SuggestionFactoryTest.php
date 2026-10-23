@@ -4,6 +4,7 @@ namespace Tito10047\Geocoder\Tests\Search;
 
 use PHPUnit\Framework\TestCase;
 use Tito10047\Geocoder\Coordinates;
+use Tito10047\Geocoder\Document\Document;
 use Tito10047\Geocoder\Document\DocumentKind;
 use Tito10047\Geocoder\HouseNumber\HouseNumber;
 use Tito10047\Geocoder\Search\Kind;
@@ -70,7 +71,7 @@ final class SuggestionFactoryTest extends TestCase
         $this->assertNull($inherited->reference);
     }
 
-    private function street(): \Tito10047\Geocoder\Document\Document
+    private function street(): Document
     {
         return Documents::create('s1', 'Hlavná', 'SK', DocumentKind::Street, 'street', 25000, 'Košice', 'Košický kraj', ['hu' => 'Fő utca'], '040 01', 'Staré Mesto', 'okres Košice I');
     }

@@ -107,7 +107,7 @@ final class PdoHouseNumberStoreTest extends TestCase
 
         $found = $store->findByReference('7101722639');
 
-        $this->assertNotNull($found);
+        $this->assertInstanceOf(HouseNumber::class, $found);
         $this->assertSame(self::STREET, $found->streetKey->value);
         $this->assertSame('9/12', $found->number);
         $this->assertSame('Šaca', $found->suburb);

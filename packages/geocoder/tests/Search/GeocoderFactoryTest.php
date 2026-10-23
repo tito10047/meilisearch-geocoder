@@ -10,6 +10,7 @@ use PHPUnit\Framework\TestCase;
 use Tito10047\Geocoder\Exception\InvalidArgumentException;
 use Tito10047\Geocoder\Search\GeocoderFactory;
 use Tito10047\Geocoder\Search\SearchOptions;
+use Tito10047\Geocoder\Search\Suggestion;
 use Tito10047\Geocoder\Storage\TableNames;
 use Tito10047\Geocoder\Tests\Fake\FakeHttpClient;
 
@@ -34,7 +35,7 @@ final class GeocoderFactoryTest extends TestCase
         $suggestions = $geocoder->suggest('Hlavná 12 Košice', new SearchOptions(locale: 'sk', preferredCountry: 'SK'));
 
         $this->assertSame('/indexes/geo_live/search', $http->requests[0]->getUri()->getPath());
-        $this->assertSame(['Hlavná 9/12, Košice, Slovensko', 'Hlavná, Košice, Slovensko'], array_map(static fn (\Tito10047\Geocoder\Search\Suggestion $suggestion): string => $suggestion->label, $suggestions));
+        $this->assertSame(['Hlavná 9/12, Košice, Slovensko', 'Hlavná, Košice, Slovensko'], array_map(static fn (Suggestion $suggestion): string => $suggestion->label, $suggestions));
     }
 
     public function testBuildsAWorkingAddressLookup(): void
@@ -51,7 +52,7 @@ final class GeocoderFactoryTest extends TestCase
         $lookup = GeocoderFactory::createAddressLookup(new Client('http://meilisearch', 'key', $http, $factory, [], $factory), $connection, 'geo_live', new TableNames('h', 'n'));
         $address = $lookup->findByReference('7101722639');
 
-        $this->assertNotNull($address);
+        $this->assertInstanceOf(Suggestion::class, $address);
         $this->assertSame('/indexes/geo_live/documents/s909109604356383787', $http->requests[0]->getUri()->getPath());
         $this->assertSame('s909109604356383787#9/12', $address->id);
         $this->assertSame('Hlavná 9/12, Košice, SK', $address->label);

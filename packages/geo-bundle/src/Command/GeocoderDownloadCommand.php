@@ -84,7 +84,7 @@ final class GeocoderDownloadCommand extends Command
             $progress->finish();
 
             $io->text(\sprintf(' %s: %s %s (%s%s)', $region, $result->downloaded ? 'downloaded' : 'unchanged,', $result->path,
-                Helper::formatMemory($result->bytes), null === $result->lastModified ? '' : ', changed '.$result->lastModified->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i').' UTC'));
+                Helper::formatMemory($result->bytes), $result->lastModified instanceof \DateTimeImmutable ? ', changed '.$result->lastModified->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i').' UTC' : ''));
         }
 
         if ($failed > 0) {

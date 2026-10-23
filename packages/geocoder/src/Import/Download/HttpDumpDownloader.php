@@ -68,13 +68,13 @@ final readonly class HttpDumpDownloader implements DumpDownloaderInterface
                 LocalFiles::call(static fn (): bool => mkdir($directory, 0o777, true) || is_dir($directory), \sprintf('Cannot create the directory "%s"', $directory));
             }
             $state = $force || !is_file($path) ? null : DownloadState::read($statePath);
-            if (null !== $state && $state->url !== $url) {
+            if ($state instanceof DownloadState && $state->url !== $url) {
                 $state = null;
             }
 
             $response = $this->send($url, $state);
             $status = $response->getStatusCode();
-            if (304 === $status && null !== $state) {
+            if (304 === $status && $state instanceof DownloadState) {
                 return new DownloadResult($region, $url, $path, false, LocalFiles::size($path), $state->lastModified());
             }
             if (200 !== $status) {

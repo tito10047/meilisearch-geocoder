@@ -74,7 +74,6 @@ final class SelectionRulesTest extends TestCase
         yield 'negative street rank' => [['streetRank' => -1]];
         yield 'invalid language' => [['languages' => ['SK']]];
         yield 'negative distance' => [['placeDedupKm' => -1.0]];
-        yield 'excluded highways not a list' => [['streetExcludedHighways' => ['a' => 'bus_stop']]];
         yield 'excluded highway empty' => [['streetExcludedHighways' => ['']]];
         yield 'excluded highway not a string' => [['streetExcludedHighways' => [1]]];
         yield 'reference key of a lower-case country' => [['referenceKeys' => ['sk' => 'ref:minvskaddress']]];

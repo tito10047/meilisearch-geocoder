@@ -99,8 +99,8 @@ final readonly class SelectionRules
         if (!is_finite($placeDedupKm) || $placeDedupKm < 0.0) {
             throw new InvalidArgumentException('The distance of duplicate places must not be negative.');
         }
-        if (!array_is_list($streetExcludedHighways) || [] !== array_filter($streetExcludedHighways, static fn (mixed $value): bool => !\is_string($value) || '' === $value)) {
-            throw new InvalidArgumentException('The highways that are not streets must be a list of OSM values.');
+        if ([] !== array_filter($streetExcludedHighways, static fn (mixed $value): bool => !\is_string($value) || '' === $value)) {
+            throw new InvalidArgumentException('The highways that are not streets must be OSM values.');
         }
         foreach ($referenceKeys as $countryCode => $key) {
             if (!\is_string($countryCode) || 1 !== preg_match('/^[A-Z]{2}$/D', $countryCode) || !\is_string($key) || '' === $key) {

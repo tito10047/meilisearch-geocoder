@@ -4,6 +4,7 @@ namespace Tito10047\GeoBundle\Tests\Command;
 
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Tester\CommandTester;
 use Tito10047\GeoBundle\Attribution;
 use Tito10047\GeoBundle\Tests\App\Configs;
 use Tito10047\GeoBundle\Tests\App\TestApplication;
@@ -101,9 +102,9 @@ final class GeocoderDownloadCommandTest extends TestCase
         return $this->application->service('tito10047_geo.geocoder.import.dump_downloader', FakeDumpDownloader::class);
     }
 
-    private function tester(): \Symfony\Component\Console\Tester\CommandTester
+    private function tester(): CommandTester
     {
-        \assert($this->application instanceof TestApplication);
+        $this->assertInstanceOf(TestApplication::class, $this->application);
 
         return $this->application->command(self::COMMAND);
     }
