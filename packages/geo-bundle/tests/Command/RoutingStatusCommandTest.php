@@ -64,4 +64,19 @@ final class RoutingStatusCommandTest extends TestCase
         $this->assertSame(Command::FAILURE, $tester->getStatusCode());
         $this->assertStringContainsString('Valhalla is unreachable.', $tester->getDisplay());
     }
+
+    public function testNotConfiguredValhallaFails(): void
+    {
+        $application = new TestApplication(Configs::routing(['url' => Configs::EMPTY_ENV]), []);
+        try {
+            $tester = $application->command('geo:route:status');
+
+            $tester->execute([]);
+
+            $this->assertSame(Command::FAILURE, $tester->getStatusCode());
+            $this->assertStringContainsString('Valhalla is not configured: geo.routing.url is empty.', $tester->getDisplay());
+        } finally {
+            $application->shutdown();
+        }
+    }
 }

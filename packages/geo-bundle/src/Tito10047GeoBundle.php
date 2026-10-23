@@ -34,12 +34,23 @@ final class Tito10047GeoBundle extends AbstractBundle
         'geo.geocoder.meilisearch.http_client',
         'geo.geocoder.meilisearch.http',
         'geo.geocoder.index_manager',
+        'geo.geocoder.index_manager.configured',
         'geo.geocoder.importer',
         'geo.geocoder.artifact_builder',
         'geo.geocoder.command.status',
         'geo.geocoder.command.publish',
         'geo.geocoder.command.cleanup',
         'geo.geocoder.command.artifact',
+    ];
+
+    /**
+     * The services created from the URL of Meilisearch as resolved at runtime (see GeocoderServiceFactory).
+     */
+    private const MEILISEARCH_URL_SWITCHES = [
+        'geo.geocoder',
+        'geo.geocoder.address_lookup',
+        'geo.geocoder.search_backend',
+        'geo.geocoder.index_manager',
     ];
 
     public function configure(DefinitionConfigurator $definition): void
@@ -108,6 +119,17 @@ final class Tito10047GeoBundle extends AbstractBundle
                 $builder->removeAlias($alias);
             }
         }
+        foreach (self::MEILISEARCH_URL_SWITCHES as $id) {
+            if (!$builder->hasDefinition($id)) {
+                continue;
+            }
+            if (null === $meilisearch['url']) {
+                // an existing client is used as it is: nothing to switch on
+                $services->alias($id, $id.'.configured');
+            } else {
+                $services->get($id)->arg(0, $meilisearch['url']);
+            }
+        }
         if (null === $meilisearch['snapshot_dir']) {
             // the artifact command tells what to configure
             $builder->removeDefinition('geo.geocoder.artifact_builder');
@@ -127,9 +149,9 @@ final class Tito10047GeoBundle extends AbstractBundle
         $services->get('geo.geocoder.tables')->args([$tables['house_numbers'], $tables['translations'], $tables['metadata']]);
 
         // search
-        $services->get('geo.geocoder.search_backend')->arg(1, $meilisearch['index']);
+        $services->get('geo.geocoder.search_backend.configured')->arg(1, $meilisearch['index']);
         $services->get('geo.geocoder.reranker')->arg(0, $search['max_rank_gap']);
-        $services->get('geo.geocoder')->arg(6, $search['rerank_window']);
+        $services->get('geo.geocoder.configured')->arg(6, $search['rerank_window']);
         $services->get('geo.geocoder.search_options')->arg(1, $search['default_limit'])->arg(2, $search['preferred_country']);
 
         // index and import
@@ -197,9 +219,10 @@ final class Tito10047GeoBundle extends AbstractBundle
         } else {
             $services->get('geo.routing.http_client')->arg(0, $config['timeout']);
         }
-        $services->get('geo.routing.router')->arg(0, $config['url']);
-        $services->get('geo.routing.matrix')->arg(0, $config['url'])->arg(8, $config['max_matrix_location_pairs']);
-        $services->get('geo.routing.status_provider')->arg(0, $config['url']);
+        foreach (['geo.routing.router', 'geo.routing.router.valhalla', 'geo.routing.matrix', 'geo.routing.matrix.valhalla', 'geo.routing.status_provider', 'geo.routing.status_provider.valhalla'] as $id) {
+            $services->get($id)->arg(0, $config['url']);
+        }
+        $services->get('geo.routing.matrix.valhalla')->arg(8, $config['max_matrix_location_pairs']);
         $services->get('geo.routing.command.route')->arg(1, $config['radius']);
         $services->get('geo.routing.command.matrix')->arg(1, $config['radius']);
     }

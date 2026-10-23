@@ -117,4 +117,19 @@ final class RoutingRouteCommandTest extends TestCase
         $this->assertSame(Command::FAILURE, $tester->getStatusCode());
         $this->assertStringContainsString($exception->getMessage(), preg_replace('/\s+/', ' ', $tester->getDisplay()) ?? '');
     }
+
+    public function testNotConfiguredValhallaFails(): void
+    {
+        $application = new TestApplication(Configs::routing(['url' => Configs::EMPTY_ENV]), []);
+        try {
+            $tester = $application->command('geo:route');
+
+            $tester->execute(['points' => ['48.1486,17.1077', '48.7164,21.2611']]);
+
+            $this->assertSame(Command::FAILURE, $tester->getStatusCode());
+            $this->assertStringContainsString('Valhalla is not configured: geo.routing.url is empty.', $tester->getDisplay());
+        } finally {
+            $application->shutdown();
+        }
+    }
 }

@@ -107,6 +107,9 @@ final class TestKernel extends Kernel
             'secret' => 'test',
         ]);
 
+        // see Configs::EMPTY_ENV
+        $container->parameters()->set('env(GEO_TEST_EMPTY)', '');
+
         // the default logger prints the errors, which PHPUnit reports as risky: the test application logs nothing
         $services = $container->services();
         $services->set('logger', NullLogger::class);

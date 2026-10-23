@@ -25,6 +25,12 @@ final class Configs
     public const UNREACHABLE_DSN = 'sqlite:/dev/null/tito10047-geo/geo.sqlite';
 
     /**
+     * An environment variable resolving to an empty string (the default of its parameter in
+     * TestKernel), as an application leaves VALHALLA_URL or MEILISEARCH_URL where there is no service.
+     */
+    public const EMPTY_ENV = '%env(GEO_TEST_EMPTY)%';
+
+    /**
      * The fakes of the services the commands and the autocompleter use.
      *
      * @var array<string, class-string>

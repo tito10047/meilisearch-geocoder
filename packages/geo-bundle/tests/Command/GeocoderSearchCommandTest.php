@@ -105,4 +105,19 @@ final class GeocoderSearchCommandTest extends TestCase
         $this->assertSame(Command::FAILURE, $tester->getStatusCode());
         $this->assertStringContainsString('Meilisearch is down.', $tester->getDisplay());
     }
+
+    public function testNotConfiguredMeilisearchFails(): void
+    {
+        $application = new TestApplication(Configs::geocoder(['meilisearch' => ['url' => Configs::EMPTY_ENV]]), []);
+        try {
+            $tester = $application->command('geo:search');
+
+            $tester->execute(['text' => 'Hlavná 12 Košice']);
+
+            $this->assertSame(Command::FAILURE, $tester->getStatusCode());
+            $this->assertStringContainsString('Meilisearch is not configured: geo.geocoder.meilisearch.url is empty.', $tester->getDisplay());
+        } finally {
+            $application->shutdown();
+        }
+    }
 }
