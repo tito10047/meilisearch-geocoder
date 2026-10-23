@@ -22,6 +22,10 @@ use Tito10047\Geocoder\Import\Photon\PhotonDumpReader;
  * The ETag and Last-Modified of each download are kept in a small file beside the dump
  * ("slovakia.jsonl.zst.download.json"); the next download asks the server for the dump only if
  * it changed (If-None-Match, If-Modified-Since) and does nothing on "304 Not Modified".
+ *
+ * The files and the directories it creates get explicit permissions, whatever the umask of the
+ * process: the Symfony console in debug mode sets it to 0000, which would leave the dumps
+ * writable by anyone.
  */
 final readonly class HttpDumpDownloader implements DumpDownloaderInterface
 {
@@ -31,8 +35,10 @@ final readonly class HttpDumpDownloader implements DumpDownloaderInterface
     /**
      * @param int $chunkSize        the bytes read from the response at once
      * @param int $progressInterval the progress is reported every that many bytes
+     * @param int $fileMode         the permissions of the dumps and their state files
+     * @param int $directoryMode    the permissions of the directories created for them
      *
-     * @throws InvalidArgumentException when a size is not positive
+     * @throws InvalidArgumentException when a size is not positive or a mode is not between 0 and 0777
      */
     public function __construct(
         private ClientInterface $client,
@@ -41,9 +47,14 @@ final readonly class HttpDumpDownloader implements DumpDownloaderInterface
         private DumpReaderInterface $reader = new PhotonDumpReader(),
         private int $chunkSize = 1 << 20,
         private int $progressInterval = 8 << 20,
+        private int $fileMode = 0o644,
+        private int $directoryMode = 0o755,
     ) {
         if ($chunkSize < 1 || $progressInterval < 1) {
             throw new InvalidArgumentException('The chunk size and the progress interval must be positive.');
+        }
+        if ($fileMode < 0 || $fileMode > 0o777 || $directoryMode < 0 || $directoryMode > 0o777) {
+            throw new InvalidArgumentException(\sprintf('The modes of the files and the directories must be between 0 and 0777, 0%o and 0%o given.', $fileMode, $directoryMode));
         }
     }
 
@@ -64,9 +75,7 @@ final readonly class HttpDumpDownloader implements DumpDownloaderInterface
         $partPath = $directory.'/'.self::PART_PREFIX.$fileName;
 
         try {
-            if (!is_dir($directory)) {
-                LocalFiles::call(static fn (): bool => mkdir($directory, 0o777, true) || is_dir($directory), \sprintf('Cannot create the directory "%s"', $directory));
-            }
+            $this->createDirectory($directory);
             $state = $force || !is_file($path) ? null : DownloadState::read($statePath);
             if ($state instanceof DownloadState && $state->url !== $url) {
                 $state = null;
@@ -88,6 +97,7 @@ final readonly class HttpDumpDownloader implements DumpDownloaderInterface
             $state = DownloadState::fromResponse($url, $response, $bytes);
             try {
                 $state->write($statePath);
+                $this->chmod($statePath, $this->fileMode);
             } catch (IoException) {
                 // without the state the next download is not conditional: slower, still right
             }
@@ -131,6 +141,8 @@ final readonly class HttpDumpDownloader implements DumpDownloaderInterface
         $total = 1 === preg_match('/^\d+$/D', $length) ? (int) $length : null;
         $body = $response->getBody();
         $handle = LocalFiles::call(static fn () => fopen($partPath, 'w'), \sprintf('Cannot create the file "%s"', $partPath));
+        // before any byte: the dump is never readable with the permissions of the umask
+        $this->chmod($partPath, $this->fileMode);
         $bytes = 0;
         $reported = 0;
         try {
@@ -176,5 +188,34 @@ final readonly class HttpDumpDownloader implements DumpDownloaderInterface
         }
 
         throw new DownloadException(\sprintf('What %s sent is not a Photon dump: it has no header.', $url));
+    }
+
+    /**
+     * Creates the directory and its missing parents, each with the directory mode.
+     *
+     * @throws IoException when a directory cannot be created
+     */
+    private function createDirectory(string $directory): void
+    {
+        $missing = [];
+        for ($path = $directory; !is_dir($path); $path = \dirname($path)) {
+            $missing[] = $path;
+            if (\dirname($path) === $path) {
+                break;
+            }
+        }
+        foreach (array_reverse($missing) as $path) {
+            // mkdir() applies the umask: the mode is set again afterwards
+            LocalFiles::call(static fn (): bool => mkdir($path) || is_dir($path), \sprintf('Cannot create the directory "%s"', $path));
+            $this->chmod($path, $this->directoryMode);
+        }
+    }
+
+    /**
+     * @throws IoException when the permissions cannot be set
+     */
+    private function chmod(string $path, int $mode): void
+    {
+        LocalFiles::call(static fn (): bool => chmod($path, $mode), \sprintf('Cannot set the permissions of "%s"', $path));
     }
 }

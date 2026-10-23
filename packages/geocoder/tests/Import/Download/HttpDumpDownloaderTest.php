@@ -5,6 +5,7 @@ namespace Tito10047\Geocoder\Tests\Import\Download;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\Request;
 use Nyholm\Psr7\Response;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Tito10047\Geocoder\Exception\InvalidArgumentException;
 use Tito10047\Geocoder\Import\Download\Exception\DownloadException;
@@ -163,6 +164,62 @@ final class HttpDumpDownloaderTest extends TestCase
         $this->assertFileExists($result->path);
     }
 
+    public function testSetsThePermissionsWhateverTheUmask(): void
+    {
+        // the Symfony console in debug mode
+        $umask = umask(0);
+        try {
+            $directory = $this->directory->path.'/dumps/new';
+
+            $result = $this->downloader(new QueuedHttpClient([$this->dumpResponse()]))->download('europe/slovakia', $directory);
+        } finally {
+            umask($umask);
+        }
+
+        $this->assertSame(0o644, $this->mode($result->path));
+        $this->assertSame(0o644, $this->mode($result->path.HttpDumpDownloader::STATE_SUFFIX));
+        $this->assertSame(0o755, $this->mode($directory));
+        $this->assertSame(0o755, $this->mode(\dirname($directory)));
+    }
+
+    public function testSetsTheGivenPermissions(): void
+    {
+        $directory = $this->directory->path.'/dumps';
+        $downloader = new HttpDumpDownloader(new QueuedHttpClient([$this->dumpResponse()]), new Psr17Factory(), new PlainRegionUrlResolver(), fileMode: 0o640, directoryMode: 0o750);
+
+        $result = $downloader->download('europe/slovakia', $directory);
+
+        $this->assertSame(0o640, $this->mode($result->path));
+        $this->assertSame(0o750, $this->mode($directory));
+    }
+
+    public function testKeepsThePermissionsOfAnExistingDirectory(): void
+    {
+        chmod($this->directory->path, 0o700);
+
+        $this->downloader(new QueuedHttpClient([$this->dumpResponse()]))->download('europe/slovakia', $this->directory->path);
+
+        $this->assertSame(0o700, $this->mode($this->directory->path));
+    }
+
+    /**
+     * @return iterable<string, array{int, int}>
+     */
+    public static function invalidModes(): iterable
+    {
+        yield 'negative file mode' => [-1, 0o755];
+        yield 'file mode with the setuid bit' => [0o4755, 0o755];
+        yield 'directory mode with the sticky bit' => [0o644, 0o1777];
+    }
+
+    #[DataProvider('invalidModes')]
+    public function testRejectsInvalidModes(int $fileMode, int $directoryMode): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        new HttpDumpDownloader(new QueuedHttpClient([]), new Psr17Factory(), fileMode: $fileMode, directoryMode: $directoryMode);
+    }
+
     public function testDownloadsACompressedDump(): void
     {
         $dump = (string) file_get_contents(self::FIXTURES.'/slovakia-sample.jsonl.zst');
@@ -274,6 +331,13 @@ final class HttpDumpDownloaderTest extends TestCase
     private function dumpResponse(string $dump = self::DUMP, string $etag = '"v1"'): Response
     {
         return new Response(200, ['Content-Length' => (string) \strlen($dump), 'ETag' => $etag, 'Last-Modified' => self::LAST_MODIFIED], $dump);
+    }
+
+    private function mode(string $path): int
+    {
+        clearstatcache();
+
+        return (int) fileperms($path) & 0o777;
     }
 
     /**
