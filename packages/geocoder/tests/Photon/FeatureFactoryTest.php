@@ -38,15 +38,15 @@ final class FeatureFactoryTest extends TestCase
         ]];
         yield 'village is a district, as in Photon' => [Suggestions::village(), null, [
             'osm_type' => 'N', 'osm_id' => 26177645, 'osm_key' => 'place', 'osm_value' => 'village', 'type' => 'district',
-            'name' => 'Viničky', 'city' => 'Viničky', 'state' => 'Košický kraj', 'postcode' => '076 31', 'countrycode' => 'SK',
+            'name' => 'Viničky', 'city' => 'Viničky', 'county' => 'okres Trebišov', 'state' => 'Košický kraj', 'postcode' => '076 31', 'countrycode' => 'SK',
         ]];
         yield 'street merged from ways has no OSM id nor value' => [Suggestions::street(), 'en', [
-            'osm_key' => 'highway', 'type' => 'street', 'name' => 'Hlavná', 'city' => 'Košice', 'state' => 'Košický kraj',
+            'osm_key' => 'highway', 'type' => 'street', 'name' => 'Hlavná', 'district' => 'Staré Mesto', 'city' => 'Košice', 'county' => 'okres Košice I', 'state' => 'Košický kraj',
             'country' => 'Slovakia', 'postcode' => '040 01', 'countrycode' => 'SK',
         ]];
         yield 'address has no name' => [Suggestions::address(), 'sk', [
             'osm_key' => 'place', 'osm_value' => 'house', 'type' => 'house', 'housenumber' => '12/18', 'street' => 'Hlavná',
-            'city' => 'Košice', 'state' => 'Košický kraj', 'country' => 'Slovensko', 'postcode' => '040 01', 'countrycode' => 'SK',
+            'district' => 'Staré Mesto', 'city' => 'Košice', 'county' => 'okres Košice I', 'state' => 'Košický kraj', 'country' => 'Slovensko', 'postcode' => '040 01', 'countrycode' => 'SK',
         ]];
         yield 'point of interest has the key of the rules' => [Suggestions::hotel(), 'sk', [
             'osm_type' => 'R', 'osm_id' => 2256517, 'osm_key' => 'tourism', 'osm_value' => 'hotel', 'type' => 'house',

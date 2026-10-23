@@ -24,19 +24,19 @@ final class Suggestions
     public static function village(): Suggestion
     {
         return new Suggestion('N26177645', Kind::Place, 'village', 'Viničky', 'Viničky, Košický kraj, SK',
-            new Coordinates(48.3959, 21.7335), 'SK', 'Viničky', 'Košický kraj', '076 31');
+            new Coordinates(48.3959, 21.7335), 'SK', 'Viničky', 'Košický kraj', '076 31', suburb: 'Viničky', county: 'okres Trebišov');
     }
 
     public static function street(): Suggestion
     {
         return new Suggestion('sSK|Košice|Hlavná', Kind::Street, 'street', 'Hlavná', 'Hlavná, Košice, SK',
-            new Coordinates(48.7189389, 21.2580166), 'SK', 'Košice', 'Košický kraj', '040 01');
+            new Coordinates(48.7189389, 21.2580166), 'SK', 'Košice', 'Košický kraj', '040 01', suburb: 'Staré Mesto', county: 'okres Košice I');
     }
 
     public static function address(): Suggestion
     {
         return new Suggestion('sSK|Košice|Hlavná#12/18', Kind::Address, 'house', 'Hlavná 12/18', 'Hlavná 12/18, Košice, SK',
-            new Coordinates(48.7189389, 21.2580166), 'SK', 'Košice', 'Košický kraj', '040 01', 'Hlavná', '12/18');
+            new Coordinates(48.7189389, 21.2580166), 'SK', 'Košice', 'Košický kraj', '040 01', 'Hlavná', '12/18', 'Staré Mesto', 'okres Košice I', '7101722639');
     }
 
     public static function hotel(): Suggestion

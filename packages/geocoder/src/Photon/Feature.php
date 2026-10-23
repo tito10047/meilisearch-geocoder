@@ -19,6 +19,8 @@ final readonly class Feature implements \JsonSerializable
      * @param int|null    $osmId       the id of the OSM object
      * @param string|null $osmKey      the main OSM tag: "place", "highway", "tourism", …
      * @param string|null $osmValue    its value: "city", "hotel", …
+     * @param string|null $district    the part of the town
+     * @param string|null $county      the county (district of a region)
      * @param string|null $state       the region
      * @param string|null $country     the name of the country
      * @param string      $countryCode ISO 3166-1 alpha-2, upper case
@@ -40,6 +42,8 @@ final readonly class Feature implements \JsonSerializable
         public ?string $city = null,
         public ?string $state = null,
         public ?string $country = null,
+        public ?string $district = null,
+        public ?string $county = null,
     ) {
         if (null !== $osmType && !\in_array($osmType, ['N', 'W', 'R'], true)) {
             throw new InvalidArgumentException(\sprintf('The OSM type must be "N", "W" or "R", "%s" given.', $osmType));
@@ -79,7 +83,9 @@ final readonly class Feature implements \JsonSerializable
             'housenumber' => $this->houseNumber,
             'name' => $this->name,
             'street' => $this->street,
+            'district' => $this->district,
             'city' => $this->city,
+            'county' => $this->county,
             'state' => $this->state,
             'country' => $this->country,
             'postcode' => $this->postcode,
