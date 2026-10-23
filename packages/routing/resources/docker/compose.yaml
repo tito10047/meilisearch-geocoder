@@ -1,0 +1,40 @@
+# Valhalla for tito10047/routing, see README.md in this directory.
+#
+#   VALHALLA_PBF=/path/to/pbf VALHALLA_DATA=/path/to/data docker compose --profile build run --rm --user "$(id -u):$(id -g)" build
+#   VALHALLA_DATA=/path/to/data docker compose up -d valhalla
+#
+# The image is pinned by digest (Valhalla 3.9.1-618cad5eb, built 2026-10-19): the settings were
+# measured and the test fixtures recorded with it.
+
+name: valhalla
+
+x-valhalla-image: &valhalla-image
+    image: ghcr.io/valhalla/valhalla-scripted@sha256:eaad372b8ef31e3e4592c442875aeb1375fbf5aeaa0d259b469e3b46583ab10d
+
+services:
+    valhalla:
+        <<: *valhalla-image
+        entrypoint: ["/scripts/serve.sh"]
+        restart: unless-stopped
+        environment:
+            THREADS: 1
+            CACHE: 20000000
+            MALLOC_ARENA_MAX: 2
+        # 9 countries peaked at 251 MiB under concurrent load with these settings
+        mem_limit: 300m
+        ports:
+            - "127.0.0.1:${VALHALLA_PORT:-8002}:8002"
+        volumes:
+            - "${VALHALLA_DATA:-./data}:/data:ro"
+            - "./serve.sh:/scripts/serve.sh:ro"
+
+    build:
+        <<: *valhalla-image
+        profiles: ["build"]
+        entrypoint: ["/scripts/build.sh"]
+        environment:
+            CONCURRENCY: "${VALHALLA_CONCURRENCY:-4}"
+        volumes:
+            - "${VALHALLA_PBF:-./pbf}:/pbf:ro"
+            - "${VALHALLA_DATA:-./data}:/data"
+            - "./build.sh:/scripts/build.sh:ro"
