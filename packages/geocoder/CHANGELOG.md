@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-23
+
 ### Added
 
 - First version of the geocoder.
@@ -42,3 +44,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `IndexSettings`: the displayed attributes gain `suburb` and `county` (a new settings hash).
 - `AddressInterpreterInterface` gains `suburb()`, `county()`, `suburbTranslations()` and
   `countyTranslations()`; `Photon\Place` gains its `extra` tags.
+
+## [0.1.0] - 2026-10-23
+
+First published version, superseded the same day by 0.2.0.
+
+[Unreleased]: https://github.com/tito10047/geocoder/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/tito10047/geocoder/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/tito10047/geocoder/releases/tag/v0.1.0

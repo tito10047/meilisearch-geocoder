@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-23
+
 ### Changed
 
 - Shorter names: the configuration key is `geo` (was `tito10047_geo`), the commands are `geo:search`,
@@ -57,3 +59,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `geo:matrix --source=… --target=… [--costing] [--radius]` printing a table.
 - The connection built from the `dsn` reports an unreachable database as
   `GeocoderUnavailableException` instead of a `PDOException`.
+
+## [0.1.0] - 2026-10-23
+
+First published version. Superseded the same day by 0.2.0, which renamed the configuration key and the commands of the bundle.
+
+[Unreleased]: https://github.com/tito10047/geo-bundle/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/tito10047/geo-bundle/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/tito10047/geo-bundle/releases/tag/v0.1.0
