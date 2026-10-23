@@ -1,0 +1,39 @@
+{
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {
+                "osm_type": "R",
+                "osm_id": 2256517,
+                "osm_key": "tourism",
+                "osm_value": "hotel",
+                "type": "house",
+                "housenumber": "162/4",
+                "name": "Hotel Devín",
+                "street": "Riečna",
+                "locality": "Príboj",
+                "district": "Old Town",
+                "city": "Bratislava",
+                "county": "District of Bratislava I",
+                "state": "Region of Bratislava",
+                "country": "Slovakia",
+                "postcode": "811 02",
+                "countrycode": "SK",
+                "extent": [
+                    17.1067543,
+                    48.1403773,
+                    17.1074547,
+                    48.1400004
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    17.1072709,
+                    48.140187
+                ]
+            }
+        }
+    ]
+}

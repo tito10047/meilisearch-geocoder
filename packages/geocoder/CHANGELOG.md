@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - First version of the geocoder.
+- `Photon\*`: the search API of Photon over `GeocoderInterface`, framework-free —
+  `PhotonQuery::fromQueryString()` (validation like Photon 1.3, repeated filters), `PhotonSearch`
+  (layers, OSM tag and category filters, bounding box), `FeatureFactory` (a `Suggestion` as a
+  GeoJSON `Feature` with Photon's properties) and `FeatureCollection`.
 - `Import\File\ExportAwareConverter`: one Importer indexes the directories of exports and the
   dumps alike.
 - `PdoNameCatalog::reset()` forgets the remembered translations (for long-running workers).

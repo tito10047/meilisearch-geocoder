@@ -1,0 +1,100 @@
+{
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {
+                "osm_type": "W",
+                "osm_id": 238151268,
+                "osm_key": "highway",
+                "osm_value": "residential",
+                "type": "street",
+                "name": "Hlavná",
+                "district": "Nižný Klátov",
+                "city": "Nižný Klátov",
+                "county": "okres Košice-okolie",
+                "state": "Košický kraj",
+                "country": "Slovensko",
+                "postcode": "044 12",
+                "countrycode": "SK",
+                "extent": [
+                    21.1419304,
+                    48.7281426,
+                    21.1419487,
+                    48.7280363
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    21.1419396,
+                    48.7280895
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "osm_type": "W",
+                "osm_id": 27037739,
+                "osm_key": "tourism",
+                "osm_value": "hotel",
+                "type": "house",
+                "housenumber": "123/1",
+                "name": "DoubleTree by Hilton Kosice",
+                "street": "Hlavná",
+                "district": "Staré Mesto",
+                "city": "Košice",
+                "county": "okres Košice I",
+                "state": "Košický kraj",
+                "country": "Slovensko",
+                "postcode": "040 01",
+                "countrycode": "SK",
+                "extent": [
+                    21.2598123,
+                    48.7180605,
+                    21.2609907,
+                    48.7172081
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    21.2604142,
+                    48.7176174
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "osm_type": "W",
+                "osm_id": 1079376579,
+                "osm_key": "highway",
+                "osm_value": "tertiary",
+                "type": "street",
+                "name": "Hlavná",
+                "district": "Kuzmice",
+                "city": "Kuzmice",
+                "county": "okres Trebišov",
+                "state": "Košický kraj",
+                "country": "Slovensko",
+                "postcode": "076 12",
+                "countrycode": "SK",
+                "extent": [
+                    21.5674985,
+                    48.5727526,
+                    21.56753,
+                    48.572674
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    21.5675143,
+                    48.5727133
+                ]
+            }
+        }
+    ]
+}
