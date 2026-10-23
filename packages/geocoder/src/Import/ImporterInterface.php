@@ -47,7 +47,7 @@ interface ImporterInterface
      * @param string $indexUid "geo_20261023120000"
      *
      * @throws InvalidArgumentException when the uid is not one of a build
-     * @throws BuildNotFoundException   when its index or its tables do not exist
+     * @throws BuildNotFoundException   when neither its index nor the live index (after a partial publication) holds it, or its tables do not exist
      * @throws RuntimeException         when the search engine or the database cannot be asked
      */
     public function build(string $indexUid): Build;
