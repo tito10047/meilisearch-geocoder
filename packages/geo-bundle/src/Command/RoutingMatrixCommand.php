@@ -65,7 +65,7 @@ final class RoutingMatrixCommand extends Command
 
         $rows = [];
         foreach ($request->sources as $source => $point) {
-            $row = [self::point($point)];
+            $row = [$this->point($point)];
             foreach (array_keys($request->targets) as $target) {
                 $distance = $matrix->distanceMeters($source, $target);
                 $duration = $matrix->durationSeconds($source, $target);
@@ -75,7 +75,7 @@ final class RoutingMatrixCommand extends Command
             }
             $rows[] = $row;
         }
-        $io->table(['From \ to', ...array_map(self::point(...), $request->targets)], $rows);
+        $io->table(['From \ to', ...array_map($this->point(...), $request->targets)], $rows);
         $io->text(Attribution::OPENSTREETMAP);
 
         return Command::SUCCESS;
@@ -100,7 +100,7 @@ final class RoutingMatrixCommand extends Command
         );
     }
 
-    private static function point(Coordinates $point): string
+    private function point(Coordinates $point): string
     {
         return $point->latitude.','.$point->longitude;
     }

@@ -94,7 +94,7 @@ return static function (ContainerConfigurator $container): void {
 
         // every error of /sources_to_targets means "unavailable" (170 is a point outside the data there)
         ->set('tito10047_geo.routing.matrix_error_translator', ErrorTranslator::class)
-            ->factory([ErrorTranslator::class, 'forMatrix'])
+            ->factory(ErrorTranslator::class.'::forMatrix')
 
         ->set('tito10047_geo.routing.matrix', ValhallaMatrix::class)
             ->args([

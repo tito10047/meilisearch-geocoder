@@ -42,8 +42,8 @@ final readonly class Matrix
             }
             foreach ($row as $target => $distance) {
                 $duration = $durationRow[$target];
-                self::assertValue($distance, 'distance', $source, $target);
-                self::assertValue($duration, 'duration', $source, $target);
+                $this->assertValue($distance, 'distance', $source, $target);
+                $this->assertValue($duration, 'duration', $source, $target);
                 if ((null === $distance) !== (null === $duration)) {
                     throw new InvalidArgumentException(\sprintf('The distance and the duration from %d to %d must both be null or neither.', $source, $target));
                 }
@@ -128,7 +128,7 @@ final readonly class Matrix
         return null === $nearest ? null : new MatrixEntry($source, $nearest, $this->distances[$source][$nearest], $this->durations[$source][$nearest]);
     }
 
-    private static function assertValue(mixed $value, string $name, int $source, int $target): void
+    private function assertValue(mixed $value, string $name, int $source, int $target): void
     {
         if (null !== $value && (!\is_int($value) || $value < 0)) {
             throw new InvalidArgumentException(\sprintf('The %s from %d to %d must be null or an integer of 0 or more, %s given.', $name, $source, $target, get_debug_type($value)));

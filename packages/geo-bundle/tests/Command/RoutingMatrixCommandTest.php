@@ -40,7 +40,7 @@ final class RoutingMatrixCommandTest extends TestCase
         $tester->execute(['--source' => ['48.1486,17.1077', ' 48.3774 , 17.5872 '], '--target' => ['49.2231,18.7394', '48.3069,18.0864']]);
 
         $tester->assertCommandIsSuccessful();
-        $lines = array_map('trim', explode("\n", $tester->getDisplay()));
+        $lines = array_map(trim(...), explode("\n", $tester->getDisplay()));
         $this->assertContains('From \ to         49.2231,18.7394     48.3069,18.0864', $lines);
         $this->assertContains('48.1486,17.1077   202.3 km, 102 min   92.8 km, 50 min', $lines);
         $this->assertContains('48.3774,17.5872   150.9 km, 82 min    no route', $lines);
