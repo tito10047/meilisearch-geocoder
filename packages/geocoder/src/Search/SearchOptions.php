@@ -15,7 +15,7 @@ final readonly class SearchOptions
 
     /**
      * @param string|null  $locale           the language of the labels ("sk": "Viedeň"), as a locale ("sk", "sk_SK", "sk-SK"); null for the local names
-     * @param int          $limit            the maximum number of suggestions, 1 to 20
+     * @param int<1, 20>   $limit            the maximum number of suggestions
      * @param string|null  $preferredCountry ISO 3166-1 alpha-2: wins among the suggestions of the same name, excludes nothing
      * @param list<string> $countries        ISO 3166-1 alpha-2: only these countries; [] for every imported country
      * @param list<Kind>   $kinds            only these kinds; [] for every kind
@@ -32,9 +32,7 @@ final readonly class SearchOptions
         if (null !== $locale && 1 !== preg_match('/^[a-z]{2,3}(?:[_-][A-Za-z0-9]{2,8})*$/D', $locale)) {
             throw new InvalidArgumentException(\sprintf('"%s" is not a valid locale, e.g. "sk" or "sk_SK".', $locale));
         }
-        if ($limit < 1 || $limit > self::MAX_LIMIT) {
-            throw new InvalidArgumentException(\sprintf('The limit must be between 1 and %d, %d given.', self::MAX_LIMIT, $limit));
-        }
+        $this->assertLimit($limit);
         if (null !== $preferredCountry) {
             $this->assertCountryCode($preferredCountry);
         }
@@ -67,6 +65,11 @@ final readonly class SearchOptions
         return new self($locale, $this->limit, $this->preferredCountry, $this->countries, $this->kinds);
     }
 
+    /**
+     * @param int<1, 20> $limit
+     *
+     * @throws InvalidArgumentException when the limit is out of range
+     */
     public function withLimit(int $limit): self
     {
         return new self($this->locale, $limit, $this->preferredCountry, $this->countries, $this->kinds);
@@ -91,6 +94,16 @@ final readonly class SearchOptions
     public function withKinds(array $kinds): self
     {
         return new self($this->locale, $this->limit, $this->preferredCountry, $this->countries, $kinds);
+    }
+
+    /**
+     * The PHPDoc range is not trusted: callers may not be analysed.
+     */
+    private function assertLimit(int $limit): void
+    {
+        if ($limit < 1 || $limit > self::MAX_LIMIT) {
+            throw new InvalidArgumentException(\sprintf('The limit must be between 1 and %d, %d given.', self::MAX_LIMIT, $limit));
+        }
     }
 
     private function assertCountryCode(mixed $country): void

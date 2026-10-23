@@ -8,9 +8,9 @@ namespace Tito10047\Geocoder\Search;
 interface RerankerInterface
 {
     /**
-     * @param list<Suggestion> $suggestions the order of Meilisearch, best first
+     * @param list<RankedSuggestion> $suggestions the order of Meilisearch, best first, with the rank of their documents
      *
-     * @return list<Suggestion> the same suggestions, reordered
+     * @return list<RankedSuggestion> the same suggestions, reordered
      */
     public function rerank(array $suggestions, SearchOptions $options): array;
 }

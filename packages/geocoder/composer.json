@@ -22,7 +22,11 @@
         "php": ">=8.2",
         "ext-pdo": "*",
         "meilisearch/meilisearch-php": "^1.17",
+        "psr/http-client": "^1.0",
         "psr/log": "^3.0"
+    },
+    "suggest": {
+        "ext-intl": "Compares names of every script without diacritics and case (the built-in fallback covers the European Latin alphabets)"
     },
     "autoload": {
         "psr-4": {
