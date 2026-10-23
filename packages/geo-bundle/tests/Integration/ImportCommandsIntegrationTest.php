@@ -34,7 +34,7 @@ final class ImportCommandsIntegrationTest extends KernelTestCase
         $this->index = 'geo_bundle_import_'.bin2hex(random_bytes(4));
         $this->directory = sys_get_temp_dir().'/geo-bundle-import-'.bin2hex(random_bytes(6));
         mkdir($this->directory);
-        self::bootKernel(['extension_configs' => ['tito10047_geo' => ['geocoder' => [
+        self::bootKernel(['extension_configs' => ['geo' => ['geocoder' => [
             'meilisearch' => ['url' => $url, 'api_key' => \is_string($key) && '' !== $key ? $key : null, 'index' => $this->index],
             'database' => ['dsn' => 'sqlite:'.$this->directory.'/geo.sqlite'],
         ]]]]);
@@ -90,7 +90,7 @@ final class ImportCommandsIntegrationTest extends KernelTestCase
     {
         $kernel = self::$kernel;
         $this->assertInstanceOf(KernelInterface::class, $kernel);
-        $tester = new CommandTester((new Application($kernel))->find('tito10047-geo:geocoder:'.$command));
+        $tester = new CommandTester((new Application($kernel))->find('geo:'.$command));
         $tester->execute($input);
         $display = (string) preg_replace('/\s+/', ' ', $tester->getDisplay(true));
         $this->assertSame(0, $tester->getStatusCode(), $display);

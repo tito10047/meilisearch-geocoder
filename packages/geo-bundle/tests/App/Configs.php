@@ -29,16 +29,16 @@ final class Configs
      * @var array<string, class-string>
      */
     public const FAKES = [
-        'tito10047_geo.geocoder' => FakeGeocoder::class,
-        'tito10047_geo.geocoder.index_manager' => FakeIndexManager::class,
-        'tito10047_geo.geocoder.importer' => FakeImporter::class,
-        'tito10047_geo.geocoder.file_exporter' => FakeFileExporter::class,
-        'tito10047_geo.geocoder.artifact_builder' => FakeArtifactBuilder::class,
-        'tito10047_geo.geocoder.artifact_installer_factory' => FakeArtifactInstallerFactory::class,
-        'tito10047_geo.geocoder.import.dump_downloader' => FakeDumpDownloader::class,
-        'tito10047_geo.routing.router' => FakeRouter::class,
-        'tito10047_geo.routing.matrix' => FakeMatrix::class,
-        'tito10047_geo.routing.status_provider' => FakeRoutingStatusProvider::class,
+        'geo.geocoder' => FakeGeocoder::class,
+        'geo.geocoder.index_manager' => FakeIndexManager::class,
+        'geo.geocoder.importer' => FakeImporter::class,
+        'geo.geocoder.file_exporter' => FakeFileExporter::class,
+        'geo.geocoder.artifact_builder' => FakeArtifactBuilder::class,
+        'geo.geocoder.artifact_installer_factory' => FakeArtifactInstallerFactory::class,
+        'geo.geocoder.import.dump_downloader' => FakeDumpDownloader::class,
+        'geo.routing.router' => FakeRouter::class,
+        'geo.routing.matrix' => FakeMatrix::class,
+        'geo.routing.status_provider' => FakeRoutingStatusProvider::class,
     ];
 
     private function __construct()

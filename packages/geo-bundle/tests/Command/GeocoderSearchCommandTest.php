@@ -23,7 +23,7 @@ final class GeocoderSearchCommandTest extends TestCase
     protected function setUp(): void
     {
         $this->application = new TestApplication(Configs::geocoder(['search' => ['default_limit' => 3, 'preferred_country' => 'SK']]));
-        $this->geocoder = $this->application->service('tito10047_geo.geocoder', FakeGeocoder::class);
+        $this->geocoder = $this->application->service('geo.geocoder', FakeGeocoder::class);
     }
 
     protected function tearDown(): void
@@ -37,7 +37,7 @@ final class GeocoderSearchCommandTest extends TestCase
             new Suggestion('s1#12', Kind::Address, 'house', 'Hlavná 12', 'Hlavná 12, Košice, Slovensko', new Coordinates(48.7203, 21.2577), 'SK'),
             new Suggestion('s1', Kind::Street, 'street', 'Hlavná', 'Hlavná, Košice, Slovensko', new Coordinates(48.72, 21.258), 'SK'),
         ];
-        $tester = $this->application->command('tito10047-geo:geocoder:search');
+        $tester = $this->application->command('geo:search');
 
         $tester->execute(['text' => 'Hlavná 12 Košice']);
 
@@ -52,7 +52,7 @@ final class GeocoderSearchCommandTest extends TestCase
 
     public function testOptionsOverrideTheDefaults(): void
     {
-        $tester = $this->application->command('tito10047-geo:geocoder:search');
+        $tester = $this->application->command('geo:search');
 
         $tester->execute(['text' => 'wien', '--locale' => 'sk', '--country' => ['at', 'SK', 'AT'], '--preferred-country' => 'at', '--limit' => '10']);
 
@@ -63,7 +63,7 @@ final class GeocoderSearchCommandTest extends TestCase
 
     public function testEmptyPreferredCountryRemovesTheDefault(): void
     {
-        $tester = $this->application->command('tito10047-geo:geocoder:search');
+        $tester = $this->application->command('geo:search');
 
         $tester->execute(['text' => 'wien', '--preferred-country' => '']);
 
@@ -87,7 +87,7 @@ final class GeocoderSearchCommandTest extends TestCase
     #[DataProvider('invalidOptions')]
     public function testInvalidOptionIsReported(array $options): void
     {
-        $tester = $this->application->command('tito10047-geo:geocoder:search');
+        $tester = $this->application->command('geo:search');
 
         $tester->execute(['text' => 'wien'] + $options);
 
@@ -98,7 +98,7 @@ final class GeocoderSearchCommandTest extends TestCase
     public function testUnavailableGeocoderFails(): void
     {
         $this->geocoder->exception = new GeocoderUnavailableException('Meilisearch is down.');
-        $tester = $this->application->command('tito10047-geo:geocoder:search');
+        $tester = $this->application->command('geo:search');
 
         $tester->execute(['text' => 'wien']);
 

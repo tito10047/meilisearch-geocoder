@@ -34,7 +34,7 @@ final class MeilisearchIntegrationTest extends KernelTestCase
         $key = getenv('MEILISEARCH_KEY');
 
         $this->index = 'geo_bundle_test_'.bin2hex(random_bytes(4));
-        self::bootKernel(['extension_configs' => ['tito10047_geo' => ['geocoder' => [
+        self::bootKernel(['extension_configs' => ['geo' => ['geocoder' => [
             'meilisearch' => ['url' => $url, 'api_key' => \is_string($key) && '' !== $key ? $key : null, 'index' => $this->index],
             'database' => ['dsn' => 'sqlite::memory:'],
         ]]]]);
@@ -67,7 +67,7 @@ final class MeilisearchIntegrationTest extends KernelTestCase
 
         $kernel = self::$kernel;
         $this->assertInstanceOf(KernelInterface::class, $kernel);
-        $tester = new CommandTester((new Application($kernel))->find('tito10047-geo:geocoder:status'));
+        $tester = new CommandTester((new Application($kernel))->find('geo:status'));
         $tester->execute([]);
         $tester->assertCommandIsSuccessful();
         $this->assertStringContainsString('the default settings', $tester->getDisplay());

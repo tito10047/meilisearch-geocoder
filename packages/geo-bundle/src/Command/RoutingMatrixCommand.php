@@ -19,7 +19,7 @@ use Tito10047\Routing\MatrixRequest;
 /**
  * Prints the distance and duration from every source to every target.
  */
-#[AsCommand(name: 'tito10047-geo:routing:matrix', description: 'Prints the distance and duration from every source to every target', help: <<<'TXT'
+#[AsCommand(name: 'geo:matrix', description: 'Prints the distance and duration from every source to every target', help: <<<'TXT'
 The <info>%command.name%</info> command asks Valhalla for a distance matrix, one row per source:
 
   <info>php %command.full_name% --source=48.1486,17.1077 --source=48.3774,17.5872 --target=49.2231,18.7394 --target=48.3069,18.0864</info>

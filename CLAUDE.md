@@ -11,7 +11,7 @@ routes from a self-hosted **Valhalla**. Born from the Tankovač project
   either; the two libraries do not depend on each other.
 - `packages/geo-bundle/` — `tito10047/geo-bundle`, `Tito10047\GeoBundle\`: only configuration,
   services, thin commands and integrations over both libraries (alias and service prefix
-  `tito10047_geo`, commands `tito10047-geo:…`).
+  `geo`, commands `geo:…`).
 
 Dependencies are installed once at the root; the root `composer.json` (dev only, never published)
 replaces every package and must also list every dependency added to a package. `composer qa`

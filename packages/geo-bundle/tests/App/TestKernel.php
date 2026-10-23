@@ -36,7 +36,7 @@ final class TestKernel extends Kernel
 
     /**
      * @param array<string, array<string, mixed>> $extensionConfigs configuration of the extensions, indexed by alias,
-     *                                                              applied last, e.g. ['tito10047_geo' => [...]]
+     *                                                              applied last, e.g. ['geo' => [...]]
      * @param array<string, class-string>         $fakes            fakes decorating services of the bundle: id of the
      *                                                              service => class of the fake, constructed without arguments
      */

@@ -22,7 +22,7 @@ final readonly class ArtifactInstallerFactory implements ArtifactInstallerFactor
 {
     /**
      * @param TableNames                 $tables             the live tables
-     * @param string|null                $meilisearchVersion the configured version (tito10047_geo.geocoder.meilisearch.version)
+     * @param string|null                $meilisearchVersion the configured version (geo.geocoder.meilisearch.version)
      * @param IndexManagerInterface|null $indexes            the running instance, null when the bundle has no URL of it
      */
     public function __construct(
@@ -45,7 +45,7 @@ final readonly class ArtifactInstallerFactory implements ArtifactInstallerFactor
      */
     private function runningVersion(): string
     {
-        $hint = 'set "tito10047_geo.geocoder.meilisearch.version" or give the version of the instance the artifact is for';
+        $hint = 'set "geo.geocoder.meilisearch.version" or give the version of the instance the artifact is for';
         if (!$this->indexes instanceof IndexManagerInterface) {
             throw new UnknownMeilisearchVersionException(\sprintf('The Meilisearch version is unknown: %s.', $hint));
         }

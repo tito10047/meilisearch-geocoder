@@ -51,131 +51,131 @@ return static function (ContainerConfigurator $container): void {
 
     $services
         // what turns a dump into documents, house numbers and names: Photon dumps, and the exports of FileExporter
-        ->set('tito10047_geo.geocoder.import.photon_converter', PhotonConverter::class)
-            ->args([service('tito10047_geo.geocoder.selection_rules')])
+        ->set('geo.geocoder.import.photon_converter', PhotonConverter::class)
+            ->args([service('geo.geocoder.selection_rules')])
 
-        ->set('tito10047_geo.geocoder.import.export_converter', FileExportConverter::class)
+        ->set('geo.geocoder.import.export_converter', FileExportConverter::class)
 
-        ->set('tito10047_geo.geocoder.import.converter', ExportAwareConverter::class)
-            ->args([service('tito10047_geo.geocoder.import.photon_converter'), service('tito10047_geo.geocoder.import.export_converter')])
-        ->alias(ConverterInterface::class, 'tito10047_geo.geocoder.import.converter')
+        ->set('geo.geocoder.import.converter', ExportAwareConverter::class)
+            ->args([service('geo.geocoder.import.photon_converter'), service('geo.geocoder.import.export_converter')])
+        ->alias(ConverterInterface::class, 'geo.geocoder.import.converter')
 
         // names the builds; symfony/clock is not a dependency of the bundle
-        ->set('tito10047_geo.geocoder.import.clock', SystemClock::class)
-        ->alias(ClockInterface::class, 'tito10047_geo.geocoder.import.clock')
+        ->set('geo.geocoder.import.clock', SystemClock::class)
+        ->alias(ClockInterface::class, 'geo.geocoder.import.clock')
 
-        ->set('tito10047_geo.geocoder.index_settings', IndexSettings::class)
+        ->set('geo.geocoder.index_settings', IndexSettings::class)
 
         // the tables of the builds: the dialect is chosen by the driver of the connection, so both wait for it
-        ->set('tito10047_geo.geocoder.sql_dialect', SqlDialectInterface::class)
+        ->set('geo.geocoder.sql_dialect', SqlDialectInterface::class)
             ->factory(SqlDialects::forConnection(...))
-            ->args([service('tito10047_geo.geocoder.connection')])
+            ->args([service('geo.geocoder.connection')])
             ->lazy(SqlDialectInterface::class)
-        ->alias(SqlDialectInterface::class, 'tito10047_geo.geocoder.sql_dialect')
+        ->alias(SqlDialectInterface::class, 'geo.geocoder.sql_dialect')
 
-        ->set('tito10047_geo.geocoder.build_storage', PdoBuildStorage::class)
-            ->args([service('tito10047_geo.geocoder.connection'), service('tito10047_geo.geocoder.sql_dialect')])
+        ->set('geo.geocoder.build_storage', PdoBuildStorage::class)
+            ->args([service('geo.geocoder.connection'), service('geo.geocoder.sql_dialect')])
             ->lazy(BuildStorageInterface::class)
-        ->alias(BuildStorageInterface::class, 'tito10047_geo.geocoder.build_storage')
+        ->alias(BuildStorageInterface::class, 'geo.geocoder.build_storage')
 
-        ->set('tito10047_geo.geocoder.importer', Importer::class)
+        ->set('geo.geocoder.importer', Importer::class)
             ->args([
-                service('tito10047_geo.geocoder.import.converter'),
-                service('tito10047_geo.geocoder.index_manager'),
-                service('tito10047_geo.geocoder.build_storage'),
-                service('tito10047_geo.geocoder.index_naming'),
-                service('tito10047_geo.geocoder.index_settings'),
-                service('tito10047_geo.geocoder.tables'),
-                service('tito10047_geo.geocoder.import.clock'),
+                service('geo.geocoder.import.converter'),
+                service('geo.geocoder.index_manager'),
+                service('geo.geocoder.build_storage'),
+                service('geo.geocoder.index_naming'),
+                service('geo.geocoder.index_settings'),
+                service('geo.geocoder.tables'),
+                service('geo.geocoder.import.clock'),
                 service('logger'),
             ])
-            ->tag('monolog.logger', ['channel' => 'tito10047_geo'])
-        ->alias(ImporterInterface::class, 'tito10047_geo.geocoder.importer')
+            ->tag('monolog.logger', ['channel' => 'geo'])
+        ->alias(ImporterInterface::class, 'geo.geocoder.importer')
 
-        ->set('tito10047_geo.geocoder.file_exporter', FileExporter::class)
+        ->set('geo.geocoder.file_exporter', FileExporter::class)
             ->args([
-                service('tito10047_geo.geocoder.import.converter'),
-                service('tito10047_geo.geocoder.index_naming'),
-                service('tito10047_geo.geocoder.index_settings'),
-                service('tito10047_geo.geocoder.import.clock'),
+                service('geo.geocoder.import.converter'),
+                service('geo.geocoder.index_naming'),
+                service('geo.geocoder.index_settings'),
+                service('geo.geocoder.import.clock'),
             ])
-        ->alias(FileExporterInterface::class, 'tito10047_geo.geocoder.file_exporter')
+        ->alias(FileExporterInterface::class, 'geo.geocoder.file_exporter')
 
         // artifacts: the builder needs the snapshot directory, the installer the version of the target instance
-        ->set('tito10047_geo.geocoder.artifact_builder', ArtifactBuilder::class)
+        ->set('geo.geocoder.artifact_builder', ArtifactBuilder::class)
             ->args([
-                service('tito10047_geo.geocoder.index_manager'),
-                service('tito10047_geo.geocoder.connection'),
+                service('geo.geocoder.index_manager'),
+                service('geo.geocoder.connection'),
                 abstract_arg('snapshot directory'),
-                service('tito10047_geo.geocoder.index_naming'),
-                service('tito10047_geo.geocoder.tables'),
-                service('tito10047_geo.geocoder.import.clock'),
+                service('geo.geocoder.index_naming'),
+                service('geo.geocoder.tables'),
+                service('geo.geocoder.import.clock'),
             ])
             ->lazy(ArtifactBuilderInterface::class)
-        ->alias(ArtifactBuilderInterface::class, 'tito10047_geo.geocoder.artifact_builder')
+        ->alias(ArtifactBuilderInterface::class, 'geo.geocoder.artifact_builder')
 
-        ->set('tito10047_geo.geocoder.artifact_installer_factory', ArtifactInstallerFactory::class)
+        ->set('geo.geocoder.artifact_installer_factory', ArtifactInstallerFactory::class)
             ->args([
-                service('tito10047_geo.geocoder.index_naming'),
-                service('tito10047_geo.geocoder.tables'),
+                service('geo.geocoder.index_naming'),
+                service('geo.geocoder.tables'),
                 abstract_arg('Meilisearch version'),
-                service('tito10047_geo.geocoder.index_manager')->nullOnInvalid(),
+                service('geo.geocoder.index_manager')->nullOnInvalid(),
             ])
-        ->alias(ArtifactInstallerFactoryInterface::class, 'tito10047_geo.geocoder.artifact_installer_factory')
+        ->alias(ArtifactInstallerFactoryInterface::class, 'geo.geocoder.artifact_installer_factory')
 
         // the version may have to be read from the instance: not before the first installation
-        ->set('tito10047_geo.geocoder.artifact_installer', ArtifactInstaller::class)
-            ->factory([service('tito10047_geo.geocoder.artifact_installer_factory'), 'create'])
+        ->set('geo.geocoder.artifact_installer', ArtifactInstaller::class)
+            ->factory([service('geo.geocoder.artifact_installer_factory'), 'create'])
             ->lazy(ArtifactInstallerInterface::class)
-        ->alias(ArtifactInstallerInterface::class, 'tito10047_geo.geocoder.artifact_installer')
+        ->alias(ArtifactInstallerInterface::class, 'geo.geocoder.artifact_installer')
 
         // the downloads of the dumps
-        ->set('tito10047_geo.geocoder.import.download_http_client', ClientInterface::class)
+        ->set('geo.geocoder.import.download_http_client', ClientInterface::class)
             ->factory(HttpClientFactory::class.'::download')
 
-        ->set('tito10047_geo.geocoder.import.region_url_resolver', GraphHopperRegionUrlResolver::class)
+        ->set('geo.geocoder.import.region_url_resolver', GraphHopperRegionUrlResolver::class)
             ->args([abstract_arg('base URL of the dumps')])
-        ->alias(RegionUrlResolverInterface::class, 'tito10047_geo.geocoder.import.region_url_resolver')
+        ->alias(RegionUrlResolverInterface::class, 'geo.geocoder.import.region_url_resolver')
 
-        ->set('tito10047_geo.geocoder.import.dump_downloader', HttpDumpDownloader::class)
+        ->set('geo.geocoder.import.dump_downloader', HttpDumpDownloader::class)
             ->args([
-                service('tito10047_geo.geocoder.import.download_http_client'),
-                service('tito10047_geo.psr17_factory'),
-                service('tito10047_geo.geocoder.import.region_url_resolver'),
+                service('geo.geocoder.import.download_http_client'),
+                service('geo.psr17_factory'),
+                service('geo.geocoder.import.region_url_resolver'),
             ])
-        ->alias(DumpDownloaderInterface::class, 'tito10047_geo.geocoder.import.dump_downloader')
+        ->alias(DumpDownloaderInterface::class, 'geo.geocoder.import.dump_downloader')
 
         // commands
-        ->set('tito10047_geo.geocoder.command.download', GeocoderDownloadCommand::class)
+        ->set('geo.geocoder.command.download', GeocoderDownloadCommand::class)
             ->args([
-                service('tito10047_geo.geocoder.import.dump_downloader'),
-                param('tito10047_geo.geocoder.import.regions'),
-                param('tito10047_geo.geocoder.import.dumps_dir'),
+                service('geo.geocoder.import.dump_downloader'),
+                param('geo.geocoder.import.regions'),
+                param('geo.geocoder.import.dumps_dir'),
             ])
-            ->tag('console.command', ['command' => 'tito10047-geo:geocoder:download'])
+            ->tag('console.command', ['command' => 'geo:download'])
 
-        ->set('tito10047_geo.geocoder.command.import', GeocoderImportCommand::class)
+        ->set('geo.geocoder.command.import', GeocoderImportCommand::class)
             ->args([
-                service('tito10047_geo.geocoder.importer')->nullOnInvalid(),
-                service('tito10047_geo.geocoder.file_exporter'),
-                param('tito10047_geo.geocoder.import.dumps_dir'),
+                service('geo.geocoder.importer')->nullOnInvalid(),
+                service('geo.geocoder.file_exporter'),
+                param('geo.geocoder.import.dumps_dir'),
             ])
-            ->tag('console.command', ['command' => 'tito10047-geo:geocoder:import'])
+            ->tag('console.command', ['command' => 'geo:import'])
 
-        ->set('tito10047_geo.geocoder.command.publish', GeocoderPublishCommand::class)
-            ->args([service('tito10047_geo.geocoder.importer')])
-            ->tag('console.command', ['command' => 'tito10047-geo:geocoder:publish'])
+        ->set('geo.geocoder.command.publish', GeocoderPublishCommand::class)
+            ->args([service('geo.geocoder.importer')])
+            ->tag('console.command', ['command' => 'geo:publish'])
 
-        ->set('tito10047_geo.geocoder.command.cleanup', GeocoderCleanupCommand::class)
-            ->args([service('tito10047_geo.geocoder.importer')])
-            ->tag('console.command', ['command' => 'tito10047-geo:geocoder:cleanup'])
+        ->set('geo.geocoder.command.cleanup', GeocoderCleanupCommand::class)
+            ->args([service('geo.geocoder.importer')])
+            ->tag('console.command', ['command' => 'geo:cleanup'])
 
-        ->set('tito10047_geo.geocoder.command.artifact', GeocoderArtifactCommand::class)
-            ->args([service('tito10047_geo.geocoder.importer'), service('tito10047_geo.geocoder.artifact_builder')->nullOnInvalid()])
-            ->tag('console.command', ['command' => 'tito10047-geo:geocoder:artifact'])
+        ->set('geo.geocoder.command.artifact', GeocoderArtifactCommand::class)
+            ->args([service('geo.geocoder.importer'), service('geo.geocoder.artifact_builder')->nullOnInvalid()])
+            ->tag('console.command', ['command' => 'geo:artifact'])
 
-        ->set('tito10047_geo.geocoder.command.install_artifact', GeocoderInstallArtifactCommand::class)
-            ->args([service('tito10047_geo.geocoder.artifact_installer_factory'), service('tito10047_geo.geocoder.connection')])
-            ->tag('console.command', ['command' => 'tito10047-geo:geocoder:install-artifact'])
+        ->set('geo.geocoder.command.install_artifact', GeocoderInstallArtifactCommand::class)
+            ->args([service('geo.geocoder.artifact_installer_factory'), service('geo.geocoder.connection')])
+            ->tag('console.command', ['command' => 'geo:artifact:install'])
     ;
 };

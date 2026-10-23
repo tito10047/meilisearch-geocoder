@@ -19,15 +19,15 @@ use Tito10047\Geocoder\Import\ImporterInterface;
  * Packs the live build into an artifact: a Meilisearch snapshot, an SQLite database of the
  * tables and their manifest, to install on a server that never indexes.
  */
-#[AsCommand(name: 'tito10047-geo:geocoder:artifact', description: 'Packs the live build of the geocoder into an artifact (Meilisearch snapshot + SQLite)', help: <<<'TXT'
+#[AsCommand(name: 'geo:artifact', description: 'Packs the live build of the geocoder into an artifact (Meilisearch snapshot + SQLite)', help: <<<'TXT'
 The <info>%command.name%</info> command snapshots the Meilisearch instance of the live build and copies the
 live tables into an SQLite database, with a manifest, into a new or empty directory:
 
   <info>php %command.full_name% var/geo/artifact</info>
 
 The instance must hold the live index only (the snapshot holds every index), and its snapshot
-directory must be reachable from here (tito10047_geo.geocoder.meilisearch.snapshot_dir).
-Install the artifact on the server with tito10047-geo:geocoder:install-artifact.
+directory must be reachable from here (geo.geocoder.meilisearch.snapshot_dir).
+Install the artifact on the server with geo:artifact:install.
 TXT)]
 final class GeocoderArtifactCommand extends Command
 {
@@ -50,7 +50,7 @@ final class GeocoderArtifactCommand extends Command
     {
         $io = new SymfonyStyle($input, $output);
         if (!$this->builder instanceof ArtifactBuilderInterface) {
-            $io->error('Building an artifact needs the snapshot directory of the Meilisearch instance: configure "tito10047_geo.geocoder.meilisearch.snapshot_dir".');
+            $io->error('Building an artifact needs the snapshot directory of the Meilisearch instance: configure "geo.geocoder.meilisearch.snapshot_dir".');
 
             return Command::FAILURE;
         }
@@ -77,7 +77,7 @@ final class GeocoderArtifactCommand extends Command
             ['Database' => Helper::formatMemory($manifest->database->size)],
         );
         $io->text(Attribution::OPENSTREETMAP);
-        $io->success(\sprintf('The artifact is in "%s". Copy the directory to the server and run there: tito10047-geo:geocoder:install-artifact <artifact> <Meilisearch data directory>', $artifact->directory));
+        $io->success(\sprintf('The artifact is in "%s". Copy the directory to the server and run there: geo:artifact:install <artifact> <Meilisearch data directory>', $artifact->directory));
 
         return Command::SUCCESS;
     }

@@ -21,7 +21,7 @@ use Tito10047\Routing\RouterInterface;
 /**
  * Prints the routes through points: distance, duration, countries and tolls per country.
  */
-#[AsCommand(name: 'tito10047-geo:routing:route', description: 'Prints the routes through points: distance, duration, countries, tolls', help: <<<'TXT'
+#[AsCommand(name: 'geo:route', description: 'Prints the routes through points: distance, duration, countries, tolls', help: <<<'TXT'
 The <info>%command.name%</info> command asks Valhalla for the routes through the points:
 
   <info>php %command.full_name% 48.1486,17.1077 48.7164,21.2611 --alternatives=3</info>

@@ -17,7 +17,7 @@ use Tito10047\Geocoder\Import\Exception\BuildNotFoundException;
 
 final class GeocoderArtifactCommandTest extends TestCase
 {
-    private const COMMAND = 'tito10047-geo:geocoder:artifact';
+    private const COMMAND = 'geo:artifact';
 
     private ?TestApplication $application = null;
 
@@ -29,17 +29,17 @@ final class GeocoderArtifactCommandTest extends TestCase
     public function testBuildsAnArtifactOfTheLiveBuild(): void
     {
         $application = $this->application(Configs::geocoder(['meilisearch' => ['url' => 'http://127.0.0.1:7700', 'snapshot_dir' => '/srv/meili/snapshots']]));
-        $application->service('tito10047_geo.geocoder.importer', FakeImporter::class)->live = Builds::build();
+        $application->service('geo.geocoder.importer', FakeImporter::class)->live = Builds::build();
         $tester = $application->command(self::COMMAND);
 
         $tester->execute(['directory' => '/srv/artifact']);
 
         $tester->assertCommandIsSuccessful();
-        $this->assertSame([[Builds::UID, '/srv/artifact']], $application->service('tito10047_geo.geocoder.artifact_builder', FakeArtifactBuilder::class)->artifacts);
+        $this->assertSame([[Builds::UID, '/srv/artifact']], $application->service('geo.geocoder.artifact_builder', FakeArtifactBuilder::class)->artifacts);
         $display = $this->display($tester);
         $this->assertStringContainsString('1.35.1', $display);
         $this->assertStringContainsString('937.0 MiB', $display);
-        $this->assertStringContainsString('tito10047-geo:geocoder:install-artifact', $display);
+        $this->assertStringContainsString('geo:artifact:install', $display);
         $this->assertStringContainsString(Attribution::OPENSTREETMAP, $display);
     }
 
@@ -50,7 +50,7 @@ final class GeocoderArtifactCommandTest extends TestCase
         $tester->execute(['directory' => '/srv/artifact']);
 
         $this->assertSame(Command::FAILURE, $tester->getStatusCode());
-        $this->assertStringContainsString('configure "tito10047_geo.geocoder.meilisearch.snapshot_dir"', $this->display($tester));
+        $this->assertStringContainsString('configure "geo.geocoder.meilisearch.snapshot_dir"', $this->display($tester));
     }
 
     /**
@@ -66,12 +66,12 @@ final class GeocoderArtifactCommandTest extends TestCase
     public function testFailureFails(bool $ofTheImporter, \Throwable $failure): void
     {
         $application = $this->application(Configs::geocoder(['meilisearch' => ['url' => 'http://127.0.0.1:7700', 'snapshot_dir' => '/srv/meili/snapshots']]));
-        $importer = $application->service('tito10047_geo.geocoder.importer', FakeImporter::class);
+        $importer = $application->service('geo.geocoder.importer', FakeImporter::class);
         $importer->live = Builds::build();
         if ($ofTheImporter) {
             $importer->liveException = $failure;
         } else {
-            $application->service('tito10047_geo.geocoder.artifact_builder', FakeArtifactBuilder::class)->exception = $failure;
+            $application->service('geo.geocoder.artifact_builder', FakeArtifactBuilder::class)->exception = $failure;
         }
         $tester = $application->command(self::COMMAND);
 

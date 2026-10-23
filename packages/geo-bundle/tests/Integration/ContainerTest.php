@@ -80,23 +80,23 @@ use Tito10047\Routing\Valhalla\ValhallaRouter;
 final class ContainerTest extends KernelTestCase
 {
     private const GEOCODER_COMMANDS = [
-        'tito10047-geo:geocoder:artifact',
-        'tito10047-geo:geocoder:cleanup',
-        'tito10047-geo:geocoder:download',
-        'tito10047-geo:geocoder:import',
-        'tito10047-geo:geocoder:install-artifact',
-        'tito10047-geo:geocoder:publish',
-        'tito10047-geo:geocoder:search',
-        'tito10047-geo:geocoder:status',
+        'geo:artifact',
+        'geo:artifact:install',
+        'geo:cleanup',
+        'geo:download',
+        'geo:import',
+        'geo:publish',
+        'geo:search',
+        'geo:status',
     ];
-    private const ROUTING_COMMANDS = ['tito10047-geo:routing:matrix', 'tito10047-geo:routing:route', 'tito10047-geo:routing:status'];
+    private const ROUTING_COMMANDS = ['geo:matrix', 'geo:route', 'geo:route:status'];
 
     public function testNothingIsRegisteredWithoutConfiguration(): void
     {
         $kernel = self::bootKernel();
         $container = self::getContainer();
 
-        foreach ([GeocoderInterface::class, RouterInterface::class, 'tito10047_geo.geocoder', 'tito10047_geo.routing.router', 'tito10047_geo.geocoder.autocompleter'] as $id) {
+        foreach ([GeocoderInterface::class, RouterInterface::class, 'geo.geocoder', 'geo.routing.router', 'geo.geocoder.autocompleter'] as $id) {
             $this->assertFalse($container->has($id), $id);
         }
         $this->assertSame([], $this->bundleCommands($kernel));
@@ -118,23 +118,23 @@ final class ContainerTest extends KernelTestCase
         yield 'query parser' => [QueryParserInterface::class, QueryParserInterface::class];
         yield 'index manager' => [IndexManagerInterface::class, MeilisearchIndexManager::class];
         yield 'index naming' => [IndexNamingInterface::class, IndexNamingInterface::class];
-        yield 'Meilisearch client' => ['tito10047_geo.geocoder.meilisearch.client', Client::class];
-        yield 'Meilisearch HTTP' => ['tito10047_geo.geocoder.meilisearch.http', \Meilisearch\Http\Client::class];
-        yield 'PSR-18 client of Meilisearch' => ['tito10047_geo.geocoder.meilisearch.http_client', ClientInterface::class];
-        yield 'selection rules' => ['tito10047_geo.geocoder.selection_rules', SelectionRules::class];
-        yield 'search options' => ['tito10047_geo.geocoder.search_options', SearchOptions::class];
+        yield 'Meilisearch client' => ['geo.geocoder.meilisearch.client', Client::class];
+        yield 'Meilisearch HTTP' => ['geo.geocoder.meilisearch.http', \Meilisearch\Http\Client::class];
+        yield 'PSR-18 client of Meilisearch' => ['geo.geocoder.meilisearch.http_client', ClientInterface::class];
+        yield 'selection rules' => ['geo.geocoder.selection_rules', SelectionRules::class];
+        yield 'search options' => ['geo.geocoder.search_options', SearchOptions::class];
         yield 'importer' => [ImporterInterface::class, Importer::class];
         yield 'file exporter' => [FileExporterInterface::class, FileExporter::class];
         yield 'converter' => [ConverterInterface::class, ExportAwareConverter::class];
         yield 'clock' => [ClockInterface::class, SystemClock::class];
         yield 'build storage' => [BuildStorageInterface::class, BuildStorageInterface::class];
         yield 'SQL dialect' => [SqlDialectInterface::class, SqlDialectInterface::class];
-        yield 'index settings' => ['tito10047_geo.geocoder.index_settings', IndexSettings::class];
+        yield 'index settings' => ['geo.geocoder.index_settings', IndexSettings::class];
         yield 'artifact installer factory' => [ArtifactInstallerFactoryInterface::class, ArtifactInstallerFactory::class];
         yield 'artifact installer' => [ArtifactInstallerInterface::class, ArtifactInstallerInterface::class];
         yield 'dump downloader' => [DumpDownloaderInterface::class, HttpDumpDownloader::class];
         yield 'region URL resolver' => [RegionUrlResolverInterface::class, GraphHopperRegionUrlResolver::class];
-        yield 'PSR-18 client of the downloads' => ['tito10047_geo.geocoder.import.download_http_client', ClientInterface::class];
+        yield 'PSR-18 client of the downloads' => ['geo.geocoder.import.download_http_client', ClientInterface::class];
     }
 
     /**
@@ -143,14 +143,14 @@ final class ContainerTest extends KernelTestCase
     #[DataProvider('geocoderServices')]
     public function testGeocoderServiceIsRegistered(string $id, string $class): void
     {
-        self::bootKernel(['extension_configs' => ['tito10047_geo' => Configs::geocoder()]]);
+        self::bootKernel(['extension_configs' => ['geo' => Configs::geocoder()]]);
 
         $this->assertInstanceOf($class, self::getContainer()->get($id));
     }
 
     public function testGeocoderAloneRegistersItsCommandsOnly(): void
     {
-        $kernel = self::bootKernel(['extension_configs' => ['tito10047_geo' => Configs::geocoder()]]);
+        $kernel = self::bootKernel(['extension_configs' => ['geo' => Configs::geocoder()]]);
 
         $this->assertSame(self::GEOCODER_COMMANDS, $this->bundleCommands($kernel));
         $this->assertFalse(self::getContainer()->has(RouterInterface::class));
@@ -158,7 +158,7 @@ final class ContainerTest extends KernelTestCase
 
     public function testConfigurationReachesTheServices(): void
     {
-        self::bootKernel(['extension_configs' => ['tito10047_geo' => Configs::geocoder([
+        self::bootKernel(['extension_configs' => ['geo' => Configs::geocoder([
             'meilisearch' => ['url' => 'http://127.0.0.1:7700', 'index' => 'places'],
             'database' => ['dsn' => Configs::UNREACHABLE_DSN, 'tables' => ['house_numbers' => 'h', 'translations' => 't', 'metadata' => 'm']],
             'search' => ['default_limit' => 7, 'preferred_country' => 'CZ'],
@@ -167,24 +167,24 @@ final class ContainerTest extends KernelTestCase
         ])]]);
         $container = self::getContainer();
 
-        $this->assertEquals(new TableNames('h', 't', 'm'), $container->get('tito10047_geo.geocoder.tables'));
-        $this->assertEquals(new SearchOptions(limit: 7, preferredCountry: 'CZ'), $container->get('tito10047_geo.geocoder.search_options'));
-        $this->assertEquals(new SelectionRules(['city' => 99], ['railway' => ['station']], 1, 2, ['sk', 'en'], 0.5, ['bus_stop'], ['CZ' => 'ref:ruian:addr']), $container->get('tito10047_geo.geocoder.selection_rules'));
+        $this->assertEquals(new TableNames('h', 't', 'm'), $container->get('geo.geocoder.tables'));
+        $this->assertEquals(new SearchOptions(limit: 7, preferredCountry: 'CZ'), $container->get('geo.geocoder.search_options'));
+        $this->assertEquals(new SelectionRules(['city' => 99], ['railway' => ['station']], 1, 2, ['sk', 'en'], 0.5, ['bus_stop'], ['CZ' => 'ref:ruian:addr']), $container->get('geo.geocoder.selection_rules'));
         $this->assertEquals(new GraphHopperRegionUrlResolver('http://mirror.local/photon'), $container->get(RegionUrlResolverInterface::class));
-        $this->assertSame(['europe/slovakia'], $container->getParameter('tito10047_geo.geocoder.import.regions'));
+        $this->assertSame(['europe/slovakia'], $container->getParameter('geo.geocoder.import.regions'));
         $naming = $container->get(IndexNamingInterface::class);
         $this->assertInstanceOf(IndexNamingInterface::class, $naming);
         $this->assertSame('places', $naming->liveUid());
-        $this->assertSame('/srv/dumps', $container->getParameter('tito10047_geo.geocoder.import.dumps_dir'));
+        $this->assertSame('/srv/dumps', $container->getParameter('geo.geocoder.import.dumps_dir'));
     }
 
     public function testDatabaseIsNotConnectedWhenTheGeocoderIsBuilt(): void
     {
-        self::bootKernel(['extension_configs' => ['tito10047_geo' => Configs::geocoder()]]);
+        self::bootKernel(['extension_configs' => ['geo' => Configs::geocoder()]]);
 
         // the DSN points to a directory that does not exist: connecting would throw
         $this->assertInstanceOf(Geocoder::class, self::getContainer()->get(GeocoderInterface::class));
-        $connection = self::getContainer()->get('tito10047_geo.geocoder.connection');
+        $connection = self::getContainer()->get('geo.geocoder.connection');
         $this->assertInstanceOf(\PDO::class, $connection);
 
         $this->expectException(GeocoderUnavailableException::class);
@@ -193,7 +193,7 @@ final class ContainerTest extends KernelTestCase
 
     public function testDatabaseIsNotConnectedWhenTheImportIsBuilt(): void
     {
-        self::bootKernel(['extension_configs' => ['tito10047_geo' => Configs::geocoder([
+        self::bootKernel(['extension_configs' => ['geo' => Configs::geocoder([
             'meilisearch' => ['url' => 'http://127.0.0.1:7700', 'snapshot_dir' => '/srv/meili/snapshots'],
         ])]]);
         $container = self::getContainer();
@@ -212,15 +212,15 @@ final class ContainerTest extends KernelTestCase
 
     public function testArtifactBuilderNeedsTheSnapshotDirectory(): void
     {
-        self::bootKernel(['extension_configs' => ['tito10047_geo' => Configs::geocoder()]]);
+        self::bootKernel(['extension_configs' => ['geo' => Configs::geocoder()]]);
 
         $this->assertFalse(self::getContainer()->has(ArtifactBuilderInterface::class));
-        $this->assertFalse(self::getContainer()->has('tito10047_geo.geocoder.artifact_builder'));
+        $this->assertFalse(self::getContainer()->has('geo.geocoder.artifact_builder'));
     }
 
     public function testConfiguredMeilisearchVersionReachesTheInstaller(): void
     {
-        self::bootKernel(['extension_configs' => ['tito10047_geo' => Configs::geocoder([
+        self::bootKernel(['extension_configs' => ['geo' => Configs::geocoder([
             'meilisearch' => ['url' => 'http://127.0.0.1:1', 'version' => '1.35.1'],
         ])]]);
         $installer = self::getContainer()->get(ArtifactInstallerInterface::class);
@@ -234,7 +234,7 @@ final class ContainerTest extends KernelTestCase
 
     public function testNameCatalogIsResetBetweenRequests(): void
     {
-        $kernel = self::bootKernel(['extension_configs' => ['tito10047_geo' => Configs::geocoder(['database' => ['connection' => 'app.pdo']])]]);
+        $kernel = self::bootKernel(['extension_configs' => ['geo' => Configs::geocoder(['database' => ['connection' => 'app.pdo']])]]);
         $container = self::getContainer();
         $pdo = $container->get('app.pdo');
         $this->assertInstanceOf(\PDO::class, $pdo);
@@ -255,45 +255,45 @@ final class ContainerTest extends KernelTestCase
 
     public function testExistingServicesReplaceTheBuiltOnes(): void
     {
-        self::bootKernel(['extension_configs' => ['tito10047_geo' => Configs::geocoder([
+        self::bootKernel(['extension_configs' => ['geo' => Configs::geocoder([
             'meilisearch' => ['client' => 'app.meilisearch'],
             'database' => ['connection' => 'app.pdo'],
         ])]]);
         $container = self::getContainer();
 
-        $this->assertSame($container->get('app.meilisearch'), $container->get('tito10047_geo.geocoder.meilisearch.client'));
-        $this->assertSame($container->get('app.pdo'), $container->get('tito10047_geo.geocoder.connection'));
+        $this->assertSame($container->get('app.meilisearch'), $container->get('geo.geocoder.meilisearch.client'));
+        $this->assertSame($container->get('app.pdo'), $container->get('geo.geocoder.connection'));
         $this->assertInstanceOf(Geocoder::class, $container->get(GeocoderInterface::class));
     }
 
     public function testIndexManagerNeedsTheUrl(): void
     {
-        $kernel = self::bootKernel(['extension_configs' => ['tito10047_geo' => Configs::geocoder([
+        $kernel = self::bootKernel(['extension_configs' => ['geo' => Configs::geocoder([
             'meilisearch' => ['client' => 'app.meilisearch'],
         ])]]);
         $container = self::getContainer();
 
         $this->assertFalse($container->has(IndexManagerInterface::class));
-        $this->assertFalse($container->has('tito10047_geo.geocoder.meilisearch.http'));
+        $this->assertFalse($container->has('geo.geocoder.meilisearch.http'));
         $this->assertFalse($container->has(ImporterInterface::class));
         $this->assertFalse($container->has(ArtifactBuilderInterface::class));
         // files only: the export and the installation of artifacts
         $this->assertInstanceOf(FileExporter::class, $container->get(FileExporterInterface::class));
         $this->assertInstanceOf(ArtifactInstallerFactory::class, $container->get(ArtifactInstallerFactoryInterface::class));
-        $this->assertSame(['tito10047-geo:geocoder:download', 'tito10047-geo:geocoder:import', 'tito10047-geo:geocoder:install-artifact', 'tito10047-geo:geocoder:search'], $this->bundleCommands($kernel));
+        $this->assertSame(['geo:artifact:install', 'geo:download', 'geo:import', 'geo:search'], $this->bundleCommands($kernel));
     }
 
     public function testExistingPsr18ClientsReplaceTheBuiltOnes(): void
     {
-        self::bootKernel(['extension_configs' => ['tito10047_geo' => Configs::geocoder([
+        self::bootKernel(['extension_configs' => ['geo' => Configs::geocoder([
             'meilisearch' => ['url' => 'http://127.0.0.1:7700', 'http_client' => 'app.psr18'],
             'import' => ['download_http_client' => 'app.psr18'],
         ]) + Configs::routing(['http_client' => 'app.psr18'])]]);
         $container = self::getContainer();
 
-        $this->assertSame($container->get('app.psr18'), $container->get('tito10047_geo.geocoder.meilisearch.http_client'));
-        $this->assertSame($container->get('app.psr18'), $container->get('tito10047_geo.geocoder.import.download_http_client'));
-        $this->assertSame($container->get('app.psr18'), $container->get('tito10047_geo.routing.http_client'));
+        $this->assertSame($container->get('app.psr18'), $container->get('geo.geocoder.meilisearch.http_client'));
+        $this->assertSame($container->get('app.psr18'), $container->get('geo.geocoder.import.download_http_client'));
+        $this->assertSame($container->get('app.psr18'), $container->get('geo.routing.http_client'));
     }
 
     /**
@@ -305,7 +305,7 @@ final class ContainerTest extends KernelTestCase
         yield 'matrix' => [MatrixInterface::class, ValhallaMatrix::class];
         yield 'matrix request encoder' => [MatrixRequestEncoderInterface::class, MatrixRequestEncoderInterface::class];
         yield 'matrix response parser' => [MatrixResponseParserInterface::class, MatrixResponseParserInterface::class];
-        yield 'matrix error translator' => ['tito10047_geo.routing.matrix_error_translator', ErrorTranslatorInterface::class];
+        yield 'matrix error translator' => ['geo.routing.matrix_error_translator', ErrorTranslatorInterface::class];
         yield 'status provider' => [RoutingStatusProviderInterface::class, ValhallaStatusProvider::class];
         yield 'request encoder' => [RequestEncoderInterface::class, RequestEncoderInterface::class];
         yield 'response parser' => [ResponseParserInterface::class, ResponseParserInterface::class];
@@ -313,7 +313,7 @@ final class ContainerTest extends KernelTestCase
         yield 'polyline decoder' => [PolylineDecoderInterface::class, PolylineDecoderInterface::class];
         yield 'country locator' => [CountryLocatorInterface::class, CountryLocatorInterface::class];
         yield 'toll locator' => [TollLocatorInterface::class, TollLocatorInterface::class];
-        yield 'PSR-18 client of Valhalla' => ['tito10047_geo.routing.http_client', ClientInterface::class];
+        yield 'PSR-18 client of Valhalla' => ['geo.routing.http_client', ClientInterface::class];
     }
 
     /**
@@ -322,25 +322,28 @@ final class ContainerTest extends KernelTestCase
     #[DataProvider('routingServices')]
     public function testRoutingServiceIsRegistered(string $id, string $class): void
     {
-        self::bootKernel(['extension_configs' => ['tito10047_geo' => Configs::routing()]]);
+        self::bootKernel(['extension_configs' => ['geo' => Configs::routing()]]);
 
         $this->assertInstanceOf($class, self::getContainer()->get($id));
     }
 
     public function testRoutingAloneRegistersItsCommandsOnly(): void
     {
-        $kernel = self::bootKernel(['extension_configs' => ['tito10047_geo' => Configs::routing()]]);
+        $kernel = self::bootKernel(['extension_configs' => ['geo' => Configs::routing()]]);
 
         $this->assertSame(self::ROUTING_COMMANDS, $this->bundleCommands($kernel));
         $this->assertFalse(self::getContainer()->has(GeocoderInterface::class));
-        $this->assertFalse(self::getContainer()->has('tito10047_geo.geocoder.connection'));
+        $this->assertFalse(self::getContainer()->has('geo.geocoder.connection'));
     }
 
     public function testBothSectionsRegisterEveryCommand(): void
     {
-        $kernel = self::bootKernel(['extension_configs' => ['tito10047_geo' => Configs::both()]]);
+        $kernel = self::bootKernel(['extension_configs' => ['geo' => Configs::both()]]);
 
-        $this->assertSame([...self::GEOCODER_COMMANDS, ...self::ROUTING_COMMANDS], $this->bundleCommands($kernel));
+        $commands = [...self::GEOCODER_COMMANDS, ...self::ROUTING_COMMANDS];
+        sort($commands);
+
+        $this->assertSame($commands, $this->bundleCommands($kernel));
     }
 
     public function testAutocompleterIsRegisteredWhenUxAutocompleteIsInstalled(): void
@@ -348,7 +351,7 @@ final class ContainerTest extends KernelTestCase
         if (!TestKernel::hasUxAutocomplete()) {
             $this->markTestSkipped('symfony/ux-autocomplete 3.5 or newer is not installed.');
         }
-        self::bootKernel(['extension_configs' => ['tito10047_geo' => Configs::geocoder(['ux_autocomplete' => ['alias' => 'address']])]]);
+        self::bootKernel(['extension_configs' => ['geo' => Configs::geocoder(['ux_autocomplete' => ['alias' => 'address']])]]);
 
         $registry = self::getContainer()->get('ux.autocomplete.autocompleter_registry');
         $this->assertInstanceOf(AutocompleterRegistry::class, $registry);
@@ -357,19 +360,19 @@ final class ContainerTest extends KernelTestCase
 
     public function testAutocompleterCanBeDisabled(): void
     {
-        self::bootKernel(['extension_configs' => ['tito10047_geo' => Configs::geocoder(['ux_autocomplete' => false])]]);
+        self::bootKernel(['extension_configs' => ['geo' => Configs::geocoder(['ux_autocomplete' => false])]]);
 
-        $this->assertFalse(self::getContainer()->has('tito10047_geo.geocoder.autocompleter'));
+        $this->assertFalse(self::getContainer()->has('geo.geocoder.autocompleter'));
     }
 
     public function testPhotonApiIsRegisteredWhenEnabled(): void
     {
-        self::bootKernel(['extension_configs' => ['tito10047_geo' => Configs::geocoder(['photon_api' => ['max_age' => 60]])]]);
+        self::bootKernel(['extension_configs' => ['geo' => Configs::geocoder(['photon_api' => ['max_age' => 60]])]]);
         $container = self::getContainer();
 
         $this->assertInstanceOf(PhotonSearch::class, $container->get(PhotonSearchInterface::class));
         $this->assertInstanceOf(FeatureFactory::class, $container->get(FeatureFactoryInterface::class));
-        $this->assertInstanceOf(PhotonApiController::class, $container->get('tito10047_geo.geocoder.photon_api.controller'));
+        $this->assertInstanceOf(PhotonApiController::class, $container->get('geo.geocoder.photon_api.controller'));
         $this->assertTrue($container->getParameter(PhotonApiRouteLoader::ENABLED_PARAMETER));
     }
 
@@ -388,13 +391,13 @@ final class ContainerTest extends KernelTestCase
     #[DataProvider('withoutPhotonApi')]
     public function testPhotonApiIsNotRegisteredWhenDisabled(array $config): void
     {
-        self::bootKernel(['extension_configs' => ['tito10047_geo' => $config]]);
+        self::bootKernel(['extension_configs' => ['geo' => $config]]);
         $container = self::getContainer();
 
-        $this->assertFalse($container->has('tito10047_geo.geocoder.photon_api.controller'));
+        $this->assertFalse($container->has('geo.geocoder.photon_api.controller'));
         $this->assertFalse($container->has(PhotonSearchInterface::class));
         $this->assertFalse($container->getParameter(PhotonApiRouteLoader::ENABLED_PARAMETER));
-        $this->assertInstanceOf(PhotonApiRouteLoader::class, $container->get('tito10047_geo.photon_api.route_loader'));
+        $this->assertInstanceOf(PhotonApiRouteLoader::class, $container->get('geo.photon_api.route_loader'));
     }
 
     /**
@@ -412,7 +415,7 @@ final class ContainerTest extends KernelTestCase
      */
     private function bundleCommands(KernelInterface $kernel): array
     {
-        $names = array_values(array_filter(array_keys((new Application($kernel))->all()), static fn (string $name): bool => str_starts_with($name, 'tito10047-geo:')));
+        $names = array_values(array_filter(array_keys((new Application($kernel))->all()), static fn (string $name): bool => str_starts_with($name, 'geo:')));
         sort($names);
 
         return $names;

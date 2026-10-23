@@ -16,9 +16,9 @@ use Symfony\Component\Routing\RouteCollection;
  */
 final readonly class PhotonApiRouteLoader
 {
-    public const ROUTE = 'tito10047_geo_photon_api';
+    public const ROUTE = 'geo_photon_api';
 
-    public const ENABLED_PARAMETER = 'tito10047_geo.geocoder.photon_api.enabled';
+    public const ENABLED_PARAMETER = 'geo.geocoder.photon_api.enabled';
 
     /**
      * @param bool   $enabled    whether the Photon API is enabled

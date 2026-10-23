@@ -22,8 +22,8 @@ The Valhalla client needs `ext-curl` (or `amphp/http-client`), see [HTTP clients
 A typical configuration:
 
 ```yaml
-# config/packages/tito10047_geo.yaml
-tito10047_geo:
+# config/packages/geo.yaml
+geo:
     geocoder:
         meilisearch:
             url: '%env(MEILISEARCH_URL)%'
@@ -39,7 +39,7 @@ tito10047_geo:
 ### Full reference
 
 ```yaml
-tito10047_geo:
+geo:
     # Addresses: search (autocomplete) over a Meilisearch index and the house numbers
     # and translated names in an SQL database.
     geocoder:
@@ -141,7 +141,7 @@ tito10047_geo:
         # The autocompleter of symfony/ux-autocomplete (3.5 or newer). A boolean or "auto" is a shorthand for "enabled".
         ux_autocomplete:
             enabled: auto               # auto: when installed; true: required; false: never
-            alias: tito10047_geo_address
+            alias: geo_address
 
         # An HTTP API answering like the search of Photon ("GET <prefix>/api?q=…"). A boolean is a shorthand for "enabled".
         photon_api:
@@ -233,7 +233,7 @@ A pair without a route is null; a matrix larger than `max_matrix_location_pairs`
 ### Address autocomplete with Symfony UX
 
 With `symfony/ux-autocomplete` 3.5 or newer installed, the bundle registers an autocompleter with
-the alias `tito10047_geo_address` (`ux_autocomplete.alias`). Each result has the label as `text`
+the alias `geo_address` (`ux_autocomplete.alias`). Each result has the label as `text`
 and `latitude,longitude|label` as `value`, e.g. `48.1485965,17.1077477|Bratislava, Slovensko`, so
 that the form gets the chosen place without a second lookup.
 
@@ -243,7 +243,7 @@ use Symfony\Component\Form\Extension\Core\Type\TextType;
 $builder->add('destination', TextType::class, [
     'autocomplete' => true,
     'autocomplete_url' => $this->urlGenerator->generate('ux_autocomplete', [
-        'alias' => 'tito10047_geo_address',
+        'alias' => 'geo_address',
         'locale' => 'sk',
         'country' => 'SK,CZ',
     ]),
@@ -263,19 +263,19 @@ and OpenLayers Photon plugins) can use the geocoder through `GET /api`, the sear
 Enable it and import the routes of the bundle under a prefix of your choice:
 
 ```yaml
-# config/packages/tito10047_geo.yaml
-tito10047_geo:
+# config/packages/geo.yaml
+geo:
     geocoder:
         photon_api: true                # or { max_age: 600 }
 
-# config/routes/tito10047_geo.yaml
-tito10047_geo:
+# config/routes/geo.yaml
+geo:
     resource: '@Tito10047GeoBundle/config/routes.php'
     prefix: /photon                     # the clients get "https://example.com/photon" as the Photon URL
 ```
 
 The routes file may stay imported whatever the configuration: while the API is disabled (or the
-geocoder is), it adds no route. The route is `tito10047_geo_photon_api` (GET and HEAD).
+geocoder is), it adds no route. The route is `geo_photon_api` (GET and HEAD).
 
 ```console
 $ curl 'https://example.com/photon/api?q=Hlavn%C3%A1+12+Ko%C5%A1ice&lang=sk&limit=1'
@@ -344,60 +344,60 @@ Access control and rate limiting are the application's too.
 
 The core of the API is framework-free (`Tito10047\Geocoder\Photon\PhotonQuery::fromQueryString()`,
 `PhotonSearchInterface`, `FeatureFactoryInterface`): the services
-`tito10047_geo.geocoder.photon_api.search` and `….feature_factory` can be decorated or replaced.
+`geo.geocoder.photon_api.search` and `….feature_factory` can be decorated or replaced.
 
 ### Services
 
-Every service is private, with an id prefixed by `tito10047_geo.`, and aliased to its interface for
+Every service is private, with an id prefixed by `geo.`, and aliased to its interface for
 autowiring. Each collaborator is a service of its own, so that an application can decorate or
-replace it (e.g. `#[AsDecorator('tito10047_geo.geocoder.label_formatter')]`).
+replace it (e.g. `#[AsDecorator('geo.geocoder.label_formatter')]`).
 
 | Interface (alias) | Service id | Class |
 |---|---|---|
-| `Geocoder\Search\GeocoderInterface` | `tito10047_geo.geocoder` | `Geocoder` |
-| `Geocoder\Search\AddressLookupInterface` | `tito10047_geo.geocoder.address_lookup` | `AddressLookup`: an address by its official id (`findByReference()`) |
-| `Geocoder\Search\Backend\SearchBackendInterface` | `tito10047_geo.geocoder.search_backend` | `MeilisearchSearchBackend` |
-| `Geocoder\HouseNumber\HouseNumberStoreInterface` | `tito10047_geo.geocoder.house_number_store` | `PdoHouseNumberStore` |
-| `Geocoder\Name\NameCatalogInterface` | `tito10047_geo.geocoder.name_catalog` | `PdoNameCatalog` |
-| `Geocoder\Search\RerankerInterface` | `tito10047_geo.geocoder.reranker` | `Reranker` |
-| `Geocoder\Search\LabelFormatterInterface` | `tito10047_geo.geocoder.label_formatter` | `LabelFormatter` |
-| `Geocoder\Search\Query\QueryParserInterface` | `tito10047_geo.geocoder.query_parser` | `QueryParser` |
-| `Geocoder\Search\Text\NameNormalizerInterface` | `tito10047_geo.geocoder.name_normalizer` | `NameNormalizer` |
-| `Geocoder\Index\IndexManagerInterface` | `tito10047_geo.geocoder.index_manager` | `MeilisearchIndexManager` (with a `url` only) |
-| `Geocoder\Index\IndexNamingInterface` | `tito10047_geo.geocoder.index_naming` | `TimestampIndexNaming` |
-| | `tito10047_geo.geocoder.meilisearch.client` | `Meilisearch\Client` |
-| | `tito10047_geo.geocoder.meilisearch.http` | `Meilisearch\Http\Client` (with a `url` only) |
-| | `tito10047_geo.geocoder.meilisearch.http_client` | PSR-18 client of Meilisearch |
-| | `tito10047_geo.geocoder.connection` | `PDO` (lazy) |
-| | `tito10047_geo.geocoder.tables` | `Storage\TableNames` |
-| | `tito10047_geo.geocoder.search_options` | `SearchOptions`: the configured defaults |
-| | `tito10047_geo.geocoder.selection_rules` | `Import\SelectionRules` |
-| `Geocoder\Import\ImporterInterface` | `tito10047_geo.geocoder.importer` | `Importer` (with a `url` only) |
-| `Geocoder\Import\ConverterInterface` | `tito10047_geo.geocoder.import.converter` | `File\ExportAwareConverter`: exports through `…import.export_converter` (`FileExportConverter`), dumps through `…import.photon_converter` (`PhotonConverter` with the `import` rules) |
-| `Geocoder\Import\File\FileExporterInterface` | `tito10047_geo.geocoder.file_exporter` | `FileExporter` |
-| `Geocoder\Import\ClockInterface` | `tito10047_geo.geocoder.import.clock` | `SystemClock` (names the builds) |
-| `Geocoder\Import\Download\DumpDownloaderInterface` | `tito10047_geo.geocoder.import.dump_downloader` | `HttpDumpDownloader` over `…import.download_http_client` |
-| `Geocoder\Import\Download\RegionUrlResolverInterface` | `tito10047_geo.geocoder.import.region_url_resolver` | `GraphHopperRegionUrlResolver` with the `download_url` |
-| `Geocoder\Storage\BuildStorageInterface` | `tito10047_geo.geocoder.build_storage` | `PdoBuildStorage` (lazy) |
-| `Geocoder\Storage\Pdo\Dialect\SqlDialectInterface` | `tito10047_geo.geocoder.sql_dialect` | by the driver of the connection (lazy) |
-| `Geocoder\Artifact\ArtifactBuilderInterface` | `tito10047_geo.geocoder.artifact_builder` | `ArtifactBuilder` (lazy; with a `url` and a `snapshot_dir` only) |
-| `Geocoder\Artifact\ArtifactInstallerInterface` | `tito10047_geo.geocoder.artifact_installer` | `ArtifactInstaller` (lazy) |
-| `GeoBundle\Artifact\ArtifactInstallerFactoryInterface` | `tito10047_geo.geocoder.artifact_installer_factory` | `ArtifactInstallerFactory`: the installer of a Meilisearch version |
-| | `tito10047_geo.geocoder.index_settings` | `Index\IndexSettings` of the builds |
-| | `tito10047_geo.geocoder.autocompleter` | `GeocoderAutocompleter` |
-| `Routing\RouterInterface` | `tito10047_geo.routing.router` | `Valhalla\ValhallaRouter` |
-| `Routing\MatrixInterface` | `tito10047_geo.routing.matrix` | `Valhalla\ValhallaMatrix` |
-| `Routing\Valhalla\MatrixRequestEncoderInterface` | `tito10047_geo.routing.matrix_request_encoder` | `MatrixRequestEncoder` |
-| `Routing\Valhalla\MatrixResponseParserInterface` | `tito10047_geo.routing.matrix_response_parser` | `MatrixResponseParser` |
-| | `tito10047_geo.routing.matrix_error_translator` | `ErrorTranslator::forMatrix()` |
-| `Routing\Valhalla\RequestEncoderInterface` | `tito10047_geo.routing.request_encoder` | `RequestEncoder` |
-| `Routing\Valhalla\ResponseParserInterface` | `tito10047_geo.routing.response_parser` | `ResponseParser` |
-| `Routing\Valhalla\ErrorTranslatorInterface` | `tito10047_geo.routing.error_translator` | `ErrorTranslator` |
-| `Routing\Geometry\PolylineDecoderInterface` | `tito10047_geo.routing.polyline_decoder` | `PolylineDecoder` |
-| `Routing\Valhalla\CountryLocatorInterface` | `tito10047_geo.routing.country_locator` | `AdminCrossingCountryLocator` |
-| `Routing\Valhalla\TollLocatorInterface` | `tito10047_geo.routing.toll_locator` | `ManeuverTollLocator` |
-| `GeoBundle\Routing\RoutingStatusProviderInterface` | `tito10047_geo.routing.status_provider` | `ValhallaStatusProvider` |
-| | `tito10047_geo.routing.http_client` | PSR-18 client of Valhalla |
+| `Geocoder\Search\GeocoderInterface` | `geo.geocoder` | `Geocoder` |
+| `Geocoder\Search\AddressLookupInterface` | `geo.geocoder.address_lookup` | `AddressLookup`: an address by its official id (`findByReference()`) |
+| `Geocoder\Search\Backend\SearchBackendInterface` | `geo.geocoder.search_backend` | `MeilisearchSearchBackend` |
+| `Geocoder\HouseNumber\HouseNumberStoreInterface` | `geo.geocoder.house_number_store` | `PdoHouseNumberStore` |
+| `Geocoder\Name\NameCatalogInterface` | `geo.geocoder.name_catalog` | `PdoNameCatalog` |
+| `Geocoder\Search\RerankerInterface` | `geo.geocoder.reranker` | `Reranker` |
+| `Geocoder\Search\LabelFormatterInterface` | `geo.geocoder.label_formatter` | `LabelFormatter` |
+| `Geocoder\Search\Query\QueryParserInterface` | `geo.geocoder.query_parser` | `QueryParser` |
+| `Geocoder\Search\Text\NameNormalizerInterface` | `geo.geocoder.name_normalizer` | `NameNormalizer` |
+| `Geocoder\Index\IndexManagerInterface` | `geo.geocoder.index_manager` | `MeilisearchIndexManager` (with a `url` only) |
+| `Geocoder\Index\IndexNamingInterface` | `geo.geocoder.index_naming` | `TimestampIndexNaming` |
+| | `geo.geocoder.meilisearch.client` | `Meilisearch\Client` |
+| | `geo.geocoder.meilisearch.http` | `Meilisearch\Http\Client` (with a `url` only) |
+| | `geo.geocoder.meilisearch.http_client` | PSR-18 client of Meilisearch |
+| | `geo.geocoder.connection` | `PDO` (lazy) |
+| | `geo.geocoder.tables` | `Storage\TableNames` |
+| | `geo.geocoder.search_options` | `SearchOptions`: the configured defaults |
+| | `geo.geocoder.selection_rules` | `Import\SelectionRules` |
+| `Geocoder\Import\ImporterInterface` | `geo.geocoder.importer` | `Importer` (with a `url` only) |
+| `Geocoder\Import\ConverterInterface` | `geo.geocoder.import.converter` | `File\ExportAwareConverter`: exports through `…import.export_converter` (`FileExportConverter`), dumps through `…import.photon_converter` (`PhotonConverter` with the `import` rules) |
+| `Geocoder\Import\File\FileExporterInterface` | `geo.geocoder.file_exporter` | `FileExporter` |
+| `Geocoder\Import\ClockInterface` | `geo.geocoder.import.clock` | `SystemClock` (names the builds) |
+| `Geocoder\Import\Download\DumpDownloaderInterface` | `geo.geocoder.import.dump_downloader` | `HttpDumpDownloader` over `…import.download_http_client` |
+| `Geocoder\Import\Download\RegionUrlResolverInterface` | `geo.geocoder.import.region_url_resolver` | `GraphHopperRegionUrlResolver` with the `download_url` |
+| `Geocoder\Storage\BuildStorageInterface` | `geo.geocoder.build_storage` | `PdoBuildStorage` (lazy) |
+| `Geocoder\Storage\Pdo\Dialect\SqlDialectInterface` | `geo.geocoder.sql_dialect` | by the driver of the connection (lazy) |
+| `Geocoder\Artifact\ArtifactBuilderInterface` | `geo.geocoder.artifact_builder` | `ArtifactBuilder` (lazy; with a `url` and a `snapshot_dir` only) |
+| `Geocoder\Artifact\ArtifactInstallerInterface` | `geo.geocoder.artifact_installer` | `ArtifactInstaller` (lazy) |
+| `GeoBundle\Artifact\ArtifactInstallerFactoryInterface` | `geo.geocoder.artifact_installer_factory` | `ArtifactInstallerFactory`: the installer of a Meilisearch version |
+| | `geo.geocoder.index_settings` | `Index\IndexSettings` of the builds |
+| | `geo.geocoder.autocompleter` | `GeocoderAutocompleter` |
+| `Routing\RouterInterface` | `geo.routing.router` | `Valhalla\ValhallaRouter` |
+| `Routing\MatrixInterface` | `geo.routing.matrix` | `Valhalla\ValhallaMatrix` |
+| `Routing\Valhalla\MatrixRequestEncoderInterface` | `geo.routing.matrix_request_encoder` | `MatrixRequestEncoder` |
+| `Routing\Valhalla\MatrixResponseParserInterface` | `geo.routing.matrix_response_parser` | `MatrixResponseParser` |
+| | `geo.routing.matrix_error_translator` | `ErrorTranslator::forMatrix()` |
+| `Routing\Valhalla\RequestEncoderInterface` | `geo.routing.request_encoder` | `RequestEncoder` |
+| `Routing\Valhalla\ResponseParserInterface` | `geo.routing.response_parser` | `ResponseParser` |
+| `Routing\Valhalla\ErrorTranslatorInterface` | `geo.routing.error_translator` | `ErrorTranslator` |
+| `Routing\Geometry\PolylineDecoderInterface` | `geo.routing.polyline_decoder` | `PolylineDecoder` |
+| `Routing\Valhalla\CountryLocatorInterface` | `geo.routing.country_locator` | `AdminCrossingCountryLocator` |
+| `Routing\Valhalla\TollLocatorInterface` | `geo.routing.toll_locator` | `ManeuverTollLocator` |
+| `GeoBundle\Routing\RoutingStatusProviderInterface` | `geo.routing.status_provider` | `ValhallaStatusProvider` |
+| | `geo.routing.http_client` | PSR-18 client of Valhalla |
 
 The database connection built from the `dsn` is a lazy service: PDO connects on the first query,
 not when the container builds the geocoder or a command; a database that cannot be reached is a
@@ -432,23 +432,23 @@ The commands of a section are registered when the section is enabled.
 
 ```console
 # the suggestions for a text, as a table
-$ php bin/console tito10047-geo:geocoder:search "Hlavná 12 Košice" --locale=sk --preferred-country=SK
-$ php bin/console tito10047-geo:geocoder:search wien --country=AT --country=SK --limit=10
+$ php bin/console geo:search "Hlavná 12 Košice" --locale=sk --preferred-country=SK
+$ php bin/console geo:search wien --country=AT --country=SK --limit=10
 
 # the live index (documents, sizes, indexing, settings, Meilisearch version) and the live build
 # (data timestamp of each country and dump, counts, schema version of the tables)
-$ php bin/console tito10047-geo:geocoder:status
+$ php bin/console geo:status
 
 # routes through points: distance, duration, countries, tolls per country
-$ php bin/console tito10047-geo:routing:route 48.1486,17.1077 48.7164,21.2611 --alternatives=3
-$ php bin/console tito10047-geo:routing:route 48.1486,17.1077 48.2082,16.3738 49.1951,16.6068 --costing=truck --radius=500
+$ php bin/console geo:route 48.1486,17.1077 48.7164,21.2611 --alternatives=3
+$ php bin/console geo:route 48.1486,17.1077 48.2082,16.3738 49.1951,16.6068 --costing=truck --radius=500
 
 # distance and duration from every source to every target, as a table (km, min)
-$ php bin/console tito10047-geo:routing:matrix --source=48.1486,17.1077 --source=48.3774,17.5872 --target=49.2231,18.7394 --target=48.3069,18.0864
-$ php bin/console tito10047-geo:routing:matrix --source=48.1486,17.1077 --target=48.2082,16.3738 --costing=bicycle
+$ php bin/console geo:matrix --source=48.1486,17.1077 --source=48.3774,17.5872 --target=49.2231,18.7394 --target=48.3069,18.0864
+$ php bin/console geo:matrix --source=48.1486,17.1077 --target=48.2082,16.3738 --costing=bicycle
 
 # whether Valhalla is reachable, its version and the date of its routing data
-$ php bin/console tito10047-geo:routing:status
+$ php bin/console geo:route:status
 ```
 
 Every command prints the OpenStreetMap attribution, and ends with a message and the exit code 1
@@ -458,9 +458,9 @@ Every command prints the OpenStreetMap attribution, and ends with a message and 
 
 ```console
 # the regions of import.regions into import.dumps_dir, e.g. europe/slovakia as slovakia.jsonl.zst
-$ php bin/console tito10047-geo:geocoder:download
+$ php bin/console geo:download
 # given regions; --force downloads even a dump that has not changed
-$ php bin/console tito10047-geo:geocoder:download europe/slovakia europe/austria --force
+$ php bin/console geo:download europe/slovakia europe/austria --force
 ```
 
 A region is the path of the download server (`europe/slovakia`, `europe/germany/bayern`; see
@@ -472,7 +472,7 @@ server only for a changed dump and skips an unchanged one. Run it from cron befo
 e.g. weekly (GraphHopper publishes new dumps about once a week):
 
 ```console
-$ php bin/console tito10047-geo:geocoder:download && php bin/console tito10047-geo:geocoder:import
+$ php bin/console geo:download && php bin/console geo:import
 ```
 
 ### Importing the data
@@ -483,16 +483,16 @@ swaps the indexes, the tables are renamed in one go), dropping the replaced ones
 
 ```console
 # the *.jsonl.zst and *.jsonl dumps of import.dumps_dir, published once built
-$ php bin/console tito10047-geo:geocoder:import
+$ php bin/console geo:import
 # given dumps (a path, or php://stdin); .zst through ext-zstd or the zstd command
-$ php bin/console tito10047-geo:geocoder:import var/geo/dumps/slovakia.jsonl.zst var/geo/dumps/czechia.jsonl.zst
+$ php bin/console geo:import var/geo/dumps/slovakia.jsonl.zst var/geo/dumps/czechia.jsonl.zst
 
 # build only, check it, publish it later
-$ php bin/console tito10047-geo:geocoder:import --no-publish
-$ php bin/console tito10047-geo:geocoder:publish geo_20261023120000
+$ php bin/console geo:import --no-publish
+$ php bin/console geo:publish geo_20261023120000
 
 # remove the builds left by failed, abandoned or never published imports (never while an import runs)
-$ php bin/console tito10047-geo:geocoder:cleanup [--keep=geo_20261023120000]
+$ php bin/console geo:cleanup [--keep=geo_20261023120000]
 ```
 
 The import prints a progress bar per dump, then the build: its uid, the documents and house
@@ -503,8 +503,8 @@ an SQLite database of the tables) without Meilisearch, e.g. on a machine with mo
 that directory to `import` on the machine with Meilisearch, like a dump:
 
 ```console
-build-machine$ php bin/console tito10047-geo:geocoder:import --export=var/geo/export
-server$        php bin/console tito10047-geo:geocoder:import var/geo/export
+build-machine$ php bin/console geo:import --export=var/geo/export
+server$        php bin/console geo:import var/geo/export
 ```
 
 ## Deployment modes
@@ -519,7 +519,7 @@ own version**. Hence two ways to bring the data to a server:
 
 ### Indexing in place
 
-Configure the geocoder on the server and run `tito10047-geo:geocoder:import` there (e.g. from a
+Configure the geocoder on the server and run `geo:import` there (e.g. from a
 cron job once the new dumps are downloaded). Indexing takes the memory and CPU of the server while
 it runs; searches keep answering from the live index meanwhile.
 
@@ -541,15 +541,15 @@ holds every index; its snapshot directory reachable from the application):
    ```
 
    ```yaml
-   tito10047_geo:
+   geo:
        geocoder:
            meilisearch:
                url: 'http://127.0.0.1:7700'
                snapshot_dir: '%kernel.project_dir%/var/meilisearch/snapshots'
    ```
 
-2. Import and publish the dumps: `php bin/console tito10047-geo:geocoder:import`.
-3. Pack the live build: `php bin/console tito10047-geo:geocoder:artifact var/geo/artifact`.
+2. Import and publish the dumps: `php bin/console geo:import`.
+3. Pack the live build: `php bin/console geo:artifact var/geo/artifact`.
 4. Copy the directory to the server (`rsync -a var/geo/artifact server:/srv/geo/`).
 
 On the **server** (Meilisearch of the same version, e.g. a container with its data directory
@@ -559,7 +559,7 @@ mounted on `/meili_data`):
 
    ```console
    $ mkdir /srv/meili_data_new
-   $ php bin/console tito10047-geo:geocoder:install-artifact /srv/geo/artifact /srv/meili_data_new
+   $ php bin/console geo:artifact:install /srv/geo/artifact /srv/meili_data_new
    ```
 
    The command verifies the checksums and the versions, copies the snapshot into the data
@@ -577,7 +577,7 @@ mounted on `/meili_data`):
        meilisearch --import-snapshot /meili_data/geocoder.snapshot
    ```
 
-7. Check it with `php bin/console tito10047-geo:geocoder:status`, then delete the snapshot file and
+7. Check it with `php bin/console geo:status`, then delete the snapshot file and
    the old data directory.
 
 Between the steps 5 and 6 the tables are already the new ones while the index is the old one:

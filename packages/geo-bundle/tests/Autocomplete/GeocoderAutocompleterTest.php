@@ -112,16 +112,16 @@ final class GeocoderAutocompleterTest extends TestCase
 
     public function testEndpointAnswersTheResults(): void
     {
-        $kernel = new TestKernel(extensionConfigs: ['tito10047_geo' => Configs::geocoder()], fakes: Configs::FAKES);
+        $kernel = new TestKernel(extensionConfigs: ['geo' => Configs::geocoder()], fakes: Configs::FAKES);
         $kernel->boot();
         $browser = new KernelBrowser($kernel);
         // the fake keeps its state between requests
         $browser->disableReboot();
-        $geocoder = $browser->getContainer()->get('tito10047_geo.geocoder');
+        $geocoder = $browser->getContainer()->get('geo.geocoder');
         $this->assertInstanceOf(FakeGeocoder::class, $geocoder);
         $geocoder->suggestions = $this->geocoder->suggestions;
 
-        $browser->request('GET', '/autocomplete/tito10047_geo_address?query=vied&locale=sk&country=AT');
+        $browser->request('GET', '/autocomplete/geo_address?query=vied&locale=sk&country=AT');
 
         $this->assertSame(200, $browser->getResponse()->getStatusCode());
         $this->assertSame(

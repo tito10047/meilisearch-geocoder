@@ -41,7 +41,7 @@ final class PhotonApiRouteLoaderTest extends TestCase
     #[DataProvider('provideDisabledConfigurations')]
     public function testImportedRoutesAreEmptyWhenDisabled(array $config): void
     {
-        $kernel = new TestKernel(extensionConfigs: ['tito10047_geo' => $config], fakes: Configs::FAKES);
+        $kernel = new TestKernel(extensionConfigs: ['geo' => $config], fakes: Configs::FAKES);
         $browser = new KernelBrowser($kernel);
 
         $browser->request('GET', '/photon/api?q=brat');

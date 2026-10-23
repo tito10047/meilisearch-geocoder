@@ -19,7 +19,7 @@ use Tito10047\Geocoder\Exception\ExceptionInterface;
  * Installs an artifact on a server: the tables into the database of the application, the
  * snapshot into the data directory of a Meilisearch instance started afterwards.
  */
-#[AsCommand(name: 'tito10047-geo:geocoder:install-artifact', description: 'Installs an artifact of the geocoder: its tables now, its snapshot at the next start of Meilisearch', help: <<<'TXT'
+#[AsCommand(name: 'geo:artifact:install', description: 'Installs an artifact of the geocoder: its tables now, its snapshot at the next start of Meilisearch', help: <<<'TXT'
 The <info>%command.name%</info> command verifies an artifact (checksums, versions), copies its snapshot into
 a data directory of Meilisearch without a database and makes its tables live:
 
@@ -27,7 +27,7 @@ a data directory of Meilisearch without a database and makes its tables live:
 
 Then (re)start Meilisearch on that data directory with --import-snapshot (printed at the end).
 The snapshot loads only into an instance of the version that made it: the version is read from
-the running instance, or tito10047_geo.geocoder.meilisearch.version, or <comment>--meilisearch-version</comment>.
+the running instance, or geo.geocoder.meilisearch.version, or <comment>--meilisearch-version</comment>.
 TXT)]
 final class GeocoderInstallArtifactCommand extends Command
 {
@@ -81,7 +81,7 @@ final class GeocoderInstallArtifactCommand extends Command
                 .\sprintf("\n  meilisearch --db-path %s/data.ms --import-snapshot %s", $dataDirectory, $installed->snapshotPath)
                 .\sprintf("\n  (in Docker, with the directory mounted on /meili_data: --import-snapshot /meili_data/%s)", basename($installed->snapshotPath)),
             'Point the application at that instance if it is a new one, with the same master key.',
-            \sprintf('Once it answers (tito10047-geo:geocoder:status), the snapshot "%s" may be deleted.', $installed->snapshotPath),
+            \sprintf('Once it answers (geo:status), the snapshot "%s" may be deleted.', $installed->snapshotPath),
         ]);
 
         return Command::SUCCESS;

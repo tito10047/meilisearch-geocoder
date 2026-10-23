@@ -16,7 +16,7 @@ use Tito10047\Geocoder\Index\Exception\MeilisearchException;
 
 final class GeocoderPublishCommandTest extends TestCase
 {
-    private const COMMAND = 'tito10047-geo:geocoder:publish';
+    private const COMMAND = 'geo:publish';
 
     private TestApplication $application;
     private FakeImporter $importer;
@@ -24,7 +24,7 @@ final class GeocoderPublishCommandTest extends TestCase
     protected function setUp(): void
     {
         $this->application = new TestApplication(Configs::geocoder());
-        $this->importer = $this->application->service('tito10047_geo.geocoder.importer', FakeImporter::class);
+        $this->importer = $this->application->service('geo.geocoder.importer', FakeImporter::class);
     }
 
     protected function tearDown(): void

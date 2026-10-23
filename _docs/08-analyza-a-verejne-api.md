@@ -47,8 +47,8 @@ composer.json, phpunit/phpstan/rector/cs-fixer, .github/           koreň: len v
 
 - **Jadrá bez Symfony**, ani v `require`. Bundle len skladá služby, konfiguráciu, tenké príkazy
   a integrácie; žiadna logika navyše.
-- Bundle: trieda `Tito10047GeoBundle`, alias a prefix služieb `tito10047_geo`, príkazy
-  `tito10047-geo:…`. Časti `geocoder:` a `routing:` sa zapínajú v konfigurácii zvlášť —
+- Bundle: trieda `Tito10047GeoBundle`, alias a prefix služieb `geo`, príkazy
+  `geo:…`. Časti `geocoder:` a `routing:` sa zapínajú v konfigurácii zvlášť —
   kto chce len adresy, routing nemusí nastavovať.
 - **Koreňový `composer.json`**: `replace` všetkých troch balíkov, autoload všetkých, všetky
   závislosti a skripty. Závislosť pridaná do balíka sa musí pridať aj sem.
@@ -373,8 +373,8 @@ Valhalle sa spustí, keď je nastavená `VALHALLA_URL`.
 ### 7.1 Konfigurácia
 
 ```yaml
-# config/packages/tito10047_geo.yaml
-tito10047_geo:
+# config/packages/geo.yaml
+geo:
     geocoder:
         enabled: true
         meilisearch:
@@ -409,15 +409,15 @@ Služby: explicitné, privátne, s aliasmi na rozhrania jadier (`GeocoderInterfa
 
 | Príkaz | Čo |
 |---|---|
-| `tito10047-geo:geocoder:import [dump…] [--no-publish] [--ndjson=dir]` | nový index + tabuľky; `--ndjson` len súbory (stavba inde) |
-| `tito10047-geo:geocoder:publish <build>` | výmena indexu a tabuliek |
-| `tito10047-geo:geocoder:artifact <build> <dir>` / `…:install-artifact <file>` | prenos snapshotom |
-| `tito10047-geo:geocoder:status` | aktívny index, počty, dátum dát |
-| `tito10047-geo:geocoder:search "Hlavná 12 Košice" [--locale] [--country]` | ladenie |
-| `tito10047-geo:geocoder:quality [file]` | regresný test rankingu (43 + 38 dotazov) |
-| `tito10047-geo:geocoder:download [region…]` | v0.2: stiahne výpisy, preskočí nezmenené |
-| `tito10047-geo:routing:status` | dostupnosť Valhally, verzia, pokrytie |
-| `tito10047-geo:routing:route "48.14,17.10" "48.72,21.26" [--alternatives]` | ladenie: vzdialenosť, čas, krajiny, mýto |
+| `geo:import [dump…] [--no-publish] [--ndjson=dir]` | nový index + tabuľky; `--ndjson` len súbory (stavba inde) |
+| `geo:publish <build>` | výmena indexu a tabuliek |
+| `geo:artifact <build> <dir>` / `…:install-artifact <file>` | prenos snapshotom |
+| `geo:status` | aktívny index, počty, dátum dát |
+| `geo:search "Hlavná 12 Košice" [--locale] [--country]` | ladenie |
+| `geo:quality [file]` | regresný test rankingu (43 + 38 dotazov) |
+| `geo:download [region…]` | v0.2: stiahne výpisy, preskočí nezmenené |
+| `geo:route:status` | dostupnosť Valhally, verzia, pokrytie |
+| `geo:route "48.14,17.10" "48.72,21.26" [--alternatives]` | ladenie: vzdialenosť, čas, krajiny, mýto |
 
 ### 7.3 Integrácie
 

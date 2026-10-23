@@ -16,7 +16,7 @@ use Tito10047\Geocoder\Import\ImporterInterface;
 /**
  * Publishes a build imported with --no-publish: its index and tables become the live ones.
  */
-#[AsCommand(name: 'tito10047-geo:geocoder:publish', description: 'Makes a build of the geocoder live (its index and its tables)', help: <<<'TXT'
+#[AsCommand(name: 'geo:publish', description: 'Makes a build of the geocoder live (its index and its tables)', help: <<<'TXT'
 The <info>%command.name%</info> command swaps the index of a build in under the live uid and renames its
 tables to the live names, at once; the index and the tables it replaces are removed, and so are
 older builds:

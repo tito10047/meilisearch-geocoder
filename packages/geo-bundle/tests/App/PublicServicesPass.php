@@ -11,7 +11,7 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
  */
 final class PublicServicesPass implements CompilerPassInterface
 {
-    private const PREFIX = 'tito10047_geo.';
+    private const PREFIX = 'geo.';
 
     public function process(ContainerBuilder $container): void
     {

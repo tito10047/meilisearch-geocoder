@@ -22,13 +22,13 @@ use Tito10047\Geocoder\Import\ImporterInterface;
  * Imports Photon dumps (or exports of this command) into a new build and publishes it; or
  * converts the dumps into files only.
  */
-#[AsCommand(name: 'tito10047-geo:geocoder:import', description: 'Imports Photon dumps into a new index and new tables, and publishes them', help: <<<'TXT'
+#[AsCommand(name: 'geo:import', description: 'Imports Photon dumps into a new index and new tables, and publishes them', help: <<<'TXT'
 The <info>%command.name%</info> command builds a new index and new tables from Photon dumps
 (*.jsonl or *.jsonl.zst) while searches keep using the live ones, then publishes the build:
 
-  <info>php %command.full_name%</info>                      the dumps of tito10047_geo.geocoder.import.dumps_dir
+  <info>php %command.full_name%</info>                      the dumps of geo.geocoder.import.dumps_dir
   <info>php %command.full_name% var/geo/slovakia.jsonl.zst</info>
-  <info>php %command.full_name% --no-publish</info>         build only; publish later with tito10047-geo:geocoder:publish
+  <info>php %command.full_name% --no-publish</info>         build only; publish later with geo:publish
 
 With <comment>--export=<dir></comment> the dumps are converted into files only (no Meilisearch needed), to be
 indexed on another machine: give that directory to this command there, like a dump.
@@ -67,7 +67,7 @@ final class GeocoderImportCommand extends Command
         /** @var string|null $export */
         $export = $input->getOption('export');
         if (null === $export && !$this->importer instanceof ImporterInterface) {
-            $io->error('Importing needs Meilisearch: configure "tito10047_geo.geocoder.meilisearch.url", or convert into files only with --export=<dir>.');
+            $io->error('Importing needs Meilisearch: configure "geo.geocoder.meilisearch.url", or convert into files only with --export=<dir>.');
 
             return Command::FAILURE;
         }
@@ -93,7 +93,7 @@ final class GeocoderImportCommand extends Command
         }
 
         if ($input->getOption('no-publish')) {
-            $io->success(\sprintf('The build %s is ready; nothing live changed. Publish it with: tito10047-geo:geocoder:publish %1$s', $build->indexUid));
+            $io->success(\sprintf('The build %s is ready; nothing live changed. Publish it with: geo:publish %1$s', $build->indexUid));
 
             return Command::SUCCESS;
         }
@@ -122,7 +122,7 @@ final class GeocoderImportCommand extends Command
         }
 
         if (null === $this->dumpsDirectory) {
-            $io->error('Give the dumps to import, or configure their directory "tito10047_geo.geocoder.import.dumps_dir".');
+            $io->error('Give the dumps to import, or configure their directory "geo.geocoder.import.dumps_dir".');
 
             return null;
         }

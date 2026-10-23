@@ -13,7 +13,7 @@ use Tito10047\Geocoder\Import\Download\Exception\DownloadException;
 
 final class GeocoderDownloadCommandTest extends TestCase
 {
-    private const COMMAND = 'tito10047-geo:geocoder:download';
+    private const COMMAND = 'geo:download';
     private const DUMPS = '/var/geo/dumps';
 
     private ?TestApplication $application = null;
@@ -37,7 +37,7 @@ final class GeocoderDownloadCommandTest extends TestCase
         $this->assertStringContainsString('europe/slovakia: downloaded /var/geo/dumps/slovakia.jsonl.zst (2 KiB, changed 2026-10-17 23:30 UTC)', $display);
         $this->assertStringContainsString('europe/czech-republic: unchanged, /var/geo/dumps/czech-republic.jsonl.zst', $display);
         $this->assertStringContainsString(Attribution::OPENSTREETMAP, $display);
-        $this->assertStringContainsString('tito10047-geo:geocoder:import', $display);
+        $this->assertStringContainsString('geo:import', $display);
     }
 
     public function testDownloadsTheGivenRegionsByForce(): void
@@ -77,7 +77,7 @@ final class GeocoderDownloadCommandTest extends TestCase
         $tester->execute([]);
 
         $this->assertSame(Command::INVALID, $tester->getStatusCode());
-        $this->assertStringContainsString('tito10047_geo.geocoder.import.regions', $tester->getDisplay(true));
+        $this->assertStringContainsString('geo.geocoder.import.regions', $tester->getDisplay(true));
         $this->assertSame([], $downloader->downloads);
     }
 
@@ -89,7 +89,7 @@ final class GeocoderDownloadCommandTest extends TestCase
         $tester->execute([]);
 
         $this->assertSame(Command::INVALID, $tester->getStatusCode());
-        $this->assertStringContainsString('tito10047_geo.geocoder.import.dumps_dir', $tester->getDisplay(true));
+        $this->assertStringContainsString('geo.geocoder.import.dumps_dir', $tester->getDisplay(true));
     }
 
     /**
@@ -99,7 +99,7 @@ final class GeocoderDownloadCommandTest extends TestCase
     {
         $this->application = new TestApplication(Configs::geocoder(['import' => ['dumps_dir' => self::DUMPS] + $import]));
 
-        return $this->application->service('tito10047_geo.geocoder.import.dump_downloader', FakeDumpDownloader::class);
+        return $this->application->service('geo.geocoder.import.dump_downloader', FakeDumpDownloader::class);
     }
 
     private function tester(): CommandTester

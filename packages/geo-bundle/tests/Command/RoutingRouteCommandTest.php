@@ -25,7 +25,7 @@ final class RoutingRouteCommandTest extends TestCase
     protected function setUp(): void
     {
         $this->application = new TestApplication(Configs::routing(['radius' => 150]));
-        $this->router = $this->application->service('tito10047_geo.routing.router', FakeRouter::class);
+        $this->router = $this->application->service('geo.routing.router', FakeRouter::class);
     }
 
     protected function tearDown(): void
@@ -39,7 +39,7 @@ final class RoutingRouteCommandTest extends TestCase
             new Route(780_400, 27_000, [], [new CountrySegment('SK', 60_000), new CountrySegment('HU', 400_000), new CountrySegment('HR', 320_400)], [new CountrySegment('HU', 163_000), new CountrySegment('HR', 300_000)]),
             new Route(800_000, 30_600, [], [], []),
         ];
-        $tester = $this->application->command('tito10047-geo:routing:route');
+        $tester = $this->application->command('geo:route');
 
         $tester->execute(['points' => ['48.1486,17.1077', ' 43.5081 , 16.4402 '], '--alternatives' => '2']);
 
@@ -60,7 +60,7 @@ final class RoutingRouteCommandTest extends TestCase
     public function testOptionsAreHonoured(): void
     {
         $this->router->routes = [new Route(1000, 60, [], [], [])];
-        $tester = $this->application->command('tito10047-geo:routing:route');
+        $tester = $this->application->command('geo:route');
 
         $tester->execute(['points' => ['48,17', '48.1,17.1', '-48.2,-17.2'], '--costing' => 'Truck', '--radius' => '0']);
 
@@ -88,7 +88,7 @@ final class RoutingRouteCommandTest extends TestCase
     #[DataProvider('invalidInput')]
     public function testInvalidInputIsReported(array $input, string $message): void
     {
-        $tester = $this->application->command('tito10047-geo:routing:route');
+        $tester = $this->application->command('geo:route');
 
         $tester->execute($input);
 
@@ -110,7 +110,7 @@ final class RoutingRouteCommandTest extends TestCase
     public function testFailureIsReported(\Throwable $exception): void
     {
         $this->router->exception = $exception;
-        $tester = $this->application->command('tito10047-geo:routing:route');
+        $tester = $this->application->command('geo:route');
 
         $tester->execute(['points' => ['48,17', '49,18']]);
 

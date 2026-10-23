@@ -61,8 +61,8 @@ return [
 Configure the parts you need; each section is enabled by configuring it:
 
 ```yaml
-# config/packages/tito10047_geo.yaml
-tito10047_geo:
+# config/packages/geo.yaml
+geo:
     geocoder:
         meilisearch:
             url: '%env(MEILISEARCH_URL)%'
@@ -78,8 +78,8 @@ Then inject `Tito10047\Geocoder\Search\GeocoderInterface`, `Tito10047\Routing\Ro
 or try them from the console:
 
 ```console
-php bin/console tito10047-geo:geocoder:search "Hlavná 12 Košice" --locale=sk
-php bin/console tito10047-geo:routing:route 48.1486,17.1077 48.7164,21.2611
+php bin/console geo:search "Hlavná 12 Košice" --locale=sk
+php bin/console geo:route 48.1486,17.1077 48.7164,21.2611
 ```
 
 ## Photon-compatible API
@@ -89,13 +89,13 @@ php bin/console tito10047-geo:routing:route 48.1486,17.1077 48.7164,21.2611
 `geocoder-php/photon-provider` work against your own data:
 
 ```yaml
-# config/packages/tito10047_geo.yaml
-tito10047_geo:
+# config/packages/geo.yaml
+geo:
     geocoder:
         photon_api: true
 
-# config/routes/tito10047_geo.yaml
-tito10047_geo:
+# config/routes/geo.yaml
+geo:
     resource: '@Tito10047GeoBundle/config/routes.php'
     prefix: /photon
 ```
@@ -107,18 +107,18 @@ properties and what differs from Photon.
 
 ```console
 # addresses: import the Photon dumps (of import.dumps_dir by default) and publish them
-php bin/console tito10047-geo:geocoder:import [dump…] [--no-publish] [--export=<dir>]
-php bin/console tito10047-geo:geocoder:publish <build-uid>
-php bin/console tito10047-geo:geocoder:cleanup [--keep=<build-uid>]
-php bin/console tito10047-geo:geocoder:artifact <dir>
-php bin/console tito10047-geo:geocoder:install-artifact <dir> <meilisearch-data-dir> [--meilisearch-version=1.35.1]
-php bin/console tito10047-geo:geocoder:status
-php bin/console tito10047-geo:geocoder:search "Hlavná 12 Košice" [--locale=sk] [--country=SK] [--preferred-country=SK] [--limit=5]
+php bin/console geo:import [dump…] [--no-publish] [--export=<dir>]
+php bin/console geo:publish <build-uid>
+php bin/console geo:cleanup [--keep=<build-uid>]
+php bin/console geo:artifact <dir>
+php bin/console geo:artifact:install <dir> <meilisearch-data-dir> [--meilisearch-version=1.35.1]
+php bin/console geo:status
+php bin/console geo:search "Hlavná 12 Košice" [--locale=sk] [--country=SK] [--preferred-country=SK] [--limit=5]
 
 # routes
-php bin/console tito10047-geo:routing:route 48.1486,17.1077 48.7164,21.2611 [--alternatives=3]
-php bin/console tito10047-geo:routing:matrix --source=48.1486,17.1077 --target=49.2231,18.7394 --target=48.3069,18.0864 [--costing=auto]
-php bin/console tito10047-geo:routing:status
+php bin/console geo:route 48.1486,17.1077 48.7164,21.2611 [--alternatives=3]
+php bin/console geo:matrix --source=48.1486,17.1077 --target=49.2231,18.7394 --target=48.3069,18.0864 [--costing=auto]
+php bin/console geo:route:status
 ```
 
 An import builds a new index and new tables while searches keep using the live ones; the
@@ -133,17 +133,17 @@ version. So there are two ways to bring the data to a server:
 | Mode | When | How |
 |---|---|---|
 | **Separate instance + artifact** (recommended) | large regions, small server | build on a strong machine; on the server a new data directory and a restart of Meilisearch |
-| Shared instance, indexing in place | 1–3 small countries, a Meilisearch shared with other projects | `tito10047-geo:geocoder:import` directly on the server |
+| Shared instance, indexing in place | 1–3 small countries, a Meilisearch shared with other projects | `geo:import` directly on the server |
 
 The artifact mode, step by step:
 
 1. **Build machine**: a Meilisearch holding the geocoder only (the snapshot holds every index),
    its snapshot directory (`MEILI_SNAPSHOT_DIR`) configured as `geocoder.meilisearch.snapshot_dir`.
-2. `php bin/console tito10047-geo:geocoder:import` — imports and publishes the dumps.
-3. `php bin/console tito10047-geo:geocoder:artifact var/geo/artifact` — the snapshot, an SQLite
+2. `php bin/console geo:import` — imports and publishes the dumps.
+3. `php bin/console geo:artifact var/geo/artifact` — the snapshot, an SQLite
    copy of the tables and a `manifest.json` (versions, data timestamps, checksums).
 4. Copy the directory to the server.
-5. **Server**: `php bin/console tito10047-geo:geocoder:install-artifact /srv/geo/artifact /srv/meili_data_new`
+5. **Server**: `php bin/console geo:artifact:install /srv/geo/artifact /srv/meili_data_new`
    — verifies the artifact, copies the snapshot into the new, empty data directory and makes the
    tables live. The Meilisearch version is read from the running instance (or give
    `--meilisearch-version`).
@@ -151,7 +151,7 @@ The artifact mode, step by step:
    `--import-snapshot /meili_data/geocoder.snapshot` (the path the command prints, as the instance
    sees it), e.g.
    `docker run -v /srv/meili_data_new:/meili_data getmeili/meilisearch:v1.35.1 meilisearch --import-snapshot /meili_data/geocoder.snapshot`.
-7. `php bin/console tito10047-geo:geocoder:status`, then delete the snapshot file and the old data
+7. `php bin/console geo:status`, then delete the snapshot file and the old data
    directory.
 
 See [Deployment modes](docs/index.md#deployment-modes) for the details.

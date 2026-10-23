@@ -40,7 +40,7 @@ use function Symfony\Component\DependencyInjection\Loader\Configurator\abstract_
 use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
 
 /*
- * The services of the geocoder (tito10047/geocoder), loaded when "tito10047_geo.geocoder" is
+ * The services of the geocoder (tito10047/geocoder), loaded when "geo.geocoder" is
  * enabled. Every collaborator is a service of its own, aliased to its interface, so that an
  * application can decorate or replace any of them. The abstract arguments are set from the
  * configuration by Tito10047GeoBundle::loadExtension().
@@ -50,110 +50,110 @@ return static function (ContainerConfigurator $container): void {
 
     // Meilisearch: the search client and the HTTP layer of the index manager share the URL, the key and the PSR-18 client
     $services
-        ->set('tito10047_geo.geocoder.meilisearch.http_client', ClientInterface::class)
+        ->set('geo.geocoder.meilisearch.http_client', ClientInterface::class)
             ->factory(HttpClientFactory::class.'::meilisearch')
             ->args([abstract_arg('timeout'), abstract_arg('whether to accept gzip')])
 
-        ->set('tito10047_geo.geocoder.meilisearch.client', Client::class)
+        ->set('geo.geocoder.meilisearch.client', Client::class)
             ->args([
                 abstract_arg('url'),
                 abstract_arg('API key'),
-                service('tito10047_geo.geocoder.meilisearch.http_client'),
-                service('tito10047_geo.psr17_factory'),
+                service('geo.geocoder.meilisearch.http_client'),
+                service('geo.psr17_factory'),
                 [],
-                service('tito10047_geo.psr17_factory'),
+                service('geo.psr17_factory'),
             ])
 
-        ->set('tito10047_geo.geocoder.meilisearch.http', Meilisearch\Http\Client::class)
+        ->set('geo.geocoder.meilisearch.http', Meilisearch\Http\Client::class)
             ->args([
                 abstract_arg('url'),
                 abstract_arg('API key'),
-                service('tito10047_geo.geocoder.meilisearch.http_client'),
-                service('tito10047_geo.psr17_factory'),
+                service('geo.geocoder.meilisearch.http_client'),
+                service('geo.psr17_factory'),
                 [],
-                service('tito10047_geo.psr17_factory'),
+                service('geo.psr17_factory'),
             ])
 
         // the database: connected on the first query, not when the container builds the geocoder
-        ->set('tito10047_geo.geocoder.connection', PDO::class)
+        ->set('geo.geocoder.connection', PDO::class)
             ->factory(PdoConnectionFactory::connect(...))
             ->lazy()
             ->args([abstract_arg('DSN'), abstract_arg('user'), abstract_arg('password')])
 
-        ->set('tito10047_geo.geocoder.tables', TableNames::class)
+        ->set('geo.geocoder.tables', TableNames::class)
             ->args([abstract_arg('house numbers'), abstract_arg('translations'), abstract_arg('metadata')])
 
         // search
-        ->set('tito10047_geo.geocoder.search_backend', MeilisearchSearchBackend::class)
-            ->args([service('tito10047_geo.geocoder.meilisearch.client'), abstract_arg('index uid')])
-        ->alias(SearchBackendInterface::class, 'tito10047_geo.geocoder.search_backend')
-        ->alias(DocumentSourceInterface::class, 'tito10047_geo.geocoder.search_backend')
+        ->set('geo.geocoder.search_backend', MeilisearchSearchBackend::class)
+            ->args([service('geo.geocoder.meilisearch.client'), abstract_arg('index uid')])
+        ->alias(SearchBackendInterface::class, 'geo.geocoder.search_backend')
+        ->alias(DocumentSourceInterface::class, 'geo.geocoder.search_backend')
 
-        ->set('tito10047_geo.geocoder.house_number_store', PdoHouseNumberStore::class)
-            ->args([service('tito10047_geo.geocoder.connection'), service('tito10047_geo.geocoder.tables')])
-        ->alias(HouseNumberStoreInterface::class, 'tito10047_geo.geocoder.house_number_store')
-        ->alias(HouseNumberReferenceStoreInterface::class, 'tito10047_geo.geocoder.house_number_store')
+        ->set('geo.geocoder.house_number_store', PdoHouseNumberStore::class)
+            ->args([service('geo.geocoder.connection'), service('geo.geocoder.tables')])
+        ->alias(HouseNumberStoreInterface::class, 'geo.geocoder.house_number_store')
+        ->alias(HouseNumberReferenceStoreInterface::class, 'geo.geocoder.house_number_store')
 
         // remembers translations: forgotten between the requests of a long-running worker, and after a publication
-        ->set('tito10047_geo.geocoder.name_catalog', PdoNameCatalog::class)
-            ->args([service('tito10047_geo.geocoder.connection'), service('tito10047_geo.geocoder.tables')])
+        ->set('geo.geocoder.name_catalog', PdoNameCatalog::class)
+            ->args([service('geo.geocoder.connection'), service('geo.geocoder.tables')])
             // a decorator of the catalog (e.g. a test fake or an application cache) may have no reset()
             ->tag('kernel.reset', ['method' => 'reset', 'on_invalid' => 'ignore'])
-        ->alias(NameCatalogInterface::class, 'tito10047_geo.geocoder.name_catalog')
+        ->alias(NameCatalogInterface::class, 'geo.geocoder.name_catalog')
 
-        ->set('tito10047_geo.geocoder.name_normalizer', NameNormalizer::class)
-        ->alias(NameNormalizerInterface::class, 'tito10047_geo.geocoder.name_normalizer')
+        ->set('geo.geocoder.name_normalizer', NameNormalizer::class)
+        ->alias(NameNormalizerInterface::class, 'geo.geocoder.name_normalizer')
 
-        ->set('tito10047_geo.geocoder.reranker', Reranker::class)
-            ->args([abstract_arg('maximum rank gap'), service('tito10047_geo.geocoder.name_normalizer')])
-        ->alias(RerankerInterface::class, 'tito10047_geo.geocoder.reranker')
+        ->set('geo.geocoder.reranker', Reranker::class)
+            ->args([abstract_arg('maximum rank gap'), service('geo.geocoder.name_normalizer')])
+        ->alias(RerankerInterface::class, 'geo.geocoder.reranker')
 
-        ->set('tito10047_geo.geocoder.label_formatter', LabelFormatter::class)
-            ->args([service('tito10047_geo.geocoder.name_catalog'), service('tito10047_geo.geocoder.name_normalizer')])
-        ->alias(LabelFormatterInterface::class, 'tito10047_geo.geocoder.label_formatter')
+        ->set('geo.geocoder.label_formatter', LabelFormatter::class)
+            ->args([service('geo.geocoder.name_catalog'), service('geo.geocoder.name_normalizer')])
+        ->alias(LabelFormatterInterface::class, 'geo.geocoder.label_formatter')
 
-        ->set('tito10047_geo.geocoder.query_parser', QueryParser::class)
-        ->alias(QueryParserInterface::class, 'tito10047_geo.geocoder.query_parser')
+        ->set('geo.geocoder.query_parser', QueryParser::class)
+        ->alias(QueryParserInterface::class, 'geo.geocoder.query_parser')
 
-        ->set('tito10047_geo.geocoder', Geocoder::class)
+        ->set('geo.geocoder', Geocoder::class)
             ->args([
-                service('tito10047_geo.geocoder.search_backend'),
-                service('tito10047_geo.geocoder.house_number_store'),
-                service('tito10047_geo.geocoder.name_catalog'),
-                service('tito10047_geo.geocoder.reranker'),
-                service('tito10047_geo.geocoder.label_formatter'),
-                service('tito10047_geo.geocoder.query_parser'),
+                service('geo.geocoder.search_backend'),
+                service('geo.geocoder.house_number_store'),
+                service('geo.geocoder.name_catalog'),
+                service('geo.geocoder.reranker'),
+                service('geo.geocoder.label_formatter'),
+                service('geo.geocoder.query_parser'),
                 abstract_arg('rerank window'),
             ])
-        ->alias(GeocoderInterface::class, 'tito10047_geo.geocoder')
+        ->alias(GeocoderInterface::class, 'geo.geocoder')
 
         // an address by its official id (ref:minvskaddress in Slovakia)
-        ->set('tito10047_geo.geocoder.address_lookup', AddressLookup::class)
+        ->set('geo.geocoder.address_lookup', AddressLookup::class)
             ->args([
-                service('tito10047_geo.geocoder.house_number_store'),
-                service('tito10047_geo.geocoder.search_backend'),
-                service('tito10047_geo.geocoder.name_catalog'),
-                service('tito10047_geo.geocoder.label_formatter'),
+                service('geo.geocoder.house_number_store'),
+                service('geo.geocoder.search_backend'),
+                service('geo.geocoder.name_catalog'),
+                service('geo.geocoder.label_formatter'),
             ])
-        ->alias(AddressLookupInterface::class, 'tito10047_geo.geocoder.address_lookup')
+        ->alias(AddressLookupInterface::class, 'geo.geocoder.address_lookup')
 
         // the configured defaults of a search, for the commands and the autocompleter
-        ->set('tito10047_geo.geocoder.search_options', SearchOptions::class)
+        ->set('geo.geocoder.search_options', SearchOptions::class)
             ->args([null, abstract_arg('limit'), abstract_arg('preferred country')])
 
         // the index: its naming, its manager (needs the HTTP layer, so a "url")
-        ->set('tito10047_geo.geocoder.index_naming', TimestampIndexNaming::class)
+        ->set('geo.geocoder.index_naming', TimestampIndexNaming::class)
             ->args([abstract_arg('live index uid')])
-        ->alias(IndexNamingInterface::class, 'tito10047_geo.geocoder.index_naming')
+        ->alias(IndexNamingInterface::class, 'geo.geocoder.index_naming')
 
-        ->set('tito10047_geo.geocoder.indexing_options', IndexingOptions::class)
+        ->set('geo.geocoder.indexing_options', IndexingOptions::class)
 
-        ->set('tito10047_geo.geocoder.index_manager', MeilisearchIndexManager::class)
-            ->args([service('tito10047_geo.geocoder.meilisearch.http'), service('tito10047_geo.geocoder.indexing_options')])
-        ->alias(IndexManagerInterface::class, 'tito10047_geo.geocoder.index_manager')
+        ->set('geo.geocoder.index_manager', MeilisearchIndexManager::class)
+            ->args([service('geo.geocoder.meilisearch.http'), service('geo.geocoder.indexing_options')])
+        ->alias(IndexManagerInterface::class, 'geo.geocoder.index_manager')
 
         // what an import selects, for the import of a next version
-        ->set('tito10047_geo.geocoder.selection_rules', SelectionRules::class)
+        ->set('geo.geocoder.selection_rules', SelectionRules::class)
             ->args([
                 abstract_arg('place types'),
                 abstract_arg('points of interest'),
@@ -164,12 +164,12 @@ return static function (ContainerConfigurator $container): void {
             ])
 
         // commands
-        ->set('tito10047_geo.geocoder.command.search', GeocoderSearchCommand::class)
-            ->args([service('tito10047_geo.geocoder'), service('tito10047_geo.geocoder.search_options')])
-            ->tag('console.command', ['command' => 'tito10047-geo:geocoder:search'])
+        ->set('geo.geocoder.command.search', GeocoderSearchCommand::class)
+            ->args([service('geo.geocoder'), service('geo.geocoder.search_options')])
+            ->tag('console.command', ['command' => 'geo:search'])
 
-        ->set('tito10047_geo.geocoder.command.status', GeocoderStatusCommand::class)
-            ->args([service('tito10047_geo.geocoder.index_manager'), abstract_arg('live index uid'), service('tito10047_geo.geocoder.importer')->nullOnInvalid()])
-            ->tag('console.command', ['command' => 'tito10047-geo:geocoder:status'])
+        ->set('geo.geocoder.command.status', GeocoderStatusCommand::class)
+            ->args([service('geo.geocoder.index_manager'), abstract_arg('live index uid'), service('geo.geocoder.importer')->nullOnInvalid()])
+            ->tag('console.command', ['command' => 'geo:status'])
     ;
 };

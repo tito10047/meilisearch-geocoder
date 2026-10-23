@@ -163,18 +163,18 @@ final class PhotonApiControllerTest extends TestCase
     private function boot(array $geocoder): void
     {
         $this->kernel = new TestKernel(
-            extensionConfigs: ['tito10047_geo' => Configs::geocoder($geocoder)],
-            fakes: Configs::FAKES + ['tito10047_geo.geocoder.name_catalog' => FakeNameCatalog::class],
+            extensionConfigs: ['geo' => Configs::geocoder($geocoder)],
+            fakes: Configs::FAKES + ['geo.geocoder.name_catalog' => FakeNameCatalog::class],
         );
         $this->kernel->boot();
         $this->browser = new KernelBrowser($this->kernel);
         $this->browser->disableReboot();
         $container = $this->kernel->getContainer()->get('test.service_container');
         $this->assertInstanceOf(ContainerInterface::class, $container);
-        $geocoderService = $container->get('tito10047_geo.geocoder');
+        $geocoderService = $container->get('geo.geocoder');
         $this->assertInstanceOf(FakeGeocoder::class, $geocoderService);
         $this->geocoder = $geocoderService;
-        $catalog = $container->get('tito10047_geo.geocoder.name_catalog');
+        $catalog = $container->get('geo.geocoder.name_catalog');
         $this->assertInstanceOf(FakeNameCatalog::class, $catalog);
         $catalog->translations = ['SK|country|SK|sk' => 'Slovensko', 'SK|country|SK|en' => 'Slovakia'];
     }

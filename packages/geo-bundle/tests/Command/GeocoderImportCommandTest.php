@@ -20,7 +20,7 @@ use Tito10047\Geocoder\Index\Exception\MeilisearchException;
 
 final class GeocoderImportCommandTest extends TestCase
 {
-    private const COMMAND = 'tito10047-geo:geocoder:import';
+    private const COMMAND = 'geo:import';
 
     private ?TestApplication $application = null;
     private ?string $directory = null;
@@ -71,7 +71,7 @@ final class GeocoderImportCommandTest extends TestCase
 
         $tester->assertCommandIsSuccessful();
         $this->assertSame([], $this->importer()->published);
-        $this->assertStringContainsString('tito10047-geo:geocoder:publish '.Builds::UID, $this->display($tester));
+        $this->assertStringContainsString('geo:publish '.Builds::UID, $this->display($tester));
     }
 
     public function testImportsTheDumpsOfTheConfiguredDirectory(): void
@@ -118,7 +118,7 @@ final class GeocoderImportCommandTest extends TestCase
         $tester->execute(['dumps' => ['slovakia.jsonl.zst'], '--export' => '/srv/export']);
 
         $tester->assertCommandIsSuccessful();
-        $exporter = $this->application()->service('tito10047_geo.geocoder.file_exporter', FakeFileExporter::class);
+        $exporter = $this->application()->service('geo.geocoder.file_exporter', FakeFileExporter::class);
         $this->assertSame([[['slovakia.jsonl.zst'], '/srv/export']], $exporter->exports);
         $this->assertSame([], $this->importer()->imports);
         $display = $this->display($tester);
@@ -174,7 +174,7 @@ final class GeocoderImportCommandTest extends TestCase
     #[DataProvider('failures')]
     public function testFailedExportFails(\Throwable $failure): void
     {
-        $this->application()->service('tito10047_geo.geocoder.file_exporter', FakeFileExporter::class)->exception = $failure;
+        $this->application()->service('geo.geocoder.file_exporter', FakeFileExporter::class)->exception = $failure;
         $tester = $this->application()->command(self::COMMAND);
 
         $tester->execute(['dumps' => ['slovakia.jsonl.zst'], '--export' => '/srv/export']);
@@ -212,7 +212,7 @@ final class GeocoderImportCommandTest extends TestCase
 
     private function importer(): FakeImporter
     {
-        return $this->application()->service('tito10047_geo.geocoder.importer', FakeImporter::class);
+        return $this->application()->service('geo.geocoder.importer', FakeImporter::class);
     }
 
     private function directory(): string

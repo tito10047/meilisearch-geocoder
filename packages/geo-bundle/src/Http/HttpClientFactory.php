@@ -79,6 +79,6 @@ final class HttpClientFactory
             return new AmpHttpClient($options);
         }
 
-        throw new LogicException('The Valhalla client needs ext-curl or amphp/http-client ("composer require amphp/http-client:^5"): Valhalla keeps connections open and a client based on PHP streams would hang until its timeout. Or configure "tito10047_geo.routing.http_client".');
+        throw new LogicException('The Valhalla client needs ext-curl or amphp/http-client ("composer require amphp/http-client:^5"): Valhalla keeps connections open and a client based on PHP streams would hang until its timeout. Or configure "geo.routing.http_client".');
     }
 }

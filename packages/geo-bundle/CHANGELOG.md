@@ -7,11 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Shorter names: the configuration key is `geo` (was `tito10047_geo`), the commands are `geo:search`,
+  `geo:import`, `geo:publish`, `geo:status`, `geo:cleanup`, `geo:download`, `geo:artifact`,
+  `geo:artifact:install`, `geo:route`, `geo:matrix` and `geo:route:status` (were
+  `tito10047-geo:geocoder:…` and `tito10047-geo:routing:…`), the services, routes and log channel
+  are prefixed `geo`.
+
 ### Added
 
 - The `AddressLookupInterface` service: an address by its official id.
 - First version of Tito10047GeoBundle.
-- Command `tito10047-geo:geocoder:download [region…] [--force]`: the Photon dumps of the given or
+- Command `geo:download [region…] [--force]`: the Photon dumps of the given or
   configured regions into `import.dumps_dir`, again only when they changed.
 - `geocoder.import` options `regions`, `download_url`, `download_http_client`,
   `street_excluded_highways` and `reference_keys`.
@@ -27,8 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   services may replace the built ones.
 - Default HTTP clients: Meilisearch without gzip (avoids a ~40 ms delayed-ACK stall on answers of
   a few kilobytes), Valhalla over curl or amphp (it keeps connections open).
-- Commands `tito10047-geo:geocoder:search`, `tito10047-geo:geocoder:status`,
-  `tito10047-geo:routing:route` and `tito10047-geo:routing:status`.
+- Commands `geo:search`, `geo:status`,
+  `geo:route` and `geo:route:status`.
 - An autocompleter of symfony/ux-autocomplete 3.5+ (`value` = `lat,lon|label`).
 - Services of the import (each private, aliased to its interface): `Importer`, `FileExporter`,
   the Photon and export converters behind `ExportAwareConverter`, `SystemClock`, the build storage
@@ -37,15 +45,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   instance.
 - Configuration `geocoder.meilisearch.snapshot_dir` (artifacts) and `geocoder.meilisearch.version`
   (installing artifacts).
-- Commands `tito10047-geo:geocoder:import` (`--no-publish`, `--export` files only, exports imported
+- Commands `geo:import` (`--no-publish`, `--export` files only, exports imported
   like dumps, dumps of `import.dumps_dir` by default), `…:publish`, `…:cleanup`, `…:artifact` and
   `…:install-artifact` (prints the `--import-snapshot` restart); `…:status` prints the live build
   (data timestamps per country, counts, schema version).
 - The name catalog is tagged `kernel.reset`: long-running workers forget the remembered translations
   between requests.
-- The distance matrix of tito10047/routing: service `tito10047_geo.routing.matrix` aliased to
+- The distance matrix of tito10047/routing: service `geo.routing.matrix` aliased to
   `MatrixInterface` (same HTTP client as the router), its encoder, parser and error translator,
   configuration `routing.max_matrix_location_pairs` (2500), and the command
-  `tito10047-geo:routing:matrix --source=… --target=… [--costing] [--radius]` printing a table.
+  `geo:matrix --source=… --target=… [--costing] [--radius]` printing a table.
 - The connection built from the `dsn` reports an unreachable database as
   `GeocoderUnavailableException` instead of a `PDOException`.

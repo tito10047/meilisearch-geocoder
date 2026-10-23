@@ -19,7 +19,7 @@ final class RoutingStatusCommandTest extends TestCase
     protected function setUp(): void
     {
         $this->application = new TestApplication(Configs::routing());
-        $this->statusProvider = $this->application->service('tito10047_geo.routing.status_provider', FakeRoutingStatusProvider::class);
+        $this->statusProvider = $this->application->service('geo.routing.status_provider', FakeRoutingStatusProvider::class);
     }
 
     protected function tearDown(): void
@@ -30,7 +30,7 @@ final class RoutingStatusCommandTest extends TestCase
     public function testPrintsTheStatus(): void
     {
         $this->statusProvider->status = new RoutingStatus('3.5.1', new \DateTimeImmutable('2026-10-22 12:00:00 UTC'), ['status', 'route']);
-        $tester = $this->application->command('tito10047-geo:routing:status');
+        $tester = $this->application->command('geo:route:status');
 
         $tester->execute([]);
 
@@ -46,7 +46,7 @@ final class RoutingStatusCommandTest extends TestCase
     public function testUnknownDetailsArePrintedAsSuch(): void
     {
         $this->statusProvider->status = new RoutingStatus('3.5.1');
-        $tester = $this->application->command('tito10047-geo:routing:status');
+        $tester = $this->application->command('geo:route:status');
 
         $tester->execute([]);
 
@@ -57,7 +57,7 @@ final class RoutingStatusCommandTest extends TestCase
     public function testUnreachableValhallaFails(): void
     {
         $this->statusProvider->exception = new RoutingUnavailableException('Valhalla is unreachable.');
-        $tester = $this->application->command('tito10047-geo:routing:status');
+        $tester = $this->application->command('geo:route:status');
 
         $tester->execute([]);
 

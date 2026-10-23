@@ -18,7 +18,7 @@ use Tito10047\Geocoder\Exception\InvalidArgumentException;
 
 final class GeocoderInstallArtifactCommandTest extends TestCase
 {
-    private const COMMAND = 'tito10047-geo:geocoder:install-artifact';
+    private const COMMAND = 'geo:artifact:install';
 
     private ?TestApplication $application = null;
 
@@ -107,7 +107,7 @@ final class GeocoderInstallArtifactCommandTest extends TestCase
 
     private function installers(): FakeArtifactInstallerFactory
     {
-        return $this->application()->service('tito10047_geo.geocoder.artifact_installer_factory', FakeArtifactInstallerFactory::class);
+        return $this->application()->service('geo.geocoder.artifact_installer_factory', FakeArtifactInstallerFactory::class);
     }
 
     private function display(CommandTester $tester): string

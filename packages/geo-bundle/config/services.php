@@ -8,7 +8,7 @@ use function Symfony\Component\DependencyInjection\Loader\Configurator\param;
 
 /*
  * Services are defined explicitly: no autowiring, no autoconfiguration, private by default,
- * with ids prefixed by "tito10047_geo." and aliases for autowiring.
+ * with ids prefixed by "geo." and aliases for autowiring.
  *
  * The services shared by the sections; those of each section are in services/, loaded when the
  * section is enabled.
@@ -18,11 +18,11 @@ use function Symfony\Component\DependencyInjection\Loader\Configurator\param;
 return static function (ContainerConfigurator $container): void {
     $container->services()
         // the PSR-17 request, stream and response factories of the PSR-18 clients
-        ->set('tito10047_geo.psr17_factory', Psr17Factory::class)
+        ->set('geo.psr17_factory', Psr17Factory::class)
 
         // the routes of config/routes.php: registered whatever the configuration, so that importing them never fails
-        ->set('tito10047_geo.photon_api.route_loader', PhotonApiRouteLoader::class)
-            ->args([param(PhotonApiRouteLoader::ENABLED_PARAMETER), 'tito10047_geo.geocoder.photon_api.controller'])
+        ->set('geo.photon_api.route_loader', PhotonApiRouteLoader::class)
+            ->args([param(PhotonApiRouteLoader::ENABLED_PARAMETER), 'geo.geocoder.photon_api.controller'])
             ->tag('routing.route_loader')
     ;
 };

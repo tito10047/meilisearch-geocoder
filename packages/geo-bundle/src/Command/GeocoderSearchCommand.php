@@ -19,13 +19,13 @@ use Tito10047\Geocoder\Search\Suggestion;
 /**
  * Prints the suggestions of the geocoder for a text, to try the index and its ranking.
  */
-#[AsCommand(name: 'tito10047-geo:geocoder:search', description: 'Prints the suggestions of the geocoder for a text', help: <<<'TXT'
+#[AsCommand(name: 'geo:search', description: 'Prints the suggestions of the geocoder for a text', help: <<<'TXT'
 The <info>%command.name%</info> command prints what the geocoder suggests for a text:
 
   <info>php %command.full_name% "Hlavná 12 Košice" --locale=sk --preferred-country=SK</info>
 
 The defaults of the limit and of the preferred country come from the configuration
-(tito10047_geo.geocoder.search).
+(geo.geocoder.search).
 TXT)]
 final class GeocoderSearchCommand extends Command
 {

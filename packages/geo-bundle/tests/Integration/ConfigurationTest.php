@@ -24,9 +24,9 @@ final class ConfigurationTest extends KernelTestCase
     public function testUnknownOptionIsRejected(): void
     {
         $this->expectException(InvalidConfigurationException::class);
-        $this->expectExceptionMessage('Unrecognized option "unknown" under "tito10047_geo"');
+        $this->expectExceptionMessage('Unrecognized option "unknown" under "geo"');
 
-        self::bootKernel(['extension_configs' => ['tito10047_geo' => ['unknown' => true]]]);
+        self::bootKernel(['extension_configs' => ['geo' => ['unknown' => true]]]);
     }
 
     public function testSectionsAreDisabledByDefault(): void
@@ -69,7 +69,7 @@ final class ConfigurationTest extends KernelTestCase
             'download_url' => GraphHopperRegionUrlResolver::DEFAULT_BASE_URL,
             'download_http_client' => null,
         ], $geocoder['import']);
-        $this->assertSame(['enabled' => 'auto', 'alias' => 'tito10047_geo_address'], $geocoder['ux_autocomplete']);
+        $this->assertSame(['enabled' => 'auto', 'alias' => 'geo_address'], $geocoder['ux_autocomplete']);
         $this->assertSame(['enabled' => false, 'max_age' => 3600], $geocoder['photon_api']);
     }
 

@@ -14,7 +14,7 @@ use Tito10047\Routing\Exception\RoutingUnavailableException;
 /**
  * Tells whether Valhalla is reachable, and what it runs.
  */
-#[AsCommand(name: 'tito10047-geo:routing:status', description: 'Tells whether Valhalla is reachable, and what it runs')]
+#[AsCommand(name: 'geo:route:status', description: 'Tells whether Valhalla is reachable, and what it runs')]
 final class RoutingStatusCommand extends Command
 {
     public function __construct(

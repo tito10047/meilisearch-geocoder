@@ -11,7 +11,7 @@ use Tito10047\Geocoder\Exception\StorageException;
 
 final class GeocoderCleanupCommandTest extends TestCase
 {
-    private const COMMAND = 'tito10047-geo:geocoder:cleanup';
+    private const COMMAND = 'geo:cleanup';
 
     private TestApplication $application;
     private FakeImporter $importer;
@@ -19,7 +19,7 @@ final class GeocoderCleanupCommandTest extends TestCase
     protected function setUp(): void
     {
         $this->application = new TestApplication(Configs::geocoder());
-        $this->importer = $this->application->service('tito10047_geo.geocoder.importer', FakeImporter::class);
+        $this->importer = $this->application->service('geo.geocoder.importer', FakeImporter::class);
     }
 
     protected function tearDown(): void

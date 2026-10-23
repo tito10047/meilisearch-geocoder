@@ -7,7 +7,7 @@ use Tito10047\Geocoder\Search\Reranker;
 use Tito10047\Geocoder\Search\SearchOptions;
 
 /*
- * Configuration tree of the "tito10047_geo" extension.
+ * Configuration tree of the "geo" extension.
  *
  * Keep it static (no environment variables, no container parameters): Symfony
  * dumps it as the configuration reference of the bundle.
@@ -304,7 +304,7 @@ return static function (DefinitionConfigurator $definition): void {
                             ->end()
                             ->scalarNode('alias')
                                 ->info('The alias of the autocompleter: its URL is the route "ux_autocomplete" with this alias.')
-                                ->defaultValue('tito10047_geo_address')
+                                ->defaultValue('geo_address')
                                 ->validate()
                                     ->ifTrue(static fn (mixed $alias): bool => !is_string($alias) || 1 !== preg_match('/^[A-Za-z0-9_-]+$/D', $alias))
                                     ->thenInvalid('The alias must be letters, digits, hyphens and underscores, %s given.')

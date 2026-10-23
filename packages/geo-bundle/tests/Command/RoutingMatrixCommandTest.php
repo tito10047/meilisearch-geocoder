@@ -24,7 +24,7 @@ final class RoutingMatrixCommandTest extends TestCase
     protected function setUp(): void
     {
         $this->application = new TestApplication(Configs::routing(['radius' => 150]));
-        $this->matrix = $this->application->service('tito10047_geo.routing.matrix', FakeMatrix::class);
+        $this->matrix = $this->application->service('geo.routing.matrix', FakeMatrix::class);
     }
 
     protected function tearDown(): void
@@ -35,7 +35,7 @@ final class RoutingMatrixCommandTest extends TestCase
     public function testPrintsTheMatrix(): void
     {
         $this->matrix->matrix = new Matrix([[202_335, 92_790], [150_949, null]], [[6_142, 2_978], [4_934, null]]);
-        $tester = $this->application->command('tito10047-geo:routing:matrix');
+        $tester = $this->application->command('geo:matrix');
 
         $tester->execute(['--source' => ['48.1486,17.1077', ' 48.3774 , 17.5872 '], '--target' => ['49.2231,18.7394', '48.3069,18.0864']]);
 
@@ -56,7 +56,7 @@ final class RoutingMatrixCommandTest extends TestCase
     public function testOptionsAreHonoured(): void
     {
         $this->matrix->matrix = new Matrix([[1_000]], [[60]]);
-        $tester = $this->application->command('tito10047-geo:routing:matrix');
+        $tester = $this->application->command('geo:matrix');
 
         $tester->execute(['--source' => ['48,17'], '--target' => ['-48.1,-17.1'], '--costing' => 'Bicycle', '--radius' => '0']);
 
@@ -83,7 +83,7 @@ final class RoutingMatrixCommandTest extends TestCase
     #[DataProvider('invalidInput')]
     public function testInvalidInputIsReported(array $input, string $message): void
     {
-        $tester = $this->application->command('tito10047-geo:routing:matrix');
+        $tester = $this->application->command('geo:matrix');
 
         $tester->execute($input);
 
@@ -95,7 +95,7 @@ final class RoutingMatrixCommandTest extends TestCase
     public function testATooLargeMatrixIsInvalid(): void
     {
         $this->matrix->exception = new InvalidArgumentException('The matrix of 51 × 50 = 2550 location pairs exceeds the maximum of 2500.');
-        $tester = $this->application->command('tito10047-geo:routing:matrix');
+        $tester = $this->application->command('geo:matrix');
 
         $tester->execute(['--source' => ['48,17'], '--target' => ['49,18']]);
 
@@ -106,7 +106,7 @@ final class RoutingMatrixCommandTest extends TestCase
     public function testUnavailabilityIsReported(): void
     {
         $this->matrix->exception = new RoutingUnavailableException('Valhalla answered with HTTP 400, error 154: Path distance exceeds the max distance limit: 400000 meters');
-        $tester = $this->application->command('tito10047-geo:routing:matrix');
+        $tester = $this->application->command('geo:matrix');
 
         $tester->execute(['--source' => ['48,17'], '--target' => ['49,18']]);
 

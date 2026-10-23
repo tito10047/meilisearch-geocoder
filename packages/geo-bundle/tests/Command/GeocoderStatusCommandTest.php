@@ -24,7 +24,7 @@ final class GeocoderStatusCommandTest extends TestCase
     protected function setUp(): void
     {
         $this->application = new TestApplication(Configs::geocoder(['meilisearch' => ['url' => 'http://127.0.0.1:7700', 'index' => 'places']]));
-        $this->indexes = $this->application->service('tito10047_geo.geocoder.index_manager', FakeIndexManager::class);
+        $this->indexes = $this->application->service('geo.geocoder.index_manager', FakeIndexManager::class);
     }
 
     protected function tearDown(): void
@@ -46,7 +46,7 @@ final class GeocoderStatusCommandTest extends TestCase
     public function testPrintsTheStatusOfTheLiveIndex(?string $settingsHash, string $settings): void
     {
         $this->indexes->status = new IndexStatus('places', 4420000, 3_000_000_000, 4_000_000_000, false, $settingsHash, '1.35.1');
-        $tester = $this->application->command('tito10047-geo:geocoder:status');
+        $tester = $this->application->command('geo:status');
 
         $tester->execute([]);
 
@@ -62,8 +62,8 @@ final class GeocoderStatusCommandTest extends TestCase
     public function testPrintsTheLiveBuild(): void
     {
         $this->indexes->status = new IndexStatus('places', 212000, 3_000_000_000, 4_000_000_000, false, (new IndexSettings())->hash(), '1.35.1');
-        $this->application->service('tito10047_geo.geocoder.importer', FakeImporter::class)->live = Builds::build();
-        $tester = $this->application->command('tito10047-geo:geocoder:status');
+        $this->application->service('geo.geocoder.importer', FakeImporter::class)->live = Builds::build();
+        $tester = $this->application->command('geo:status');
 
         $tester->execute([]);
 
@@ -79,7 +79,7 @@ final class GeocoderStatusCommandTest extends TestCase
     public function testSaysWhenNoBuildWasPublished(): void
     {
         $this->indexes->status = new IndexStatus('places', 212000, 3_000_000_000, 4_000_000_000, false, null, '1.35.1');
-        $tester = $this->application->command('tito10047-geo:geocoder:status');
+        $tester = $this->application->command('geo:status');
 
         $tester->execute([]);
 
@@ -90,8 +90,8 @@ final class GeocoderStatusCommandTest extends TestCase
     public function testWarnsWhenTheLiveBuildCannotBeRead(): void
     {
         $this->indexes->status = new IndexStatus('places', 212000, 3_000_000_000, 4_000_000_000, false, null, '1.35.1');
-        $this->application->service('tito10047_geo.geocoder.importer', FakeImporter::class)->liveException = new GeocoderUnavailableException('The database of the geocoder cannot be connected to: unable to open database file');
-        $tester = $this->application->command('tito10047-geo:geocoder:status');
+        $this->application->service('geo.geocoder.importer', FakeImporter::class)->liveException = new GeocoderUnavailableException('The database of the geocoder cannot be connected to: unable to open database file');
+        $tester = $this->application->command('geo:status');
 
         $tester->execute([]);
 
@@ -102,7 +102,7 @@ final class GeocoderStatusCommandTest extends TestCase
     public function testMissingIndexFails(): void
     {
         $this->indexes->exception = new MeilisearchException('Index `places` not found.');
-        $tester = $this->application->command('tito10047-geo:geocoder:status');
+        $tester = $this->application->command('geo:status');
 
         $tester->execute([]);
 

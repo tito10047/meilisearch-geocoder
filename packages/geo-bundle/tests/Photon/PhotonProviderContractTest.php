@@ -32,16 +32,16 @@ final class PhotonProviderContractTest extends TestCase
     protected function setUp(): void
     {
         $this->kernel = new TestKernel(
-            extensionConfigs: ['tito10047_geo' => Configs::geocoder(['photon_api' => true])],
-            fakes: Configs::FAKES + ['tito10047_geo.geocoder.name_catalog' => FakeNameCatalog::class],
+            extensionConfigs: ['geo' => Configs::geocoder(['photon_api' => true])],
+            fakes: Configs::FAKES + ['geo.geocoder.name_catalog' => FakeNameCatalog::class],
         );
         $this->kernel->boot();
         $container = $this->kernel->getContainer()->get('test.service_container');
         $this->assertInstanceOf(ContainerInterface::class, $container);
-        $geocoder = $container->get('tito10047_geo.geocoder');
+        $geocoder = $container->get('geo.geocoder');
         $this->assertInstanceOf(FakeGeocoder::class, $geocoder);
         $this->geocoder = $geocoder;
-        $catalog = $container->get('tito10047_geo.geocoder.name_catalog');
+        $catalog = $container->get('geo.geocoder.name_catalog');
         $this->assertInstanceOf(FakeNameCatalog::class, $catalog);
         $catalog->translations = ['SK|country|SK|en' => 'Slovakia'];
         $this->provider = new Photon(new KernelHttpClient($this->kernel), 'http://localhost/photon/');

@@ -18,19 +18,19 @@ use Tito10047\Geocoder\Import\Download\DumpDownloaderInterface;
 /**
  * Downloads the Photon dumps of the configured regions into the directory of the dumps.
  */
-#[AsCommand(name: 'tito10047-geo:geocoder:download', description: 'Downloads the Photon dumps of the geocoder, again only when they changed', help: <<<'TXT'
+#[AsCommand(name: 'geo:download', description: 'Downloads the Photon dumps of the geocoder, again only when they changed', help: <<<'TXT'
 The <info>%command.name%</info> command downloads the Photon dump of each region into the directory the
-import command reads (tito10047_geo.geocoder.import.dumps_dir), e.g. "europe/slovakia" into
+import command reads (geo.geocoder.import.dumps_dir), e.g. "europe/slovakia" into
 slovakia.jsonl.zst:
 
-  <info>php %command.full_name%</info>                    the regions of tito10047_geo.geocoder.import.regions
+  <info>php %command.full_name%</info>                    the regions of geo.geocoder.import.regions
   <info>php %command.full_name% europe/slovakia</info>    one region
 
 A dump that has not changed since the last download (ETag, Last-Modified) is not downloaded
 again; <comment>--force</comment> downloads it anyway. A dump replaces the previous copy only once it is
 complete and checked, so an interrupted download leaves the old one in place. Then import:
 
-  <info>php bin/console tito10047-geo:geocoder:import</info>
+  <info>php bin/console geo:import</info>
 TXT)]
 final class GeocoderDownloadCommand extends Command
 {
@@ -60,12 +60,12 @@ final class GeocoderDownloadCommand extends Command
         $regions = $input->getArgument('regions');
         $regions = [] === $regions ? $this->regions : $regions;
         if ([] === $regions) {
-            $io->error('Give the regions to download (e.g. "europe/slovakia"), or configure them in "tito10047_geo.geocoder.import.regions".');
+            $io->error('Give the regions to download (e.g. "europe/slovakia"), or configure them in "geo.geocoder.import.regions".');
 
             return Command::INVALID;
         }
         if (null === $this->dumpsDirectory) {
-            $io->error('Configure where the dumps go: "tito10047_geo.geocoder.import.dumps_dir".');
+            $io->error('Configure where the dumps go: "geo.geocoder.import.dumps_dir".');
 
             return Command::INVALID;
         }
@@ -93,7 +93,7 @@ final class GeocoderDownloadCommand extends Command
             return Command::FAILURE;
         }
         $io->text(Attribution::OPENSTREETMAP);
-        $io->success(\sprintf('The dumps are in %s; import them with tito10047-geo:geocoder:import.', $this->dumpsDirectory));
+        $io->success(\sprintf('The dumps are in %s; import them with geo:import.', $this->dumpsDirectory));
 
         return Command::SUCCESS;
     }

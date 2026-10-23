@@ -14,7 +14,7 @@ use Tito10047\Geocoder\Import\ImporterInterface;
 /**
  * Removes the builds left by failed or abandoned imports, or imported and never published.
  */
-#[AsCommand(name: 'tito10047-geo:geocoder:cleanup', description: 'Removes the builds of the geocoder that are not live (indexes and tables)', help: <<<'TXT'
+#[AsCommand(name: 'geo:cleanup', description: 'Removes the builds of the geocoder that are not live (indexes and tables)', help: <<<'TXT'
 The <info>%command.name%</info> command removes the indexes and the tables of every build that is not live:
 those of failed or abandoned imports and those imported with --no-publish and never published.
 The live index and tables are never touched.

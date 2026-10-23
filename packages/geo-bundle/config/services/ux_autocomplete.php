@@ -12,11 +12,11 @@ use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
  */
 return static function (ContainerConfigurator $container): void {
     $container->services()
-        ->set('tito10047_geo.geocoder.autocompleter', GeocoderAutocompleter::class)
+        ->set('geo.geocoder.autocompleter', GeocoderAutocompleter::class)
             ->args([
-                service('tito10047_geo.geocoder'),
+                service('geo.geocoder'),
                 service('request_stack'),
-                service('tito10047_geo.geocoder.search_options'),
+                service('geo.geocoder.search_options'),
             ])
     ;
 };

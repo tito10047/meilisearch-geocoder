@@ -21,7 +21,7 @@ use Tito10047\Geocoder\Index\IndexSettings;
  * Prints the state of the live index (its size, whether it is being indexed, its settings) and
  * of the live build (its data timestamps and counts per dump, the schema version of its tables).
  */
-#[AsCommand(name: 'tito10047-geo:geocoder:status', description: 'Prints the state of the live index of the geocoder')]
+#[AsCommand(name: 'geo:status', description: 'Prints the state of the live index of the geocoder')]
 final class GeocoderStatusCommand extends Command
 {
     /**

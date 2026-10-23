@@ -21,18 +21,25 @@ use Tito10047\Geocoder\Index\IndexManagerInterface;
 final class Tito10047GeoBundle extends AbstractBundle
 {
     /**
+     * The configuration key and the prefix of the services, the routes and the commands: short to type
+     * ("geo:" instead of the "tito10047_geo:" derived from the class name). Protected because Symfony
+     * reads it from the parent class.
+     */
+    protected string $extensionAlias = 'geo';
+
+    /**
      * The services of the geocoder removed without the URL of Meilisearch: they need the index manager.
      */
     private const NEEDS_INDEX_MANAGER = [
-        'tito10047_geo.geocoder.meilisearch.http_client',
-        'tito10047_geo.geocoder.meilisearch.http',
-        'tito10047_geo.geocoder.index_manager',
-        'tito10047_geo.geocoder.importer',
-        'tito10047_geo.geocoder.artifact_builder',
-        'tito10047_geo.geocoder.command.status',
-        'tito10047_geo.geocoder.command.publish',
-        'tito10047_geo.geocoder.command.cleanup',
-        'tito10047_geo.geocoder.command.artifact',
+        'geo.geocoder.meilisearch.http_client',
+        'geo.geocoder.meilisearch.http',
+        'geo.geocoder.index_manager',
+        'geo.geocoder.importer',
+        'geo.geocoder.artifact_builder',
+        'geo.geocoder.command.status',
+        'geo.geocoder.command.publish',
+        'geo.geocoder.command.cleanup',
+        'geo.geocoder.command.artifact',
     ];
 
     public function configure(DefinitionConfigurator $definition): void
@@ -80,17 +87,17 @@ final class Tito10047GeoBundle extends AbstractBundle
         $import = $config['import'];
 
         // Meilisearch: built from the URL, or an existing client for searching
-        $services->get('tito10047_geo.geocoder.meilisearch.http_client')->arg(0, $meilisearch['timeout'])->arg(1, $meilisearch['compression']);
-        foreach (['tito10047_geo.geocoder.meilisearch.client', 'tito10047_geo.geocoder.meilisearch.http'] as $id) {
+        $services->get('geo.geocoder.meilisearch.http_client')->arg(0, $meilisearch['timeout'])->arg(1, $meilisearch['compression']);
+        foreach (['geo.geocoder.meilisearch.client', 'geo.geocoder.meilisearch.http'] as $id) {
             $services->get($id)->arg(0, $meilisearch['url'])->arg(1, $meilisearch['api_key']);
         }
         if (null !== $meilisearch['http_client']) {
-            $builder->removeDefinition('tito10047_geo.geocoder.meilisearch.http_client');
-            $services->alias('tito10047_geo.geocoder.meilisearch.http_client', $meilisearch['http_client']);
+            $builder->removeDefinition('geo.geocoder.meilisearch.http_client');
+            $services->alias('geo.geocoder.meilisearch.http_client', $meilisearch['http_client']);
         }
         if (null !== $meilisearch['client']) {
-            $builder->removeDefinition('tito10047_geo.geocoder.meilisearch.client');
-            $services->alias('tito10047_geo.geocoder.meilisearch.client', $meilisearch['client']);
+            $builder->removeDefinition('geo.geocoder.meilisearch.client');
+            $services->alias('geo.geocoder.meilisearch.client', $meilisearch['client']);
         }
         if (null === $meilisearch['url']) {
             // the HTTP layer of an existing client is not reachable: no index manager without a URL, nor what needs it
@@ -103,34 +110,34 @@ final class Tito10047GeoBundle extends AbstractBundle
         }
         if (null === $meilisearch['snapshot_dir']) {
             // the artifact command tells what to configure
-            $builder->removeDefinition('tito10047_geo.geocoder.artifact_builder');
+            $builder->removeDefinition('geo.geocoder.artifact_builder');
             $builder->removeAlias(ArtifactBuilderInterface::class);
-        } elseif ($builder->hasDefinition('tito10047_geo.geocoder.artifact_builder')) {
-            $services->get('tito10047_geo.geocoder.artifact_builder')->arg(2, $meilisearch['snapshot_dir']);
+        } elseif ($builder->hasDefinition('geo.geocoder.artifact_builder')) {
+            $services->get('geo.geocoder.artifact_builder')->arg(2, $meilisearch['snapshot_dir']);
         }
-        $services->get('tito10047_geo.geocoder.artifact_installer_factory')->arg(2, $meilisearch['version']);
+        $services->get('geo.geocoder.artifact_installer_factory')->arg(2, $meilisearch['version']);
 
         // the database: a lazy connection from the DSN, or an existing one
         if (null !== $database['connection']) {
-            $builder->removeDefinition('tito10047_geo.geocoder.connection');
-            $services->alias('tito10047_geo.geocoder.connection', $database['connection']);
+            $builder->removeDefinition('geo.geocoder.connection');
+            $services->alias('geo.geocoder.connection', $database['connection']);
         } else {
-            $services->get('tito10047_geo.geocoder.connection')->arg(0, $database['dsn'])->arg(1, $database['user'])->arg(2, $database['password']);
+            $services->get('geo.geocoder.connection')->arg(0, $database['dsn'])->arg(1, $database['user'])->arg(2, $database['password']);
         }
-        $services->get('tito10047_geo.geocoder.tables')->args([$tables['house_numbers'], $tables['translations'], $tables['metadata']]);
+        $services->get('geo.geocoder.tables')->args([$tables['house_numbers'], $tables['translations'], $tables['metadata']]);
 
         // search
-        $services->get('tito10047_geo.geocoder.search_backend')->arg(1, $meilisearch['index']);
-        $services->get('tito10047_geo.geocoder.reranker')->arg(0, $search['max_rank_gap']);
-        $services->get('tito10047_geo.geocoder')->arg(6, $search['rerank_window']);
-        $services->get('tito10047_geo.geocoder.search_options')->arg(1, $search['default_limit'])->arg(2, $search['preferred_country']);
+        $services->get('geo.geocoder.search_backend')->arg(1, $meilisearch['index']);
+        $services->get('geo.geocoder.reranker')->arg(0, $search['max_rank_gap']);
+        $services->get('geo.geocoder')->arg(6, $search['rerank_window']);
+        $services->get('geo.geocoder.search_options')->arg(1, $search['default_limit'])->arg(2, $search['preferred_country']);
 
         // index and import
-        $services->get('tito10047_geo.geocoder.index_naming')->arg(0, $meilisearch['index']);
-        if ($builder->hasDefinition('tito10047_geo.geocoder.command.status')) {
-            $services->get('tito10047_geo.geocoder.command.status')->arg(1, $meilisearch['index']);
+        $services->get('geo.geocoder.index_naming')->arg(0, $meilisearch['index']);
+        if ($builder->hasDefinition('geo.geocoder.command.status')) {
+            $services->get('geo.geocoder.command.status')->arg(1, $meilisearch['index']);
         }
-        $services->get('tito10047_geo.geocoder.selection_rules')->args([
+        $services->get('geo.geocoder.selection_rules')->args([
             $import['place_types'],
             $import['pois'],
             $import['poi_rank'],
@@ -140,19 +147,19 @@ final class Tito10047GeoBundle extends AbstractBundle
             $import['street_excluded_highways'],
             $import['reference_keys'],
         ]);
-        $container->parameters()->set('tito10047_geo.geocoder.import.dumps_dir', $import['dumps_dir']);
-        $container->parameters()->set('tito10047_geo.geocoder.import.regions', $import['regions']);
-        $services->get('tito10047_geo.geocoder.import.region_url_resolver')->arg(0, $import['download_url']);
+        $container->parameters()->set('geo.geocoder.import.dumps_dir', $import['dumps_dir']);
+        $container->parameters()->set('geo.geocoder.import.regions', $import['regions']);
+        $services->get('geo.geocoder.import.region_url_resolver')->arg(0, $import['download_url']);
         if (null !== $import['download_http_client']) {
-            $builder->removeDefinition('tito10047_geo.geocoder.import.download_http_client');
-            $services->alias('tito10047_geo.geocoder.import.download_http_client', $import['download_http_client']);
+            $builder->removeDefinition('geo.geocoder.import.download_http_client');
+            $services->alias('geo.geocoder.import.download_http_client', $import['download_http_client']);
         }
 
         $this->loadUxAutocomplete($config['ux_autocomplete'], $container);
 
         if ($config['photon_api']['enabled']) {
             $container->import('../config/services/photon_api.php');
-            $services->get('tito10047_geo.geocoder.photon_api.controller')->arg(1, $config['photon_api']['max_age']);
+            $services->get('geo.geocoder.photon_api.controller')->arg(1, $config['photon_api']['max_age']);
         }
     }
 
@@ -166,14 +173,14 @@ final class Tito10047GeoBundle extends AbstractBundle
         // AutocompleterInterface, for any data source, came with symfony/ux-autocomplete 3.5
         $installed = interface_exists(AutocompleterInterface::class);
         if (true === $config['enabled'] && !$installed) {
-            throw new LogicException('"tito10047_geo.geocoder.ux_autocomplete.enabled" is true but symfony/ux-autocomplete 3.5 or newer is not installed: run "composer require symfony/ux-autocomplete" or set it to "auto".');
+            throw new LogicException('"geo.geocoder.ux_autocomplete.enabled" is true but symfony/ux-autocomplete 3.5 or newer is not installed: run "composer require symfony/ux-autocomplete" or set it to "auto".');
         }
         if (false === $config['enabled'] || !$installed) {
             return;
         }
 
         $container->import('../config/services/ux_autocomplete.php');
-        $container->services()->get('tito10047_geo.geocoder.autocompleter')->tag('ux.autocompleter', ['alias' => $config['alias']]);
+        $container->services()->get('geo.geocoder.autocompleter')->tag('ux.autocompleter', ['alias' => $config['alias']]);
     }
 
     /**
@@ -185,15 +192,15 @@ final class Tito10047GeoBundle extends AbstractBundle
         $services = $container->services();
 
         if (null !== $config['http_client']) {
-            $builder->removeDefinition('tito10047_geo.routing.http_client');
-            $services->alias('tito10047_geo.routing.http_client', $config['http_client']);
+            $builder->removeDefinition('geo.routing.http_client');
+            $services->alias('geo.routing.http_client', $config['http_client']);
         } else {
-            $services->get('tito10047_geo.routing.http_client')->arg(0, $config['timeout']);
+            $services->get('geo.routing.http_client')->arg(0, $config['timeout']);
         }
-        $services->get('tito10047_geo.routing.router')->arg(0, $config['url']);
-        $services->get('tito10047_geo.routing.matrix')->arg(0, $config['url'])->arg(8, $config['max_matrix_location_pairs']);
-        $services->get('tito10047_geo.routing.status_provider')->arg(0, $config['url']);
-        $services->get('tito10047_geo.routing.command.route')->arg(1, $config['radius']);
-        $services->get('tito10047_geo.routing.command.matrix')->arg(1, $config['radius']);
+        $services->get('geo.routing.router')->arg(0, $config['url']);
+        $services->get('geo.routing.matrix')->arg(0, $config['url'])->arg(8, $config['max_matrix_location_pairs']);
+        $services->get('geo.routing.status_provider')->arg(0, $config['url']);
+        $services->get('geo.routing.command.route')->arg(1, $config['radius']);
+        $services->get('geo.routing.command.matrix')->arg(1, $config['radius']);
     }
 }

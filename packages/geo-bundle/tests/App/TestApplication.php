@@ -19,7 +19,7 @@ final readonly class TestApplication
      */
     public function __construct(array $config)
     {
-        $this->kernel = new TestKernel(extensionConfigs: ['tito10047_geo' => $config], fakes: Configs::FAKES);
+        $this->kernel = new TestKernel(extensionConfigs: ['geo' => $config], fakes: Configs::FAKES);
         $this->kernel->boot();
     }
 
