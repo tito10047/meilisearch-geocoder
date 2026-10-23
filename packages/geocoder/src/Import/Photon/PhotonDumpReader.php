@@ -18,8 +18,9 @@ final readonly class PhotonDumpReader implements DumpReaderInterface
     private const PLACE_TYPE = 'Place';
     /** The versions of the format this reader understands: 0.1.x. */
     private const SUPPORTED_VERSION = '/^0\.1(\.\d+)*$/D';
-    /** Deep enough for the geometry of a multipolygon, which is decoded but not used. */
+    /** Deep enough for a record; the geometries are cut out before decoding. */
     private const JSON_DEPTH = 64;
+    private const GEOMETRY_KEY = '"geometry":{';
 
     public function __construct(
         private LineSourceInterface $lines = new AutoDetectingLineSource(),
@@ -75,7 +76,7 @@ final readonly class PhotonDumpReader implements DumpReaderInterface
     private function decode(string $dump, int $number, string $line): array
     {
         try {
-            $record = json_decode($line, true, self::JSON_DEPTH, \JSON_THROW_ON_ERROR);
+            $record = json_decode($this->withoutGeometries($line), true, self::JSON_DEPTH, \JSON_THROW_ON_ERROR);
         } catch (\JsonException $exception) {
             throw new InvalidDumpException($dump, $number, \sprintf('invalid JSON (%s).', $exception->getMessage()), $exception);
         }
@@ -84,6 +85,46 @@ final readonly class PhotonDumpReader implements DumpReaderInterface
         }
 
         return $record;
+    }
+
+    /**
+     * The line without its "geometry" objects, which are most of a dump and are never used: the
+     * boundary of a country is megabytes of coordinates, ten times that once decoded.
+     *
+     * A key "geometry" followed by an object cannot be the content of a JSON string (its quotes
+     * would be escaped), and a GeoJSON geometry holds no string with a brace: the object ends at
+     * the brace that balances its first one. A line that does not look so is left whole.
+     */
+    private function withoutGeometries(string $line): string
+    {
+        $offset = 0;
+        while (false !== ($start = strpos($line, self::GEOMETRY_KEY, $offset))) {
+            $length = \strlen($line);
+            $position = $start + \strlen(self::GEOMETRY_KEY) - 1;
+            $depth = 0;
+            while ($position < $length) {
+                $depth += '{' === $line[$position] ? 1 : -1;
+                if (0 === $depth) {
+                    break;
+                }
+                $position += 1 + strcspn($line, '{}', $position + 1);
+            }
+            if (0 !== $depth) {
+                return $line;
+            }
+
+            // the geometry and the comma before it ("…,"geometry":{…}}") or after it ("{"geometry":{…},…")
+            $end = $position + 1;
+            if ($start > 0 && ',' === $line[$start - 1]) {
+                --$start;
+            } elseif (',' === ($line[$end] ?? '')) {
+                ++$end;
+            }
+            $line = substr($line, 0, $start).substr($line, $end);
+            $offset = $start;
+        }
+
+        return $line;
     }
 
     private function header(string $dump, int $number, mixed $content): DumpHeader

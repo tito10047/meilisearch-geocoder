@@ -88,6 +88,46 @@ final class PhotonDumpReaderTest extends TestCase
         $this->assertNull($records[1]->postcode);
     }
 
+    #[DataProvider('provideGeometries')]
+    public function testIgnoresTheGeometries(string $records): void
+    {
+        $lines = new InMemoryLineSource([self::HEADER, '{"type":"Place","content":['.$records.']}']);
+
+        $places = \array_slice(iterator_to_array((new PhotonDumpReader($lines))->read('sk.jsonl'), false), 1);
+
+        $this->assertNotSame([], $places);
+        foreach ($places as $place) {
+            $this->assertInstanceOf(Place::class, $place);
+            $this->assertSame('Krížna', $place->name());
+            $this->assertEqualsWithDelta(48.3993171, $place->centroid->latitude, \PHP_FLOAT_EPSILON);
+        }
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function provideGeometries(): iterable
+    {
+        $place = '{"object_type":"W","object_id":1,"osm_key":"highway","osm_value":"residential","name":{"name":"Krížna"},"centroid":[21.7492543,48.3993171]%s}';
+
+        yield 'last' => [\sprintf($place, ',"geometry":{"type":"Point","coordinates":[21.7,48.3]}')];
+        yield 'first' => [str_replace('{"object_type"', '{"geometry":{"type":"Point","coordinates":[21.7,48.3]},"object_type"', \sprintf($place, ''))];
+        yield 'collection' => [\sprintf($place, ',"geometry":{"type":"GeometryCollection","geometries":[{"type":"Point","coordinates":[1,2]},{"type":"LineString","coordinates":[[1,2],[3,4]]}]}')];
+        yield 'two places' => [\sprintf($place, ',"geometry":{"type":"Point","coordinates":[1,2]}').','.\sprintf($place, ',"geometry":{"type":"Polygon","coordinates":[[[1,2],[3,4],[1,2]]]}')];
+        yield 'none' => [\sprintf($place, '')];
+        yield 'in a string' => [str_replace('"Krížna"}', '"Krížna","note":"\"geometry\":{"}', \sprintf($place, ',"geometry":{"type":"Point","coordinates":[1,2]}'))];
+    }
+
+    public function testAnUnbalancedGeometryIsInvalidJson(): void
+    {
+        $lines = new InMemoryLineSource([self::HEADER, '{"type":"Place","content":[{"osm_key":"highway","geometry":{"type":"Point"']);
+
+        $this->expectException(InvalidDumpException::class);
+        $this->expectExceptionMessage('Line 2 of the dump "sk.jsonl": invalid JSON');
+
+        iterator_to_array((new PhotonDumpReader($lines))->read('sk.jsonl'));
+    }
+
     public function testReadsTheFixture(): void
     {
         $places = 0;
