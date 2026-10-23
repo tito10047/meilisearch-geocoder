@@ -45,8 +45,10 @@ use Tito10047\Geocoder\Index\IndexManagerInterface;
 use Tito10047\Geocoder\Index\IndexNamingInterface;
 use Tito10047\Geocoder\Index\IndexSettings;
 use Tito10047\Geocoder\Index\MeilisearchIndexManager;
+use Tito10047\Geocoder\Name\CountryNameSourceInterface;
 use Tito10047\Geocoder\Name\NameCatalogInterface;
 use Tito10047\Geocoder\Name\NameKind;
+use Tito10047\Geocoder\Name\PdoCountryNameSource;
 use Tito10047\Geocoder\Photon\FeatureFactory;
 use Tito10047\Geocoder\Photon\FeatureFactoryInterface;
 use Tito10047\Geocoder\Photon\PhotonSearch;
@@ -58,6 +60,8 @@ use Tito10047\Geocoder\Search\Backend\SearchBackendInterface;
 use Tito10047\Geocoder\Search\Geocoder;
 use Tito10047\Geocoder\Search\GeocoderInterface;
 use Tito10047\Geocoder\Search\LabelFormatterInterface;
+use Tito10047\Geocoder\Search\Query\CatalogCountryRecognizer;
+use Tito10047\Geocoder\Search\Query\CountryRecognizerInterface;
 use Tito10047\Geocoder\Search\Query\QueryParserInterface;
 use Tito10047\Geocoder\Search\RerankerInterface;
 use Tito10047\Geocoder\Search\SearchOptions;
@@ -127,6 +131,8 @@ final class ContainerTest extends KernelTestCase
         yield 'reranker' => [RerankerInterface::class, RerankerInterface::class];
         yield 'label formatter' => [LabelFormatterInterface::class, LabelFormatterInterface::class];
         yield 'query parser' => [QueryParserInterface::class, QueryParserInterface::class];
+        yield 'country recognizer' => [CountryRecognizerInterface::class, CatalogCountryRecognizer::class];
+        yield 'country name source' => [CountryNameSourceInterface::class, PdoCountryNameSource::class];
         yield 'index manager' => [IndexManagerInterface::class, MeilisearchIndexManager::class];
         yield 'index naming' => [IndexNamingInterface::class, IndexNamingInterface::class];
         yield 'Meilisearch client' => ['geo.geocoder.meilisearch.client', Client::class];
@@ -263,6 +269,29 @@ final class ContainerTest extends KernelTestCase
         $resetter->reset();
 
         $this->assertSame('Vieden', $catalog->translate('AT', NameKind::City, 'Wien', 'sk'));
+    }
+
+    public function testCountryNamesAreReadAgainBetweenRequests(): void
+    {
+        $kernel = self::bootKernel(['extension_configs' => ['geo' => Configs::geocoder(['database' => ['connection' => 'app.pdo']])]]);
+        $container = self::getContainer();
+        $pdo = $container->get('app.pdo');
+        $this->assertInstanceOf(\PDO::class, $pdo);
+        $pdo->exec('CREATE TABLE geo_name (cc CHAR(2) NOT NULL, kind VARCHAR(8) NOT NULL, name VARCHAR(255) NOT NULL, lang VARCHAR(3) NOT NULL, translation VARCHAR(255) NOT NULL)');
+        $pdo->exec("INSERT INTO geo_name VALUES ('SK', 'country', 'SK', 'sk', 'Slovensko'), ('SK', 'city', 'Košice', 'hu', 'Kassa')");
+        $parser = $container->get(QueryParserInterface::class);
+        $this->assertInstanceOf(QueryParserInterface::class, $parser);
+        $countries = static fn (string $text): array => $parser->parse($text)?->countries() ?? [];
+        $this->assertSame(['SK'], $countries('Košice, Slovensko'));
+        $pdo->exec("UPDATE geo_name SET translation = 'Slovakia' WHERE kind = 'country'");
+        $this->assertSame(['SK'], $countries('Košice, Slovensko'), 'Remembered.');
+
+        $resetter = $kernel->getContainer()->get('services_resetter');
+        $this->assertInstanceOf(ResetInterface::class, $resetter);
+        $resetter->reset();
+
+        $this->assertSame([], $countries('Košice, Slovensko'));
+        $this->assertSame(['SK'], $countries('Košice, Slovakia'));
     }
 
     public function testExistingServicesReplaceTheBuiltOnes(): void

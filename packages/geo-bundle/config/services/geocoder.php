@@ -17,7 +17,9 @@ use Tito10047\Geocoder\Index\IndexManagerInterface;
 use Tito10047\Geocoder\Index\IndexNamingInterface;
 use Tito10047\Geocoder\Index\MeilisearchIndexManager;
 use Tito10047\Geocoder\Index\TimestampIndexNaming;
+use Tito10047\Geocoder\Name\CountryNameSourceInterface;
 use Tito10047\Geocoder\Name\NameCatalogInterface;
+use Tito10047\Geocoder\Name\PdoCountryNameSource;
 use Tito10047\Geocoder\Name\PdoNameCatalog;
 use Tito10047\Geocoder\Search\AddressLookup;
 use Tito10047\Geocoder\Search\AddressLookupInterface;
@@ -28,6 +30,8 @@ use Tito10047\Geocoder\Search\Geocoder;
 use Tito10047\Geocoder\Search\GeocoderInterface;
 use Tito10047\Geocoder\Search\LabelFormatter;
 use Tito10047\Geocoder\Search\LabelFormatterInterface;
+use Tito10047\Geocoder\Search\Query\CatalogCountryRecognizer;
+use Tito10047\Geocoder\Search\Query\CountryRecognizerInterface;
 use Tito10047\Geocoder\Search\Query\QueryParser;
 use Tito10047\Geocoder\Search\Query\QueryParserInterface;
 use Tito10047\Geocoder\Search\Reranker;
@@ -124,7 +128,19 @@ return static function (ContainerConfigurator $container): void {
             ->args([service('geo.geocoder.name_catalog'), service('geo.geocoder.name_normalizer')])
         ->alias(LabelFormatterInterface::class, 'geo.geocoder.label_formatter')
 
+        // the names of the imported countries, recognized in the typed text ("Košice, Slovensko"):
+        // read once, forgotten between the requests of a long-running worker
+        ->set('geo.geocoder.country_name_source', PdoCountryNameSource::class)
+            ->args([service('geo.geocoder.connection'), service('geo.geocoder.tables')])
+        ->alias(CountryNameSourceInterface::class, 'geo.geocoder.country_name_source')
+
+        ->set('geo.geocoder.country_recognizer', CatalogCountryRecognizer::class)
+            ->args([service('geo.geocoder.country_name_source'), service('geo.geocoder.name_normalizer')])
+            ->tag('kernel.reset', ['method' => 'reset', 'on_invalid' => 'ignore'])
+        ->alias(CountryRecognizerInterface::class, 'geo.geocoder.country_recognizer')
+
         ->set('geo.geocoder.query_parser', QueryParser::class)
+            ->args([service('geo.geocoder.country_recognizer')])
         ->alias(QueryParserInterface::class, 'geo.geocoder.query_parser')
 
         ->set('geo.geocoder.configured', Geocoder::class)
@@ -136,6 +152,7 @@ return static function (ContainerConfigurator $container): void {
                 service('geo.geocoder.label_formatter'),
                 service('geo.geocoder.query_parser'),
                 abstract_arg('rerank window'),
+                service('geo.geocoder.name_normalizer'),
             ])
         ->set('geo.geocoder', GeocoderInterface::class)
             ->factory(GeocoderServiceFactory::geocoder(...))
