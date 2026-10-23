@@ -49,6 +49,8 @@ final class ConfigurationTest extends KernelTestCase
             'timeout' => 5.0,
             'compression' => false,
             'index' => 'geo',
+            'snapshot_dir' => null,
+            'version' => null,
         ], $geocoder['meilisearch']);
         $this->assertSame(['house_numbers' => 'geo_house', 'translations' => 'geo_name', 'metadata' => 'geo_meta'], $geocoder['database']['tables']);
         $this->assertSame(['default_limit' => 5, 'preferred_country' => null, 'max_rank_gap' => 25000, 'rerank_window' => 15], $geocoder['search']);
@@ -89,6 +91,9 @@ final class ConfigurationTest extends KernelTestCase
         yield 'autocomplete shorthand' => [Configs::geocoder(['ux_autocomplete' => false]), false, 'geocoder.ux_autocomplete.enabled'];
         yield 'autocomplete required' => [Configs::geocoder(['ux_autocomplete' => ['enabled' => true]]), true, 'geocoder.ux_autocomplete.enabled'];
         yield 'compression' => [Configs::geocoder(['meilisearch' => ['url' => 'http://m:7700', 'compression' => true]]), true, 'geocoder.meilisearch.compression'];
+        yield 'snapshot directory' => [Configs::geocoder(['meilisearch' => ['url' => 'http://m:7700', 'snapshot_dir' => '/srv/meili/snapshots']]), '/srv/meili/snapshots', 'geocoder.meilisearch.snapshot_dir'];
+        yield 'Meilisearch version' => [Configs::geocoder(['meilisearch' => ['url' => 'http://m:7700', 'version' => '1.35.1']]), '1.35.1', 'geocoder.meilisearch.version'];
+        yield 'Meilisearch version from the environment' => [Configs::geocoder(['meilisearch' => ['url' => 'http://m:7700', 'version' => '%env(MEILISEARCH_VERSION)%']]), '%env(MEILISEARCH_VERSION)%', 'geocoder.meilisearch.version'];
         yield 'routing radius zero' => [Configs::routing(['radius' => 0]), 0, 'routing.radius'];
         yield 'routing timeout' => [Configs::routing(['timeout' => 2.5]), 2.5, 'routing.timeout'];
         yield 'routing explicitly disabled' => [['routing' => ['enabled' => false]], false, 'routing.enabled'];
@@ -123,6 +128,9 @@ final class ConfigurationTest extends KernelTestCase
         yield 'invalid index uid' => [Configs::geocoder(['meilisearch' => ['url' => 'http://m:7700', 'index' => 'geo index']]), 'The index uid must be'];
         yield 'too long index uid' => [Configs::geocoder(['meilisearch' => ['url' => 'http://m:7700', 'index' => str_repeat('g', 386)]]), 'The index uid must be'];
         yield 'too short timeout' => [Configs::geocoder(['meilisearch' => ['url' => 'http://m:7700', 'timeout' => 0]]), 'Should be greater than or equal to 0.1'];
+        yield 'empty snapshot directory' => [Configs::geocoder(['meilisearch' => ['url' => 'http://m:7700', 'snapshot_dir' => '']]), 'The snapshot directory must be a non-empty path'];
+        yield 'empty Meilisearch version' => [Configs::geocoder(['meilisearch' => ['url' => 'http://m:7700', 'version' => ' ']]), 'The Meilisearch version must be like "1.35.1"'];
+        yield 'Meilisearch version with a v' => [Configs::geocoder(['meilisearch' => ['url' => 'http://m:7700', 'version' => 'v1.35.1']]), 'without the "v"'];
         yield 'dsn and connection' => [Configs::geocoder(['database' => ['dsn' => 'sqlite::memory:', 'connection' => 'app.pdo']]), 'not both'];
         yield 'neither dsn nor connection' => [Configs::geocoder(['database' => ['tables' => []]]), 'not both'];
         yield 'user with connection' => [Configs::geocoder(['database' => ['connection' => 'app.pdo', 'user' => 'geo']]), 'go with the "dsn"'];

@@ -5,6 +5,7 @@ use Psr\Http\Client\ClientInterface;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Tito10047\GeoBundle\Command\GeocoderSearchCommand;
 use Tito10047\GeoBundle\Command\GeocoderStatusCommand;
+use Tito10047\GeoBundle\Database\PdoConnectionFactory;
 use Tito10047\GeoBundle\Http\HttpClientFactory;
 use Tito10047\Geocoder\HouseNumber\HouseNumberStoreInterface;
 use Tito10047\Geocoder\HouseNumber\PdoHouseNumberStore;
@@ -71,8 +72,9 @@ return static function (ContainerConfigurator $container): void {
 
         // the database: connected on the first query, not when the container builds the geocoder
         ->set('tito10047_geo.geocoder.connection', PDO::class)
+            ->factory(PdoConnectionFactory::connect(...))
             ->lazy()
-            ->args([abstract_arg('DSN'), abstract_arg('user'), abstract_arg('password'), [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]])
+            ->args([abstract_arg('DSN'), abstract_arg('user'), abstract_arg('password')])
 
         ->set('tito10047_geo.geocoder.tables', TableNames::class)
             ->args([abstract_arg('house numbers'), abstract_arg('translations'), abstract_arg('metadata')])
@@ -86,8 +88,10 @@ return static function (ContainerConfigurator $container): void {
             ->args([service('tito10047_geo.geocoder.connection'), service('tito10047_geo.geocoder.tables')])
         ->alias(HouseNumberStoreInterface::class, 'tito10047_geo.geocoder.house_number_store')
 
+        // remembers translations: forgotten between the requests of a long-running worker, and after a publication
         ->set('tito10047_geo.geocoder.name_catalog', PdoNameCatalog::class)
             ->args([service('tito10047_geo.geocoder.connection'), service('tito10047_geo.geocoder.tables')])
+            ->tag('kernel.reset', ['method' => 'reset'])
         ->alias(NameCatalogInterface::class, 'tito10047_geo.geocoder.name_catalog')
 
         ->set('tito10047_geo.geocoder.name_normalizer', NameNormalizer::class)
@@ -148,7 +152,7 @@ return static function (ContainerConfigurator $container): void {
             ->tag('console.command', ['command' => 'tito10047-geo:geocoder:search'])
 
         ->set('tito10047_geo.geocoder.command.status', GeocoderStatusCommand::class)
-            ->args([service('tito10047_geo.geocoder.index_manager'), abstract_arg('live index uid')])
+            ->args([service('tito10047_geo.geocoder.index_manager'), abstract_arg('live index uid'), service('tito10047_geo.geocoder.importer')->nullOnInvalid()])
             ->tag('console.command', ['command' => 'tito10047-geo:geocoder:status'])
     ;
 };

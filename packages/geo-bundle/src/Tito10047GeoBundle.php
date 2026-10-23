@@ -8,6 +8,9 @@ use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigura
 use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
 use Symfony\UX\Autocomplete\AutocompleterInterface;
 use Tito10047\GeoBundle\Exception\LogicException;
+use Tito10047\Geocoder\Artifact\ArtifactBuilderInterface;
+use Tito10047\Geocoder\Import\ImporterInterface;
+use Tito10047\Geocoder\Index\IndexManagerInterface;
 
 /**
  * Entry point of the bundle: loads its configuration and its services into the container of the application.
@@ -16,6 +19,21 @@ use Tito10047\GeoBundle\Exception\LogicException;
  */
 final class Tito10047GeoBundle extends AbstractBundle
 {
+    /**
+     * The services of the geocoder removed without the URL of Meilisearch: they need the index manager.
+     */
+    private const NEEDS_INDEX_MANAGER = [
+        'tito10047_geo.geocoder.meilisearch.http_client',
+        'tito10047_geo.geocoder.meilisearch.http',
+        'tito10047_geo.geocoder.index_manager',
+        'tito10047_geo.geocoder.importer',
+        'tito10047_geo.geocoder.artifact_builder',
+        'tito10047_geo.geocoder.command.status',
+        'tito10047_geo.geocoder.command.publish',
+        'tito10047_geo.geocoder.command.cleanup',
+        'tito10047_geo.geocoder.command.artifact',
+    ];
+
     public function configure(DefinitionConfigurator $definition): void
     {
         $definition->import('../config/definition.php');
@@ -30,7 +48,7 @@ final class Tito10047GeoBundle extends AbstractBundle
     {
         $container->import('../config/services.php');
 
-        /** @var array{enabled: bool, meilisearch: array{url: ?string, api_key: ?string, client: ?string, http_client: ?string, timeout: float, compression: bool, index: string}, database: array{dsn: ?string, user: ?string, password: ?string, connection: ?string, tables: array{house_numbers: string, translations: string, metadata: string}}, import: array{dumps_dir: ?string, languages: list<string>, place_types: array<string, int>, pois: array<string, list<string>>, poi_rank: int, street_rank: int, place_dedup_km: float}, search: array{default_limit: int, preferred_country: ?string, max_rank_gap: int, rerank_window: int}, ux_autocomplete: array{enabled: bool|'auto', alias: string}} $geocoder */
+        /** @var array{enabled: bool, meilisearch: array{url: ?string, api_key: ?string, client: ?string, http_client: ?string, timeout: float, compression: bool, index: string, snapshot_dir: ?string, version: ?string}, database: array{dsn: ?string, user: ?string, password: ?string, connection: ?string, tables: array{house_numbers: string, translations: string, metadata: string}}, import: array{dumps_dir: ?string, languages: list<string>, place_types: array<string, int>, pois: array<string, list<string>>, poi_rank: int, street_rank: int, place_dedup_km: float}, search: array{default_limit: int, preferred_country: ?string, max_rank_gap: int, rerank_window: int}, ux_autocomplete: array{enabled: bool|'auto', alias: string}} $geocoder */
         $geocoder = $config['geocoder'];
         if ($geocoder['enabled']) {
             $this->loadGeocoder($geocoder, $container, $builder);
@@ -44,13 +62,14 @@ final class Tito10047GeoBundle extends AbstractBundle
     }
 
     /**
-     * @param array{enabled: bool, meilisearch: array{url: ?string, api_key: ?string, client: ?string, http_client: ?string, timeout: float, compression: bool, index: string}, database: array{dsn: ?string, user: ?string, password: ?string, connection: ?string, tables: array{house_numbers: string, translations: string, metadata: string}}, import: array{dumps_dir: ?string, languages: list<string>, place_types: array<string, int>, pois: array<string, list<string>>, poi_rank: int, street_rank: int, place_dedup_km: float}, search: array{default_limit: int, preferred_country: ?string, max_rank_gap: int, rerank_window: int}, ux_autocomplete: array{enabled: bool|'auto', alias: string}} $config
+     * @param array{enabled: bool, meilisearch: array{url: ?string, api_key: ?string, client: ?string, http_client: ?string, timeout: float, compression: bool, index: string, snapshot_dir: ?string, version: ?string}, database: array{dsn: ?string, user: ?string, password: ?string, connection: ?string, tables: array{house_numbers: string, translations: string, metadata: string}}, import: array{dumps_dir: ?string, languages: list<string>, place_types: array<string, int>, pois: array<string, list<string>>, poi_rank: int, street_rank: int, place_dedup_km: float}, search: array{default_limit: int, preferred_country: ?string, max_rank_gap: int, rerank_window: int}, ux_autocomplete: array{enabled: bool|'auto', alias: string}} $config
      *
      * @throws LogicException when the configuration asks for symfony/ux-autocomplete and it is missing
      */
     private function loadGeocoder(array $config, ContainerConfigurator $container, ContainerBuilder $builder): void
     {
         $container->import('../config/services/geocoder.php');
+        $container->import('../config/services/geocoder_import.php');
         $services = $container->services();
         $meilisearch = $config['meilisearch'];
         $database = $config['database'];
@@ -72,12 +91,22 @@ final class Tito10047GeoBundle extends AbstractBundle
             $services->alias('tito10047_geo.geocoder.meilisearch.client', $meilisearch['client']);
         }
         if (null === $meilisearch['url']) {
-            // the HTTP layer of an existing client is not reachable: no index manager without a URL
-            foreach (['tito10047_geo.geocoder.meilisearch.http_client', 'tito10047_geo.geocoder.meilisearch.http', 'tito10047_geo.geocoder.index_manager', 'tito10047_geo.geocoder.command.status'] as $id) {
+            // the HTTP layer of an existing client is not reachable: no index manager without a URL, nor what needs it
+            foreach (self::NEEDS_INDEX_MANAGER as $id) {
                 $builder->removeDefinition($id);
             }
-            $builder->removeAlias(\Tito10047\Geocoder\Index\IndexManagerInterface::class);
+            foreach ([IndexManagerInterface::class, ImporterInterface::class, ArtifactBuilderInterface::class] as $alias) {
+                $builder->removeAlias($alias);
+            }
         }
+        if (null === $meilisearch['snapshot_dir']) {
+            // the artifact command tells what to configure
+            $builder->removeDefinition('tito10047_geo.geocoder.artifact_builder');
+            $builder->removeAlias(ArtifactBuilderInterface::class);
+        } elseif ($builder->hasDefinition('tito10047_geo.geocoder.artifact_builder')) {
+            $services->get('tito10047_geo.geocoder.artifact_builder')->arg(2, $meilisearch['snapshot_dir']);
+        }
+        $services->get('tito10047_geo.geocoder.artifact_installer_factory')->arg(2, $meilisearch['version']);
 
         // the database: a lazy connection from the DSN, or an existing one
         if (null !== $database['connection']) {

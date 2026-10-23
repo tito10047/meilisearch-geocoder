@@ -8,19 +8,36 @@ use Psr\Http\Client\ClientInterface;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\HttpKernel\KernelInterface;
+use Symfony\Contracts\Service\ResetInterface;
 use Symfony\UX\Autocomplete\AutocompleterRegistry;
+use Tito10047\GeoBundle\Artifact\ArtifactInstallerFactory;
+use Tito10047\GeoBundle\Artifact\ArtifactInstallerFactoryInterface;
 use Tito10047\GeoBundle\Autocomplete\GeocoderAutocompleter;
 use Tito10047\GeoBundle\Routing\RoutingStatusProviderInterface;
 use Tito10047\GeoBundle\Routing\ValhallaStatusProvider;
 use Tito10047\GeoBundle\Tests\App\Configs;
 use Tito10047\GeoBundle\Tests\App\TestKernel;
+use Tito10047\Geocoder\Artifact\ArtifactBuilderInterface;
+use Tito10047\Geocoder\Artifact\ArtifactInstallerInterface;
+use Tito10047\Geocoder\Exception\GeocoderUnavailableException;
+use Tito10047\Geocoder\Exception\InvalidArgumentException;
 use Tito10047\Geocoder\HouseNumber\HouseNumberStoreInterface;
 use Tito10047\Geocoder\HouseNumber\PdoHouseNumberStore;
+use Tito10047\Geocoder\Import\ClockInterface;
+use Tito10047\Geocoder\Import\ConverterInterface;
+use Tito10047\Geocoder\Import\File\ExportAwareConverter;
+use Tito10047\Geocoder\Import\File\FileExporter;
+use Tito10047\Geocoder\Import\File\FileExporterInterface;
+use Tito10047\Geocoder\Import\Importer;
+use Tito10047\Geocoder\Import\ImporterInterface;
 use Tito10047\Geocoder\Import\SelectionRules;
+use Tito10047\Geocoder\Import\SystemClock;
 use Tito10047\Geocoder\Index\IndexManagerInterface;
 use Tito10047\Geocoder\Index\IndexNamingInterface;
+use Tito10047\Geocoder\Index\IndexSettings;
 use Tito10047\Geocoder\Index\MeilisearchIndexManager;
 use Tito10047\Geocoder\Name\NameCatalogInterface;
+use Tito10047\Geocoder\Name\NameKind;
 use Tito10047\Geocoder\Search\Backend\SearchBackendInterface;
 use Tito10047\Geocoder\Search\Geocoder;
 use Tito10047\Geocoder\Search\GeocoderInterface;
@@ -29,6 +46,8 @@ use Tito10047\Geocoder\Search\Query\QueryParserInterface;
 use Tito10047\Geocoder\Search\RerankerInterface;
 use Tito10047\Geocoder\Search\SearchOptions;
 use Tito10047\Geocoder\Search\Text\NameNormalizerInterface;
+use Tito10047\Geocoder\Storage\BuildStorageInterface;
+use Tito10047\Geocoder\Storage\Pdo\Dialect\SqlDialectInterface;
 use Tito10047\Geocoder\Storage\TableNames;
 use Tito10047\Routing\Geometry\PolylineDecoderInterface;
 use Tito10047\Routing\RouterInterface;
@@ -44,7 +63,15 @@ use Tito10047\Routing\Valhalla\ValhallaRouter;
  */
 final class ContainerTest extends KernelTestCase
 {
-    private const GEOCODER_COMMANDS = ['tito10047-geo:geocoder:search', 'tito10047-geo:geocoder:status'];
+    private const GEOCODER_COMMANDS = [
+        'tito10047-geo:geocoder:artifact',
+        'tito10047-geo:geocoder:cleanup',
+        'tito10047-geo:geocoder:import',
+        'tito10047-geo:geocoder:install-artifact',
+        'tito10047-geo:geocoder:publish',
+        'tito10047-geo:geocoder:search',
+        'tito10047-geo:geocoder:status',
+    ];
     private const ROUTING_COMMANDS = ['tito10047-geo:routing:route', 'tito10047-geo:routing:status'];
 
     public function testNothingIsRegisteredWithoutConfiguration(): void
@@ -78,6 +105,15 @@ final class ContainerTest extends KernelTestCase
         yield 'PSR-18 client of Meilisearch' => ['tito10047_geo.geocoder.meilisearch.http_client', ClientInterface::class];
         yield 'selection rules' => ['tito10047_geo.geocoder.selection_rules', SelectionRules::class];
         yield 'search options' => ['tito10047_geo.geocoder.search_options', SearchOptions::class];
+        yield 'importer' => [ImporterInterface::class, Importer::class];
+        yield 'file exporter' => [FileExporterInterface::class, FileExporter::class];
+        yield 'converter' => [ConverterInterface::class, ExportAwareConverter::class];
+        yield 'clock' => [ClockInterface::class, SystemClock::class];
+        yield 'build storage' => [BuildStorageInterface::class, BuildStorageInterface::class];
+        yield 'SQL dialect' => [SqlDialectInterface::class, SqlDialectInterface::class];
+        yield 'index settings' => ['tito10047_geo.geocoder.index_settings', IndexSettings::class];
+        yield 'artifact installer factory' => [ArtifactInstallerFactoryInterface::class, ArtifactInstallerFactory::class];
+        yield 'artifact installer' => [ArtifactInstallerInterface::class, ArtifactInstallerInterface::class];
     }
 
     /**
@@ -127,8 +163,70 @@ final class ContainerTest extends KernelTestCase
         $connection = self::getContainer()->get('tito10047_geo.geocoder.connection');
         $this->assertInstanceOf(\PDO::class, $connection);
 
-        $this->expectException(\PDOException::class);
+        $this->expectException(GeocoderUnavailableException::class);
         $connection->query('SELECT 1');
+    }
+
+    public function testDatabaseIsNotConnectedWhenTheImportIsBuilt(): void
+    {
+        self::bootKernel(['extension_configs' => ['tito10047_geo' => Configs::geocoder([
+            'meilisearch' => ['url' => 'http://127.0.0.1:7700', 'snapshot_dir' => '/srv/meili/snapshots'],
+        ])]]);
+        $container = self::getContainer();
+
+        // the DSN points to a directory that does not exist: connecting would throw
+        $this->assertInstanceOf(Importer::class, $container->get(ImporterInterface::class));
+        $this->assertInstanceOf(ArtifactBuilderInterface::class, $container->get(ArtifactBuilderInterface::class));
+        $this->assertInstanceOf(SqlDialectInterface::class, $container->get(SqlDialectInterface::class));
+        $this->assertInstanceOf(ArtifactInstallerInterface::class, $container->get(ArtifactInstallerInterface::class));
+        $storage = $container->get(BuildStorageInterface::class);
+        $this->assertInstanceOf(BuildStorageInterface::class, $storage);
+
+        $this->expectException(GeocoderUnavailableException::class);
+        $storage->exists(new TableNames());
+    }
+
+    public function testArtifactBuilderNeedsTheSnapshotDirectory(): void
+    {
+        self::bootKernel(['extension_configs' => ['tito10047_geo' => Configs::geocoder()]]);
+
+        $this->assertFalse(self::getContainer()->has(ArtifactBuilderInterface::class));
+        $this->assertFalse(self::getContainer()->has('tito10047_geo.geocoder.artifact_builder'));
+    }
+
+    public function testConfiguredMeilisearchVersionReachesTheInstaller(): void
+    {
+        self::bootKernel(['extension_configs' => ['tito10047_geo' => Configs::geocoder([
+            'meilisearch' => ['url' => 'http://127.0.0.1:1', 'version' => '1.35.1'],
+        ])]]);
+        $installer = self::getContainer()->get(ArtifactInstallerInterface::class);
+        $this->assertInstanceOf(ArtifactInstallerInterface::class, $installer);
+
+        // created without asking the instance (unreachable): the artifact is checked first
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('is not an artifact');
+        $installer->install('/nonexistent-tito10047-geo/artifact', '/nonexistent-tito10047-geo/data', new \PDO('sqlite::memory:'));
+    }
+
+    public function testNameCatalogIsResetBetweenRequests(): void
+    {
+        $kernel = self::bootKernel(['extension_configs' => ['tito10047_geo' => Configs::geocoder(['database' => ['connection' => 'app.pdo']])]]);
+        $container = self::getContainer();
+        $pdo = $container->get('app.pdo');
+        $this->assertInstanceOf(\PDO::class, $pdo);
+        $pdo->exec('CREATE TABLE geo_name (cc CHAR(2) NOT NULL, kind VARCHAR(8) NOT NULL, name VARCHAR(255) NOT NULL, lang VARCHAR(3) NOT NULL, translation VARCHAR(255) NOT NULL)');
+        $pdo->exec("INSERT INTO geo_name VALUES ('AT', 'city', 'Wien', 'sk', 'Viedeň')");
+        $catalog = $container->get(NameCatalogInterface::class);
+        $this->assertInstanceOf(NameCatalogInterface::class, $catalog);
+        $this->assertSame('Viedeň', $catalog->translate('AT', NameKind::City, 'Wien', 'sk'));
+        $pdo->exec("UPDATE geo_name SET translation = 'Vieden'");
+        $this->assertSame('Viedeň', $catalog->translate('AT', NameKind::City, 'Wien', 'sk'), 'Remembered.');
+
+        $resetter = $kernel->getContainer()->get('services_resetter');
+        $this->assertInstanceOf(ResetInterface::class, $resetter);
+        $resetter->reset();
+
+        $this->assertSame('Vieden', $catalog->translate('AT', NameKind::City, 'Wien', 'sk'));
     }
 
     public function testExistingServicesReplaceTheBuiltOnes(): void
@@ -153,7 +251,12 @@ final class ContainerTest extends KernelTestCase
 
         $this->assertFalse($container->has(IndexManagerInterface::class));
         $this->assertFalse($container->has('tito10047_geo.geocoder.meilisearch.http'));
-        $this->assertSame(['tito10047-geo:geocoder:search'], $this->bundleCommands($kernel));
+        $this->assertFalse($container->has(ImporterInterface::class));
+        $this->assertFalse($container->has(ArtifactBuilderInterface::class));
+        // files only: the export and the installation of artifacts
+        $this->assertInstanceOf(FileExporter::class, $container->get(FileExporterInterface::class));
+        $this->assertInstanceOf(ArtifactInstallerFactory::class, $container->get(ArtifactInstallerFactoryInterface::class));
+        $this->assertSame(['tito10047-geo:geocoder:import', 'tito10047-geo:geocoder:install-artifact', 'tito10047-geo:geocoder:search'], $this->bundleCommands($kernel));
     }
 
     public function testExistingPsr18ClientsReplaceTheBuiltOnes(): void

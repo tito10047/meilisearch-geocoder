@@ -8,7 +8,7 @@ use Tito10047\Geocoder\Index\IndexSettings;
 use Tito10047\Geocoder\Index\IndexStatus;
 
 /**
- * Answers the status it is given; the commands of the bundle use nothing else.
+ * Answers the status and the index uids it is given; the bundle uses nothing else.
  */
 final class FakeIndexManager implements IndexManagerInterface
 {
@@ -18,6 +18,9 @@ final class FakeIndexManager implements IndexManagerInterface
 
     /** @var list<string> */
     public array $statusCalls = [];
+
+    /** @var list<string> */
+    public array $indexUids = [];
 
     public function status(string $uid): IndexStatus
     {
@@ -71,7 +74,11 @@ final class FakeIndexManager implements IndexManagerInterface
 
     public function indexUids(): array
     {
-        throw new \LogicException('Not faked.');
+        if ($this->exception instanceof \Throwable) {
+            throw $this->exception;
+        }
+
+        return $this->indexUids;
     }
 
     public function snapshot(): void
