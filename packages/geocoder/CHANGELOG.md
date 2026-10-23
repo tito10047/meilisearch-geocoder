@@ -10,4 +10,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - First version of the geocoder.
+- `Import\File\ExportAwareConverter`: one Importer indexes the directories of exports and the
+  dumps alike.
 - `PdoNameCatalog::reset()` forgets the remembered translations (for long-running workers).
