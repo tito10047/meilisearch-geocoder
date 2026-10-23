@@ -151,19 +151,34 @@ final readonly class PhotonConverter implements ConverterInterface
                 break;
             case DocumentKind::Place:
                 $document = $this->documents->place($place);
-                if ($document instanceof Document && $workspace->firstOccurrence($this->duplicateKey($document))) {
+                if ($document instanceof Document && $this->isFirst($document, $workspace)) {
                     $workspace->addPlace($document->countryCode.'|'.$document->name, $document);
                 }
                 break;
             case DocumentKind::Poi:
                 $document = $this->documents->poi($place);
-                if ($document instanceof Document && $workspace->firstOccurrence($this->duplicateKey($document))) {
+                if ($document instanceof Document && $this->isFirst($document, $workspace)) {
                     $run->writeDocument($document);
                 }
                 break;
             case null:
                 break;
         }
+    }
+
+    /**
+     * Whether neither the object (see duplicateKey()) nor the id of the document was seen before.
+     *
+     * An OSM object with several main tags is several records of the dump, e.g. a node both
+     * "leisure=resort" and "tourism=zoo": the same id twice, which the index would merge into one
+     * document anyway (the last one), while the counts and an NDJSON file would count it twice.
+     * The first record wins: its rank is the same (one object, one importance) and keeping it
+     * needs no buffering. Streets are left out: their ids ("s…") are unique by construction.
+     */
+    private function isFirst(Document $document, ConversionWorkspaceInterface $workspace): bool
+    {
+        return $workspace->firstOccurrence($this->duplicateKey($document))
+            && $workspace->firstOccurrence('i|'.$document->id);
     }
 
     /**
