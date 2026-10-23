@@ -12,6 +12,7 @@ use Tito10047\GeoBundle\Photon\PhotonApiRouteLoader;
 use Tito10047\Geocoder\Artifact\ArtifactBuilderInterface;
 use Tito10047\Geocoder\Import\ImporterInterface;
 use Tito10047\Geocoder\Index\IndexManagerInterface;
+use Tito10047\Geocoder\Status\GeocoderStatusProviderInterface;
 
 /**
  * Entry point of the bundle: loads its configuration and its services into the container of the application.
@@ -36,6 +37,7 @@ final class Tito10047GeoBundle extends AbstractBundle
         'geo.geocoder.index_manager',
         'geo.geocoder.index_manager.configured',
         'geo.geocoder.importer',
+        'geo.geocoder.status_provider',
         'geo.geocoder.artifact_builder',
         'geo.geocoder.command.status',
         'geo.geocoder.command.publish',
@@ -115,7 +117,7 @@ final class Tito10047GeoBundle extends AbstractBundle
             foreach (self::NEEDS_INDEX_MANAGER as $id) {
                 $builder->removeDefinition($id);
             }
-            foreach ([IndexManagerInterface::class, ImporterInterface::class, ArtifactBuilderInterface::class] as $alias) {
+            foreach ([IndexManagerInterface::class, ImporterInterface::class, ArtifactBuilderInterface::class, GeocoderStatusProviderInterface::class] as $alias) {
                 $builder->removeAlias($alias);
             }
         }
@@ -156,8 +158,8 @@ final class Tito10047GeoBundle extends AbstractBundle
 
         // index and import
         $services->get('geo.geocoder.index_naming')->arg(0, $meilisearch['index']);
-        if ($builder->hasDefinition('geo.geocoder.command.status')) {
-            $services->get('geo.geocoder.command.status')->arg(1, $meilisearch['index']);
+        if ($builder->hasDefinition('geo.geocoder.status_provider')) {
+            $services->get('geo.geocoder.status_provider')->arg(1, $meilisearch['index']);
         }
         $services->get('geo.geocoder.selection_rules')->args([
             $import['place_types'],

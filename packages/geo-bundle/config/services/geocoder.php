@@ -35,6 +35,8 @@ use Tito10047\Geocoder\Search\RerankerInterface;
 use Tito10047\Geocoder\Search\SearchOptions;
 use Tito10047\Geocoder\Search\Text\NameNormalizer;
 use Tito10047\Geocoder\Search\Text\NameNormalizerInterface;
+use Tito10047\Geocoder\Status\GeocoderStatusProvider;
+use Tito10047\Geocoder\Status\GeocoderStatusProviderInterface;
 use Tito10047\Geocoder\Storage\TableNames;
 
 use function Symfony\Component\DependencyInjection\Loader\Configurator\abstract_arg;
@@ -171,6 +173,11 @@ return static function (ContainerConfigurator $container): void {
             ->args([abstract_arg('url'), service_closure('geo.geocoder.index_manager.configured')])
         ->alias(IndexManagerInterface::class, 'geo.geocoder.index_manager')
 
+        // the state of the live index and the live build, for health checks; "not configured" while the URL is empty
+        ->set('geo.geocoder.status_provider', GeocoderStatusProvider::class)
+            ->args([service('geo.geocoder.index_manager'), abstract_arg('live index uid'), service('geo.geocoder.importer')->nullOnInvalid()])
+        ->alias(GeocoderStatusProviderInterface::class, 'geo.geocoder.status_provider')
+
         // what an import selects, for the import of a next version
         ->set('geo.geocoder.selection_rules', SelectionRules::class)
             ->args([
@@ -188,7 +195,7 @@ return static function (ContainerConfigurator $container): void {
             ->tag('console.command', ['command' => 'geo:search'])
 
         ->set('geo.geocoder.command.status', GeocoderStatusCommand::class)
-            ->args([service('geo.geocoder.index_manager'), abstract_arg('live index uid'), service('geo.geocoder.importer')->nullOnInvalid()])
+            ->args([service('geo.geocoder.status_provider')])
             ->tag('console.command', ['command' => 'geo:status'])
     ;
 };

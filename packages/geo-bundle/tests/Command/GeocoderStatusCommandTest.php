@@ -99,7 +99,7 @@ final class GeocoderStatusCommandTest extends TestCase
         $this->assertStringContainsString('The live build cannot be read: The database of the geocoder cannot be connected to', (string) preg_replace('/\s+/', ' ', $tester->getDisplay(true)));
     }
 
-    public function testMissingIndexFails(): void
+    public function testUnreachableMeilisearchFails(): void
     {
         $this->indexes->exception = new MeilisearchException('Index `places` not found.');
         $tester = $this->application->command('geo:status');
@@ -107,7 +107,32 @@ final class GeocoderStatusCommandTest extends TestCase
         $tester->execute([]);
 
         $this->assertSame(Command::FAILURE, $tester->getStatusCode());
-        $this->assertStringContainsString('Index `places` not found.', $tester->getDisplay());
+        $this->assertStringContainsString('Index `places` not found.', (string) preg_replace('/\s+/', ' ', $tester->getDisplay(true)));
+    }
+
+    public function testMissingLiveIndexFails(): void
+    {
+        $tester = $this->application->command('geo:status');
+
+        $tester->execute([]);
+
+        $this->assertSame(Command::FAILURE, $tester->getStatusCode());
+        $this->assertStringContainsString('The live index places does not exist in Meilisearch 1.35.1', (string) preg_replace('/\s+/', ' ', $tester->getDisplay(true)));
+    }
+
+    public function testPrintsTheLiveBuildWhileMeilisearchIsDown(): void
+    {
+        $this->indexes->exception = new MeilisearchException('Cannot read the index places from Meilisearch: Connection refused');
+        $this->application->service('geo.geocoder.importer', FakeImporter::class)->live = Builds::build();
+        $tester = $this->application->command('geo:status');
+
+        $tester->execute([]);
+
+        $this->assertSame(Command::FAILURE, $tester->getStatusCode());
+        $display = (string) preg_replace('/\s+/', ' ', $tester->getDisplay(true));
+        $this->assertStringContainsString('Meilisearch cannot be asked for the live index places: Cannot read the index places from Meilisearch: Connection refused', $display);
+        $this->assertStringContainsString('Live build', $display);
+        $this->assertStringContainsString(Builds::UID, $display);
     }
 
     public function testNotConfiguredMeilisearchFails(): void

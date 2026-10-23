@@ -63,12 +63,13 @@ return static function (DefinitionConfigurator $definition): void {
                                 ->defaultFalse()
                             ->end()
                             ->scalarNode('index')
-                                ->info('The uid of the live index searched (an import builds "<index>_<timestamp>" and swaps it in).')
-                                ->example('geo')
+                                ->info('The uid of the live index searched (an import builds "<index>_<timestamp>" and swaps it in). May be an environment variable, validated when the services are created.')
+                                ->example('%env(GEO_INDEX)%')
                                 ->defaultValue('geo')
-                                ->cannotBeEmpty()
+                                // an environment variable is validated here with sample values, "" among them: an empty
+                                // uid passes (and cannotBeEmpty() would reject any variable), the services reject it
                                 ->validate()
-                                    ->ifTrue(static fn (mixed $uid): bool => !is_string($uid) || 1 !== preg_match('/^[A-Za-z0-9_-]{1,385}$/D', $uid))
+                                    ->ifTrue(static fn (mixed $uid): bool => !is_string($uid) || ('' !== $uid && 1 !== preg_match('/^[A-Za-z0-9_-]{1,385}$/D', $uid)))
                                     ->thenInvalid('The index uid must be letters, digits, hyphens and underscores, %s given.')
                                 ->end()
                             ->end()
