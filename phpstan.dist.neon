@@ -1,0 +1,14 @@
+# PHPStan configuration, run it with "composer phpstan".
+# Extensions (Symfony, PHPUnit) are registered by phpstan/extension-installer.
+# To change it locally, create a phpstan.neon file (ignored by Git) that includes this one.
+#
+# See https://phpstan.org/config-reference
+
+parameters:
+    level: 8
+    paths:
+        - packages/geocoder/src
+        - packages/geocoder/tests
+        - packages/geocoder-bundle/config
+        - packages/geocoder-bundle/src
+        - packages/geocoder-bundle/tests

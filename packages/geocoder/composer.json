@@ -1,0 +1,34 @@
+{
+    "name": "tito10047/geocoder",
+    "description": "Self-hosted geocoder and address autocomplete built from OpenStreetMap data on Meilisearch, without a framework",
+    "license": "MIT",
+    "type": "library",
+    "keywords": [
+        "geocoder",
+        "geocoding",
+        "autocomplete",
+        "address",
+        "openstreetmap",
+        "photon",
+        "meilisearch"
+    ],
+    "authors": [
+        {
+            "name": "Jozef Môstka",
+            "email": "jozef@mostka.sk"
+        }
+    ],
+    "require": {
+        "php": ">=8.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "Tito10047\\Geocoder\\": "src/"
+        }
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-main": "0.1.x-dev"
+        }
+    }
+}

@@ -1,0 +1,50 @@
+{
+  "searchableAttributes": [
+    "names",
+    "city"
+  ],
+  "displayedAttributes": [
+    "id",
+    "kind",
+    "type",
+    "name",
+    "city",
+    "region",
+    "cc",
+    "postcode",
+    "_geo",
+    "rank"
+  ],
+  "filterableAttributes": [
+    {
+      "attributePatterns": [
+        "cc",
+        "kind"
+      ],
+      "features": {
+        "facetSearch": false,
+        "filter": {
+          "equality": true,
+          "comparison": false
+        }
+      }
+    }
+  ],
+  "sortableAttributes": [],
+  "rankingRules": [
+    "words",
+    "typo",
+    "proximity",
+    "rank:desc",
+    "attribute",
+    "exactness"
+  ],
+  "proximityPrecision": "byAttribute",
+  "facetSearch": false,
+  "typoTolerance": {
+    "disableOnNumbers": true
+  },
+  "pagination": {
+    "maxTotalHits": 20
+  }
+}

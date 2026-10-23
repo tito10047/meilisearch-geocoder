@@ -1,0 +1,42 @@
+{
+    "name": "tito10047/geocoder-bundle",
+    "description": "Self-hosted geocoder and address autocomplete for Symfony, built from OpenStreetMap data on Meilisearch",
+    "license": "MIT",
+    "type": "symfony-bundle",
+    "keywords": [
+        "symfony",
+        "symfony-bundle",
+        "geocoder",
+        "geocoding",
+        "autocomplete",
+        "openstreetmap",
+        "meilisearch"
+    ],
+    "authors": [
+        {
+            "name": "Jozef Môstka",
+            "email": "jozef@mostka.sk"
+        }
+    ],
+    "require": {
+        "php": ">=8.2",
+        "symfony/config": "^7.4.17 || ^8.1.5",
+        "symfony/console": "^7.4.17 || ^8.1.5",
+        "symfony/dependency-injection": "^7.4.17 || ^8.1.5",
+        "symfony/framework-bundle": "^7.4.17 || ^8.1.5",
+        "symfony/http-foundation": "^7.4.17 || ^8.1.5",
+        "symfony/http-kernel": "^7.4.17 || ^8.1.5",
+        "symfony/routing": "^7.4.17 || ^8.1.5",
+        "tito10047/geocoder": "^0.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "Tito10047\\GeocoderBundle\\": "src/"
+        }
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-main": "0.1.x-dev"
+        }
+    }
+}
