@@ -21,12 +21,14 @@
     "require": {
         "php": ">=8.2",
         "ext-pdo": "*",
+        "ext-pdo_sqlite": "*",
         "meilisearch/meilisearch-php": "^1.17",
         "psr/http-client": "^1.0",
         "psr/log": "^3.0"
     },
     "suggest": {
-        "ext-intl": "Compares names of every script without diacritics and case (the built-in fallback covers the European Latin alphabets)"
+        "ext-intl": "Compares names of every script without diacritics and case (the built-in fallback covers the European Latin alphabets)",
+        "ext-zstd": "Reads the zstd-compressed Photon dumps without running the zstd command"
     },
     "autoload": {
         "psr-4": {
