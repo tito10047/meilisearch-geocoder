@@ -5,8 +5,11 @@ namespace Tito10047\Geocoder\Search;
 use Meilisearch\Client;
 use Tito10047\Geocoder\Exception\InvalidArgumentException;
 use Tito10047\Geocoder\HouseNumber\PdoHouseNumberStore;
+use Tito10047\Geocoder\Name\PdoCountryNameSource;
 use Tito10047\Geocoder\Name\PdoNameCatalog;
 use Tito10047\Geocoder\Search\Backend\MeilisearchSearchBackend;
+use Tito10047\Geocoder\Search\Query\CatalogCountryRecognizer;
+use Tito10047\Geocoder\Search\Query\QueryParser;
 use Tito10047\Geocoder\Storage\TableNames;
 
 /**
@@ -16,7 +19,8 @@ use Tito10047\Geocoder\Storage\TableNames;
  *     $geocoder = GeocoderFactory::create(new Client('http://127.0.0.1:7700', $key), new \PDO('sqlite:geo.sqlite'));
  *     $lookup = GeocoderFactory::createAddressLookup(new Client('http://127.0.0.1:7700', $key), new \PDO('sqlite:geo.sqlite'));
  *
- * To replace a collaborator, construct Geocoder or AddressLookup directly.
+ * The geocoder recognizes the names of the imported countries in the typed text (QueryParser with
+ * CatalogCountryRecognizer). To replace a collaborator, construct Geocoder or AddressLookup directly.
  */
 final class GeocoderFactory
 {
@@ -41,6 +45,7 @@ final class GeocoderFactory
             $catalog,
             new Reranker($maxRankGap),
             new LabelFormatter($catalog),
+            new QueryParser(new CatalogCountryRecognizer(new PdoCountryNameSource($connection, $tables))),
         );
     }
 

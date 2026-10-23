@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Countries typed into a query are recognized (CR10): "Bratislava, Slovensko", "Kosice Slovakia",
+  "Praha, Česká republika", "Košice, SK" search the town in that country only (within
+  `SearchOptions::$countries`; none of them: `[]`), and the country name is no word of the search,
+  so the town matches completely. A country name that is a part of a name ("Via Italia", "Penzion
+  Slovakia", "Warszawa, Włochy") is kept when a document matching every word is named so. Only the
+  imported countries are recognized, by their whole names (no part of a word: "Slovenská Ľupča");
+  a country typed alone is searched as typed. See "Query parsing" in the README.
+- `Search\Query\CountryRecognizerInterface` and `CatalogCountryRecognizer` (the names read once per
+  instance, `reset()`; `DEFAULT_ALIASES`: official forms like "Česká republika"),
+  `Name\CountryNameSourceInterface` and `Name\PdoCountryNameSource` (the names of the countries the
+  table names a town of), `Search\Query\RecognizedCountry`.
+- `ParsedQuery::$postcode`, `ParsedQuery::$country`, `countries()` and `withoutHouseNumber()` (new
+  optional constructor parameters, last); `QueryParser` takes an optional recognizer;
+  `Geocoder` takes an optional `NameNormalizerInterface` (last). `GeocoderFactory::create()` wires
+  the recognizer.
+- `Name\Translation::LOCAL_LANGUAGE` ("und", ISO 639-2 undetermined): the language of a country's
+  own name.
+- `SearchQualityTest`: 26 texts with a country or a postcode (5 found first before, 26 now).
+
+### Changed
+
+- Postcodes are taken out of the searched text (they are not searchable): "Hlavná 12, 040 01
+  Košice" searches "Hlavná Košice" with the number 12, "Stephansplatz 1, 1010 Wien" "Stephansplatz
+  Wien" with the number 1; "040 01" and "31-019" anywhere, 4 or 5 digits right before a word at the
+  beginning of a part or after a house number ("Hlavná 1010" keeps the house number 1010).
+  `ParsedQuery::$fullText` leaves out the postcode and the country.
+- The import keeps the English name and the own name (`name`, as language "und") of every country,
+  whatever the import languages, for recognizing them in queries; no schema change.
+
 ## [0.3.0] - 2026-10-23
 
 ### Added

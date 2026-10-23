@@ -7,8 +7,9 @@ use Tito10047\Geocoder\Exception\InvalidArgumentException;
 /**
  * How many words of the searched text a suggestion matched.
  *
- * The words are those the search engine searched: the typed text without the house number
- * ("Hlavná 12, Košice" has the two words "Hlavná" and "Košice"), split at spaces and punctuation
+ * The words are those the search engine searched: the typed text without the house number, the
+ * postcode and a recognized country (Query\QueryParser: "Hlavná 12, 040 01 Košice, Slovensko" has
+ * the two words "Hlavná" and "Košice"), split at spaces and punctuation
  * ("Champs-Élysées, Paris" has three). A word matched with a typo or as the beginning of a longer
  * word (the last one, still being typed) counts as matched. Meilisearch searches the first 10
  * words of a text only, so a longer text has 10.

@@ -81,12 +81,52 @@ final class SearchQualityTest extends TestCase
     ];
 
     /**
+     * A country or a postcode typed with the place (CR10 of the Tankovač integration): the typed
+     * text, the locale, the expected name, its town (null for any) and its country. The country
+     * name and the postcode are not searched, so the expected place matches every searched word;
+     * a country name that is a part of a name ("Via Italia", "Penzion Slovakia") stays searched.
+     */
+    private const TYPED_COUNTRIES_AND_POSTCODES = [
+        ['Bratislava, Slovensko', 'sk', 'Bratislava', null, 'SK'], ['Praha, Česko', 'cs', 'Praha', null, 'CZ'],
+        ['Kosice Slovakia', null, 'Košice', null, 'SK'], ['Wien, Österreich', null, 'Wien', null, 'AT'],
+        ['Wien, Austria', null, 'Wien', null, 'AT'], ['Wien Österreich', 'de', 'Wien', null, 'AT'],
+        ['Budapest, Magyarország', null, 'Budapest', null, 'HU'], ['Zagreb, Hrvatska', null, 'Zagreb', null, 'HR'],
+        ['Ljubljana, Slovenija', null, 'Ljubljana', null, 'SI'], ['Kraków, Polska', null, 'Kraków', null, 'PL'],
+        ['München, Deutschland', null, 'München', null, 'DE'], ['Roma, Italia', null, 'Roma', null, 'IT'],
+        ['Košice, SK', null, 'Košice', null, 'SK'], ['Praha, Česká republika', 'sk', 'Praha', null, 'CZ'],
+        ['Slovensko, Žilina', 'sk', 'Žilina', null, 'SK'], ['Wien, Rakúsko', null, 'Wien', null, 'AT'],
+        ['Hlavná 12, 040 01 Košice', 'sk', 'Hlavná', 'Košice', 'SK'], ['Hlavná 12, 04001 Košice', 'sk', 'Hlavná', 'Košice', 'SK'],
+        ['Hlavná 12, 040 01 Košice, Slovensko', 'sk', 'Hlavná', 'Košice', 'SK'],
+        ['Stephansplatz 1, 1010 Wien', null, 'Stephansplatz', 'Wien', 'AT'], ['1010 Wien', null, 'Wien', null, 'AT'],
+        ['80331 München', null, 'München', null, 'DE'], ['Floriańska, 31-019 Kraków', null, 'Floriańska', 'Kraków', 'PL'],
+        ['Via Italia', null, 'Via Italia', null, 'IT'], ['Penzion Slovakia', null, 'Penzion Slovakia', 'Košice', 'SK'],
+        ['Češka ulica', null, 'Češka ulica', null, 'HR'],
+    ];
+
+    /**
+     * The names of the imported countries, as the import stores them (the import languages, "und"
+     * for the own name); France is not imported (no town of it).
+     */
+    private const COUNTRY_NAMES = [
+        'AT' => ['sk' => 'Rakúsko', 'en' => 'Austria', 'de' => 'Österreich', 'hu' => 'Ausztria', 'cs' => 'Rakousko', 'pl' => 'Austria', 'hr' => 'Austrija', 'sl' => 'Avstrija', 'it' => 'Austria', 'und' => 'Österreich'],
+        'CZ' => ['sk' => 'Česko', 'en' => 'Czechia', 'de' => 'Tschechien', 'hu' => 'Csehország', 'cs' => 'Česko', 'pl' => 'Czechy', 'hr' => 'Češka', 'sl' => 'Češka', 'it' => 'Repubblica Ceca', 'und' => 'Česko'],
+        'DE' => ['sk' => 'Nemecko', 'en' => 'Germany', 'de' => 'Deutschland', 'hu' => 'Németország', 'cs' => 'Německo', 'pl' => 'Niemcy', 'hr' => 'Njemačka', 'sl' => 'Nemčija', 'it' => 'Germania', 'und' => 'Deutschland'],
+        'HR' => ['sk' => 'Chorvátsko', 'en' => 'Croatia', 'de' => 'Kroatien', 'hu' => 'Horvátország', 'cs' => 'Chorvatsko', 'pl' => 'Chorwacja', 'hr' => 'Hrvatska', 'sl' => 'Hrvaška', 'it' => 'Croazia', 'und' => 'Hrvatska'],
+        'HU' => ['sk' => 'Maďarsko', 'en' => 'Hungary', 'de' => 'Ungarn', 'hu' => 'Magyarország', 'cs' => 'Maďarsko', 'pl' => 'Węgry', 'hr' => 'Mađarska', 'sl' => 'Madžarska', 'it' => 'Ungheria', 'und' => 'Magyarország'],
+        'IT' => ['sk' => 'Taliansko', 'en' => 'Italy', 'de' => 'Italien', 'hu' => 'Olaszország', 'cs' => 'Itálie', 'pl' => 'Włochy', 'hr' => 'Italija', 'sl' => 'Italija', 'it' => 'Italia', 'und' => 'Italia'],
+        'PL' => ['sk' => 'Poľsko', 'en' => 'Poland', 'de' => 'Polen', 'hu' => 'Lengyelország', 'cs' => 'Polsko', 'pl' => 'Polska', 'hr' => 'Poljska', 'sl' => 'Poljska', 'it' => 'Polonia', 'und' => 'Polska'],
+        'SI' => ['sk' => 'Slovinsko', 'en' => 'Slovenia', 'de' => 'Slowenien', 'hu' => 'Szlovénia', 'cs' => 'Slovinsko', 'pl' => 'Słowenia', 'hr' => 'Slovenija', 'sl' => 'Slovenija', 'it' => 'Slovenia', 'und' => 'Slovenija'],
+        'SK' => ['sk' => 'Slovensko', 'en' => 'Slovakia', 'de' => 'Slowakei', 'hu' => 'Szlovákia', 'cs' => 'Slovensko', 'pl' => 'Słowacja', 'hr' => 'Slovačka', 'sl' => 'Slovaška', 'it' => 'Slovacchia', 'und' => 'Slovensko'],
+        'FR' => ['sk' => 'Francúzsko', 'en' => 'France', 'de' => 'Frankreich', 'it' => 'Francia', 'und' => 'France'],
+    ];
+
+    /**
      * Addresses outside the imported countries whose words partly match imported names
      * ("Champs" hamlets in Switzerland, the Champs-Élysées of Rust in Germany).
      */
     private const OUTSIDE = [
         'Champs-Élysées, Paris', 'Champs-Élysées, Par', 'champs elysees paris', 'rue de rivoli paris',
-        'oxford street london', 'gran via madrid', 'Nevsky prospekt, Sankt Peterburg',
+        'oxford street london', 'gran via madrid', 'Nevsky prospekt, Sankt Peterburg', 'Champs-Élysées, Paris, France',
     ];
 
     private Geocoder $geocoder;
@@ -114,10 +154,20 @@ final class SearchQualityTest extends TestCase
             $this->markTestSkipped(\sprintf('The index "%s" holds %d documents, fewer than %d: the quality checks need the full variant D index.', $index, $documents, self::MIN_DOCUMENTS));
         }
 
-        // the house numbers and the translations are not measured: empty tables
+        // the house numbers and the translations are not measured: empty tables, but for the names
+        // of the countries (recognized in the typed text) and a town of each imported one
         $connection = new \PDO('sqlite::memory:');
         $connection->exec('CREATE TABLE geo_house (street_key BIGINT NOT NULL, number VARCHAR(32) NOT NULL, orientation VARCHAR(32) NULL, postcode VARCHAR(16) NULL, lat DOUBLE PRECISION NOT NULL, lon DOUBLE PRECISION NOT NULL, suburb VARCHAR(255) NULL, reference VARCHAR(32) NULL)');
         $connection->exec('CREATE TABLE geo_name (cc CHAR(2) NOT NULL, kind VARCHAR(8) NOT NULL, name VARCHAR(255) NOT NULL, lang VARCHAR(3) NOT NULL, translation VARCHAR(255) NOT NULL)');
+        $insert = $connection->prepare('INSERT INTO geo_name (cc, kind, name, lang, translation) VALUES (?, ?, ?, ?, ?)');
+        foreach (self::COUNTRY_NAMES as $countryCode => $names) {
+            foreach ($names as $language => $name) {
+                $insert->execute([$countryCode, 'country', $countryCode, $language, $name]);
+            }
+            if ('FR' !== $countryCode) {
+                $insert->execute([$countryCode, 'city', 'a town', 'en', 'a town']);
+            }
+        }
 
         $this->geocoder = GeocoderFactory::create($client, $connection, $index);
     }
@@ -202,6 +252,33 @@ final class SearchQualityTest extends TestCase
     {
         yield 'all matches' => [false];
         yield 'complete matches only' => [true];
+    }
+
+    #[DataProvider('provideCompleteMatchesOnly')]
+    public function testTypedCountriesAndPostcodes(bool $completeMatchesOnly): void
+    {
+        $top1 = $top3 = 0;
+        $misses = $partial = [];
+        $time = 0.0;
+        foreach (self::TYPED_COUNTRIES_AND_POSTCODES as [$text, $locale, $name, $city, $countryCode]) {
+            $start = hrtime(true);
+            $suggestions = $this->geocoder->suggest($text, new SearchOptions(locale: $locale, completeMatchesOnly: $completeMatchesOnly));
+            $time += (hrtime(true) - $start) / 1e6;
+
+            $position = $this->position($suggestions, static fn (Suggestion $suggestion): bool => $suggestion->name === $name && (null === $city || $suggestion->city === $city) && $suggestion->countryCode === $countryCode);
+            $top1 += (int) (0 === $position);
+            $top3 += (int) (null !== $position && $position < 3);
+            if (0 !== $position) {
+                $misses[] = $this->miss($text, $position, $suggestions);
+            }
+            if (null !== $position && !$suggestions[$position]->isCompleteMatch()) {
+                $partial[] = $this->miss($text, $position, $suggestions);
+            }
+        }
+
+        $this->report('typed countries and postcodes'.($completeMatchesOnly ? ', complete matches only' : ''), $top1, $top3, \count(self::TYPED_COUNTRIES_AND_POSTCODES), $time, $misses);
+        $this->assertSame(\count(self::TYPED_COUNTRIES_AND_POSTCODES), $top1);
+        $this->assertSame([], $partial, 'The expected places match every word searched.');
     }
 
     public function testFindsNothingOutsideTheImportedCountries(): void

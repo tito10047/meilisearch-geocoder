@@ -10,10 +10,12 @@ use Tito10047\Geocoder\Document\DocumentKind;
 use Tito10047\Geocoder\Exception\InvalidArgumentException;
 use Tito10047\Geocoder\HouseNumber\HouseNumber;
 use Tito10047\Geocoder\HouseNumber\PdoHouseNumberStore;
+use Tito10047\Geocoder\Search\Backend\BackendQuery;
 use Tito10047\Geocoder\Search\Backend\SearchHit;
 use Tito10047\Geocoder\Search\Geocoder;
 use Tito10047\Geocoder\Search\Kind;
 use Tito10047\Geocoder\Search\LabelFormatter;
+use Tito10047\Geocoder\Search\Query\QueryParser;
 use Tito10047\Geocoder\Search\QueryMatch;
 use Tito10047\Geocoder\Search\RankedSuggestion;
 use Tito10047\Geocoder\Search\Reranker;
@@ -25,6 +27,7 @@ use Tito10047\Geocoder\Storage\Pdo\PdoSchema;
 use Tito10047\Geocoder\Storage\TableNames;
 use Tito10047\Geocoder\StreetKey;
 use Tito10047\Geocoder\Tests\Fake\Documents;
+use Tito10047\Geocoder\Tests\Fake\FakeCountryRecognizer;
 use Tito10047\Geocoder\Tests\Fake\FakeHouseNumberStore;
 use Tito10047\Geocoder\Tests\Fake\FakeNameCatalog;
 use Tito10047\Geocoder\Tests\Fake\FakeSearchBackend;
@@ -221,7 +224,7 @@ final class GeocoderTest extends TestCase
 
         $suggestions = $this->geocoder($backend, $houseNumbers)->suggest('Praha 11');
 
-        $this->assertSame(['Praha', 'Praha 11'], array_map(static fn (\Tito10047\Geocoder\Search\Backend\BackendQuery $query): string => $query->text, $backend->queries));
+        $this->assertSame(['Praha', 'Praha 11'], array_map(static fn (BackendQuery $query): string => $query->text, $backend->queries));
         $this->assertSame(5, $backend->queries[1]->limit);
         $this->assertSame(['R1'], $this->ids($suggestions));
         $this->assertSame([], $houseNumbers->lookups);
@@ -233,7 +236,7 @@ final class GeocoderTest extends TestCase
 
         $this->geocoder($backend)->suggest('Wien 3, Landstraße', new SearchOptions(preferredCountry: 'AT', countries: ['AT']));
 
-        $this->assertSame(['Wien Landstraße', 'Wien 3 Landstraße'], array_map(static fn (\Tito10047\Geocoder\Search\Backend\BackendQuery $query): string => $query->text, $backend->queries));
+        $this->assertSame(['Wien Landstraße', 'Wien 3 Landstraße'], array_map(static fn (BackendQuery $query): string => $query->text, $backend->queries));
         $this->assertSame(['AT'], $backend->queries[1]->countries);
         $this->assertSame(15, $backend->queries[1]->limit);
     }
@@ -412,6 +415,113 @@ final class GeocoderTest extends TestCase
         $this->assertEquals(new QueryMatch(2, 2), $suggestions[0]->match);
     }
 
+    public function testSearchesOnlyTheCountryTyped(): void
+    {
+        $bratislava = new SearchHit(Documents::create('R1', 'Bratislava', type: 'city'), 1, 1);
+        $backend = new FakeSearchBackend([], ['Bratislava' => [$bratislava]]);
+
+        $suggestions = $this->recognizingGeocoder($backend)->suggest('Bratislava, Slovensko', new SearchOptions(completeMatchesOnly: true));
+
+        $this->assertSame(['R1'], $this->ids($suggestions), 'The country name is no word of the search: the town matches completely.');
+        $this->assertEquals(new QueryMatch(1, 1), $suggestions[0]->match);
+        $this->assertCount(2, $backend->queries, 'The literal reading is searched first.');
+        $this->assertSame('Bratislava Slovensko', $backend->queries[0]->text);
+        $this->assertSame([], $backend->queries[0]->countries);
+        $this->assertSame('Bratislava', $backend->queries[1]->text);
+        $this->assertSame(['SK'], $backend->queries[1]->countries);
+    }
+
+    /**
+     * @param list<string> $requested
+     * @param list<string> $expected
+     */
+    #[DataProvider('provideRequestedCountries')]
+    public function testRestrictsTheRequestedCountriesToTheCountryTyped(array $requested, array $expected): void
+    {
+        $backend = new FakeSearchBackend();
+
+        $this->recognizingGeocoder($backend)->suggest('Kosice Slovakia', new SearchOptions(countries: $requested));
+
+        $this->assertSame($requested, $backend->queries[0]->countries, 'The literal reading searches the requested countries.');
+        $this->assertSame($expected, $backend->queries[1]->countries);
+    }
+
+    /**
+     * @return iterable<string, array{list<string>, list<string>}>
+     */
+    public static function provideRequestedCountries(): iterable
+    {
+        yield 'all requested' => [[], ['SK']];
+        yield 'among the requested' => [['CZ', 'SK'], ['SK']];
+        yield 'the only one requested' => [['SK'], ['SK']];
+    }
+
+    public function testFindsNothingWhenTheCountryTypedIsNotRequested(): void
+    {
+        $backend = new FakeSearchBackend([new SearchHit(Documents::create('R1', 'Košice', 'SK', type: 'city'), 1, 2)]);
+
+        $this->assertSame([], $this->recognizingGeocoder($backend)->suggest('Kosice Slovakia', new SearchOptions(countries: ['AT', 'CZ'])));
+        $this->assertCount(1, $backend->queries, 'Only the literal reading is searched.');
+    }
+
+    /**
+     * @param list<SearchHit> $literalHits
+     */
+    #[DataProvider('provideNamesWithACountry')]
+    public function testKeepsTheCountryNameOfAName(string $text, string $literalText, array $literalHits, bool $expectedLiteral): void
+    {
+        $recognized = new SearchHit(Documents::create('R9', 'Recognized'), 1, 1);
+        $backend = new FakeSearchBackend([$recognized], [$literalText => $literalHits]);
+
+        $suggestions = $this->recognizingGeocoder($backend)->suggest($text);
+
+        $this->assertSame($expectedLiteral ? $literalHits[0]->document->id : 'R9', $suggestions[0]->id ?? null);
+        $this->assertCount($expectedLiteral ? 1 : 2, $backend->queries);
+    }
+
+    /**
+     * @return iterable<string, array{string, string, list<SearchHit>, bool}>
+     */
+    public static function provideNamesWithACountry(): iterable
+    {
+        $street = static fn (string $name, ?int $matching = 2, ?int $words = 2): SearchHit => new SearchHit(Documents::create('s1', $name, 'IT', DocumentKind::Street, 'street', 25000, 'Roma'), $matching, $words);
+
+        yield 'a street' => ['Via Italia', 'Via Italia', [$street('Via Italia')], true];
+        yield 'a street, without diacritics' => ['Via Italia', 'Via Italia', [$street('VIA ITÁLIA')], true];
+        yield 'a hotel in a town' => ['Roma Hotel Italia', 'Roma Hotel Italia', [$street('Hotel Italia', 3, 3)], true];
+        yield 'a district named alone' => ['Warszawa, Włochy', 'Warszawa Włochy', [new SearchHit(Documents::create('R2', 'Włochy', 'PL', type: 'suburb', city: 'Warszawa'), 2, 2)], true];
+        yield 'a translation of the name' => ['Via Italia', 'Via Italia', [new SearchHit(Documents::create('s1', 'Italienstraße', 'IT', DocumentKind::Street, 'street', namesI18n: ['it' => 'Via Italia']), 2, 2)], true];
+        yield 'a match with an unknown number of words' => ['Via Italia', 'Via Italia', [$street('Via Italia', null, null)], true];
+        yield 'a partial match' => ['Via Italia', 'Via Italia', [$street('Via Italia', 1)], false];
+        yield 'the country name only' => ['Kosice Slovakia', 'Kosice Slovakia', [new SearchHit(Documents::create('N1', 'Slovakia', city: 'Košice'), 2, 2)], false];
+        yield 'another word of the name' => ['Kosice Slovakia', 'Kosice Slovakia', [new SearchHit(Documents::create('N1', 'Penzion Slovakia', city: 'Košice'), 2, 2)], false];
+        yield 'a longer name' => ['Wien, Austria', 'Wien Austria', [new SearchHit(Documents::create('N1', 'Austria Classic Hotel Wien', 'AT'), 2, 2)], false];
+        yield 'the words of another part' => ['Wien, Austria', 'Wien Austria', [new SearchHit(Documents::create('N1', 'Wien Austria', 'AT'), 2, 2)], false];
+        yield 'nothing found' => ['Via Italia', 'Via Italia', [], false];
+    }
+
+    public function testSearchesTheWholeTextInTheCountryTypedWhenNoStreetTakesTheNumber(): void
+    {
+        $backend = new FakeSearchBackend([], ['Praha 11' => [new SearchHit(Documents::create('R1', 'Praha 11', 'CZ', type: 'suburb'), 2, 2)]]);
+
+        $suggestions = $this->recognizingGeocoder($backend)->suggest('Praha 11, 110 00 Česko', new SearchOptions(completeMatchesOnly: true));
+
+        $this->assertSame(['R1'], $this->ids($suggestions));
+        $this->assertSame(['Praha Česko', 'Praha 11 Česko', 'Praha', 'Praha 11'], array_map(static fn (BackendQuery $query): string => $query->text, $backend->queries));
+        $this->assertSame(['CZ'], $backend->queries[3]->countries);
+    }
+
+    public function testDoesNotSearchThePostcode(): void
+    {
+        $backend = new FakeSearchBackend([new SearchHit($this->hlavna(), 2, 2)]);
+        $houseNumbers = new FakeHouseNumberStore([$this->houseNumber('12', '040 01')]);
+
+        $suggestions = $this->geocoder($backend, $houseNumbers)->suggest('Hlavná 12, 040 01 Košice', new SearchOptions(completeMatchesOnly: true));
+
+        $this->assertSame('Hlavná Košice', $backend->queries[0]->text);
+        $this->assertSame(['s'.self::HLAVNA_KEY.'#12', 's'.self::HLAVNA_KEY], $this->ids($suggestions));
+    }
+
     public function testUsesAnyReranker(): void
     {
         $backend = new FakeSearchBackend([Documents::create('R1', 'Bystré'), Documents::create('R2', 'Bystrá')]);
@@ -504,6 +614,13 @@ final class GeocoderTest extends TestCase
         $catalog = new FakeNameCatalog(self::TRANSLATIONS);
 
         return new Geocoder($backend, $houseNumbers ?? new FakeHouseNumberStore(), $catalog, $reranker ?? new Reranker(), new LabelFormatter($catalog));
+    }
+
+    private function recognizingGeocoder(FakeSearchBackend $backend, ?FakeHouseNumberStore $houseNumbers = null): Geocoder
+    {
+        $catalog = new FakeNameCatalog(self::TRANSLATIONS);
+
+        return new Geocoder($backend, $houseNumbers ?? new FakeHouseNumberStore(), $catalog, new Reranker(), new LabelFormatter($catalog), new QueryParser(new FakeCountryRecognizer()));
     }
 
     private function hlavna(): Document
