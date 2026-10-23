@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `Exception\RoutingNotConfiguredException`, a `RoutingUnavailableException` for a routing engine
+  switched off by the configuration rather than down.
+
+### Changed
+
+- `RoutingUnavailableException` is no longer final, so that `RoutingNotConfiguredException` can
+  extend it (a catch of it still catches both).
+
 ## [0.2.0] - 2026-10-23
 
 ### Added

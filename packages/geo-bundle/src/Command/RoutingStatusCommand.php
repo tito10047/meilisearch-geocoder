@@ -9,6 +9,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Tito10047\GeoBundle\Attribution;
 use Tito10047\GeoBundle\Routing\RoutingStatusProviderInterface;
+use Tito10047\Routing\Exception\RoutingNotConfiguredException;
 use Tito10047\Routing\Exception\RoutingUnavailableException;
 
 /**
@@ -29,6 +30,11 @@ final class RoutingStatusCommand extends Command
 
         try {
             $status = $this->statusProvider->status();
+        } catch (RoutingNotConfiguredException $e) {
+            $io->error($e->getMessage());
+            $io->note('The routing is switched off by the configuration: set geo.routing.url to switch it on.');
+
+            return Command::FAILURE;
         } catch (RoutingUnavailableException $e) {
             $io->error($e->getMessage());
 

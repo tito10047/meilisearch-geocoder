@@ -5,7 +5,7 @@ namespace Tito10047\GeoBundle\Tests\Geocoder;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Tito10047\GeoBundle\Geocoder\UnconfiguredMeilisearch;
-use Tito10047\Geocoder\Exception\GeocoderUnavailableException;
+use Tito10047\Geocoder\Exception\GeocoderNotConfiguredException;
 use Tito10047\Geocoder\Index\IndexSettings;
 use Tito10047\Geocoder\Search\Backend\BackendQuery;
 
@@ -41,7 +41,7 @@ final class UnconfiguredMeilisearchTest extends TestCase
     #[DataProvider('calls')]
     public function testEveryCallIsUnavailable(\Closure $call): void
     {
-        $this->expectException(GeocoderUnavailableException::class);
+        $this->expectException(GeocoderNotConfiguredException::class);
         $this->expectExceptionMessage('Meilisearch is not configured: geo.geocoder.meilisearch.url is empty.');
 
         $call(new UnconfiguredMeilisearch());

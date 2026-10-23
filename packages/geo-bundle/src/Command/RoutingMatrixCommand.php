@@ -12,6 +12,7 @@ use Tito10047\GeoBundle\Attribution;
 use Tito10047\Routing\Coordinates;
 use Tito10047\Routing\Costing;
 use Tito10047\Routing\Exception\InvalidArgumentException;
+use Tito10047\Routing\Exception\RoutingNotConfiguredException;
 use Tito10047\Routing\Exception\RoutingUnavailableException;
 use Tito10047\Routing\MatrixInterface;
 use Tito10047\Routing\MatrixRequest;
@@ -57,6 +58,11 @@ final class RoutingMatrixCommand extends Command
             $io->error($e->getMessage());
 
             return Command::INVALID;
+        } catch (RoutingNotConfiguredException $e) {
+            $io->error($e->getMessage());
+            $io->note('The routing is switched off by the configuration: set geo.routing.url to switch it on.');
+
+            return Command::FAILURE;
         } catch (RoutingUnavailableException $e) {
             $io->error($e->getMessage());
 
