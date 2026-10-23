@@ -19,6 +19,23 @@ final class SelectionRulesTest extends TestCase
         $this->assertTrue($rules->isPoi('tourism', 'hotel'));
         $this->assertFalse($rules->isPoi('amenity', 'restaurant'));
         $this->assertFalse($rules->isPoi('unknown', 'hotel'));
+        $this->assertTrue($rules->isStreet('residential'));
+        $this->assertTrue($rules->isStreet('track'));
+        $this->assertFalse($rules->isStreet('bus_stop'));
+        $this->assertFalse($rules->isStreet('platform'));
+    }
+
+    public function testReferenceKeys(): void
+    {
+        $this->assertSame('ref:minvskaddress', (new SelectionRules())->referenceKey('SK'));
+        $this->assertNull((new SelectionRules())->referenceKey('CZ'));
+        $this->assertSame('ref:ruian:addr', (new SelectionRules(referenceKeys: ['CZ' => 'ref:ruian:addr']))->referenceKey('CZ'));
+        $this->assertNull((new SelectionRules(referenceKeys: []))->referenceKey('SK'));
+    }
+
+    public function testNoHighwayExcluded(): void
+    {
+        $this->assertTrue((new SelectionRules(streetExcludedHighways: []))->isStreet('bus_stop'));
     }
 
     public function testRank(): void
@@ -57,6 +74,11 @@ final class SelectionRulesTest extends TestCase
         yield 'negative street rank' => [['streetRank' => -1]];
         yield 'invalid language' => [['languages' => ['SK']]];
         yield 'negative distance' => [['placeDedupKm' => -1.0]];
+        yield 'excluded highway empty' => [['streetExcludedHighways' => ['']]];
+        yield 'excluded highway not a string' => [['streetExcludedHighways' => [1]]];
+        yield 'reference key of a lower-case country' => [['referenceKeys' => ['sk' => 'ref:minvskaddress']]];
+        yield 'reference key of a list' => [['referenceKeys' => ['ref:minvskaddress']]];
+        yield 'empty reference key' => [['referenceKeys' => ['SK' => '']]];
     }
 
     public function testImportCountsAdd(): void

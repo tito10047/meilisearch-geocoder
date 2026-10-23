@@ -20,7 +20,9 @@ final class DocumentTest extends TestCase
             'name' => 'Stephansplatz',
             'names' => ['Stephansplatz'],
             'cities' => ['Wien', 'Viedeň', 'Vienna'],
+            'suburb' => '',
             'city' => 'Wien',
+            'county' => '',
             'region' => '',
             'cc' => 'AT',
             'postcode' => null,
@@ -40,10 +42,18 @@ final class DocumentTest extends TestCase
     public function testFromArrayRoundTrips(): void
     {
         $document = new Document('R109166', DocumentKind::Place, 'city', 'Wien', ['Wien', 'Viedeň'], [], ['sk' => 'Viedeň'],
-            '', 'Wien', 'AT', '1010', new Coordinates(48.2083537, 16.3725042), 90767);
+            '', 'Wien', 'AT', '1010', new Coordinates(48.2083537, 16.3725042), 90767, 'Innere Stadt', 'Wien');
 
         $this->assertEquals($document, Document::fromArray($document->toArray()));
         $this->assertEquals($document, Document::fromArray(json_decode(json_encode($document->toArray(), \JSON_THROW_ON_ERROR), true, flags: \JSON_THROW_ON_ERROR)));
+    }
+
+    public function testFromArrayAcceptsADocumentWithoutSuburbAndCounty(): void
+    {
+        $document = $this->street()->toArray();
+        unset($document['suburb'], $document['county']);
+
+        $this->assertEquals($this->street(), Document::fromArray($document));
     }
 
     public function testFromArrayAcceptsAHitWithoutSearchableFields(): void

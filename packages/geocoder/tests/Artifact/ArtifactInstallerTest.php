@@ -113,9 +113,9 @@ final class ArtifactInstallerTest extends TestCase
 
     public function testRefusesAnotherSchemaVersion(): void
     {
-        $this->editManifest(static fn (array $manifest): array => ['schema_version' => 2] + $manifest);
+        $this->editManifest(static fn (array $manifest): array => ['schema_version' => 1] + $manifest);
 
-        $this->assertRefused('schema version 2', new ArtifactInstaller('1.35.1'));
+        $this->assertRefused('schema version 1', new ArtifactInstaller('1.35.1'));
     }
 
     public function testRefusesAnotherFormat(): void

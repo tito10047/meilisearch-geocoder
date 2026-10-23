@@ -16,7 +16,7 @@ use Tito10047\Geocoder\Storage\TableNames;
  */
 final class PdoHouseNumberWriter implements HouseNumberWriterInterface
 {
-    private const COLUMNS = 6;
+    private const COLUMNS = 8;
 
     private readonly PdoBatchInserter $inserter;
     private bool $closed = false;
@@ -35,7 +35,7 @@ final class PdoHouseNumberWriter implements HouseNumberWriterInterface
     ) {
         $this->inserter = new PdoBatchInserter(
             $pdo,
-            \sprintf('INSERT INTO %s (street_key, number, orientation, postcode, lat, lon) VALUES ', $tables->houseNumbers),
+            \sprintf('INSERT INTO %s (street_key, number, orientation, postcode, lat, lon, suburb, reference) VALUES ', $tables->houseNumbers),
             self::COLUMNS,
             $batchSize,
             $transactionSize,
@@ -55,6 +55,8 @@ final class PdoHouseNumberWriter implements HouseNumberWriterInterface
             $houseNumber->postcode,
             $houseNumber->coordinates->latitude,
             $houseNumber->coordinates->longitude,
+            $houseNumber->suburb,
+            $houseNumber->reference,
         ]);
     }
 

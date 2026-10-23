@@ -108,6 +108,31 @@ final class PhotonConverterTest extends TestCase
         }
     }
 
+    /**
+     * A named bus stop is no street; a street known from its houses is one whatever its bus stops.
+     */
+    public function testLeavesOutTheHighwaysThatAreNoStreets(): void
+    {
+        $place = static fn (int $id, string $key, string $value, string $name, string $extra = ''): string => \sprintf(
+            '{"object_type":"N","object_id":%d,"osm_key":"%s","osm_value":"%s","name":{"name":"%s"},%s"address":{"village":"Nová Sedlica"},"country_code":"sk","centroid":[22.51,49.05]}',
+            $id, $key, $value, $name, $extra,
+        );
+        $lines = [self::HEADER, '{"type":"Place","content":['.implode(',', [
+            $place(1, 'highway', 'residential', 'Hlavná'),
+            $place(2, 'highway', 'bus_stop', 'Nová Sedlica, stred'),
+            $place(3, 'highway', 'platform', 'Nová Sedlica, stred'),
+            $place(4, 'highway', 'bus_stop', 'Horná'),
+        ]).']}', '{"type":"Place","content":[{"object_type":"W","object_id":5,"osm_key":"building","osm_value":"yes","housenumber":"12","address":{"village":"Nová Sedlica","street":"Horná"},"country_code":"sk","centroid":[22.51,49.05]}]}'];
+
+        $summary = (new PhotonConverter(reader: new PhotonDumpReader(new InMemoryLineSource($lines))))
+            ->convert('dump', $this->documents, $this->houseNumbers, $this->translations);
+
+        $names = array_map(static fn (Document $document): string => $document->name, $this->documents->documents);
+        sort($names);
+        $this->assertSame(['Hlavná', 'Horná'], $names);
+        $this->assertSame(2, $summary->counts->streets);
+    }
+
     public function testDoesNotCloseTheWriters(): void
     {
         (new PhotonConverter())->convert(self::FIXTURES.'/slovakia-sample.jsonl', $this->documents, $this->houseNumbers, $this->translations);
@@ -204,6 +229,8 @@ final class PhotonConverterTest extends TestCase
             $houseNumber->postcode ?? '',
             json_encode($houseNumber->coordinates->latitude, \JSON_THROW_ON_ERROR),
             json_encode($houseNumber->coordinates->longitude, \JSON_THROW_ON_ERROR),
+            $houseNumber->suburb ?? '',
+            $houseNumber->reference ?? '',
         ], $this->houseNumbers->houseNumbers);
         usort($rows, static fn (array $a, array $b): int => [(int) $a[0], ...\array_slice($a, 1)] <=> [(int) $b[0], ...\array_slice($b, 1)]);
 

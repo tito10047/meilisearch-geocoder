@@ -30,7 +30,7 @@ final readonly class IndexSettings
      */
     public function __construct(
         public array $searchableAttributes = ['names', 'cities'],
-        public array $displayedAttributes = ['id', 'kind', 'type', 'name', 'names_i18n', 'city', 'region', 'cc', 'postcode', '_geo', 'rank'],
+        public array $displayedAttributes = ['id', 'kind', 'type', 'name', 'names_i18n', 'suburb', 'city', 'county', 'region', 'cc', 'postcode', '_geo', 'rank'],
         public array $filterableAttributes = ['cc', 'kind'],
         public array $sortableAttributes = [],
         public array $rankingRules = ['words', 'typo', 'proximity', 'rank:desc', 'attribute', 'exactness'],

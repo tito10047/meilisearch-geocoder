@@ -19,4 +19,13 @@ final class PlaceTest extends TestCase
         $this->assertNull(Places::create(names: ['name:hu' => 'Szőlőske'])->name());
         $this->assertNull(Places::create(names: ['name' => ''])->name());
     }
+
+    public function testExtraTag(): void
+    {
+        $place = Places::create(extra: ['ref:minvskaddress' => ' 7101722639 ', 'empty' => ' ']);
+
+        $this->assertSame('7101722639', $place->extraTag('ref:minvskaddress'));
+        $this->assertNull($place->extraTag('empty'));
+        $this->assertNull($place->extraTag('missing'));
+    }
 }

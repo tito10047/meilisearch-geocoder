@@ -23,6 +23,7 @@ final readonly class Place
      * @param array<string, string> $address     the address: "street", "city", "town", "state", "city:hu", …
      * @param string                $countryCode ISO 3166-1 alpha-2, upper case ("" when the dump has none)
      * @param Coordinates           $centroid    the centre of the object
+     * @param array<string, string> $extra       the other OSM tags Photon exports ("extra"): "ref:minvskaddress" => "7101722639", …
      */
     public function __construct(
         public ?string $objectType,
@@ -36,6 +37,7 @@ final readonly class Place
         public ?string $postcode,
         public string $countryCode,
         public Coordinates $centroid,
+        public array $extra = [],
     ) {
     }
 
@@ -55,5 +57,15 @@ final readonly class Place
         $name = $this->names['name'] ?? null;
 
         return '' === $name ? null : $name;
+    }
+
+    /**
+     * The value of an "extra" tag, trimmed; null when the object has none or an empty one.
+     */
+    public function extraTag(string $key): ?string
+    {
+        $value = trim($this->extra[$key] ?? '');
+
+        return '' === $value ? null : $value;
     }
 }

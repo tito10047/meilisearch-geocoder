@@ -26,7 +26,7 @@ final class PdoSchemaTest extends TestCase
 
         $schema->createTables($this->tables);
         $this->assertSame(['geo_house_build', 'geo_meta_build', 'geo_name_build'], $this->objects('table'));
-        $this->assertSame(['street_key', 'number', 'orientation', 'postcode', 'lat', 'lon'], $this->columns('geo_house_build'));
+        $this->assertSame(['street_key', 'number', 'orientation', 'postcode', 'lat', 'lon', 'suburb', 'reference'], $this->columns('geo_house_build'));
         $this->assertSame(['cc', 'kind', 'name', 'lang', 'translation'], $this->columns('geo_name_build'));
         $this->assertSame(['meta_key', 'meta_value'], $this->columns('geo_meta_build'));
         $this->assertNotContains('geo_house_build_number', $this->objects('index'));
@@ -35,6 +35,7 @@ final class PdoSchemaTest extends TestCase
         $indexes = $this->objects('index');
         $this->assertContains('geo_house_build_number', $indexes);
         $this->assertContains('geo_house_build_orientation', $indexes);
+        $this->assertContains('geo_house_build_reference', $indexes);
     }
 
     public function testTheTranslationsHaveAPrimaryKey(): void
@@ -79,7 +80,7 @@ final class PdoSchemaTest extends TestCase
     {
         // SQLite keeps no table options it does not know: options it refuses show they were sent
         $this->expectException(StorageException::class);
-        $this->expectExceptionMessage('lon DOUBLE PRECISION NOT NULL) UNKNOWN OPTIONS"');
+        $this->expectExceptionMessage('reference VARCHAR(32) NULL) UNKNOWN OPTIONS"');
 
         (new PdoSchema($this->pdo, new UnknownOptionsDialect()))->createTables($this->tables);
     }

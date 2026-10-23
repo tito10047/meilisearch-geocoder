@@ -38,6 +38,17 @@ final class HttpClientFactory
     }
 
     /**
+     * The client of the downloads of the dumps: hundreds of megabytes, so no limit on the whole
+     * request, only on the silence of the server.
+     *
+     * @param float $timeout seconds without data after which a download fails
+     */
+    public static function download(float $timeout = 60.0): ClientInterface
+    {
+        return new Psr18Client(HttpClient::create(['timeout' => $timeout, 'max_duration' => 0]));
+    }
+
+    /**
      * The client of Valhalla, over curl or amphp.
      *
      * Valhalla keeps the connection open after an answer: a client reading the body until the

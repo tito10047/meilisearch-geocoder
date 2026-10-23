@@ -14,7 +14,7 @@ use Tito10047\Geocoder\Tests\Fake\InMemoryLineSource;
 final class PhotonDumpReaderTest extends TestCase
 {
     private const HEADER = '{"type":"NominatimDumpFile","content":{"version":"0.1.0","generator":"photon","database_version":"1.0.0-4","data_timestamp":"2026-10-17T23:02:06.000+00:00","features":{"sorted_by_country":true,"has_addresslines":false}}}';
-    private const PLACE = '{"place_id":"1","object_type":"W","object_id":135565007,"osm_key":"highway","osm_value":"residential","importance":0.05,"name":{"name":"Krížna","name:hu":"Kereszt utca","alt_name":5},"address":{"city":"Viničky","city:hu":"Szőlőske","state":"Košický kraj","other":["x"]},"postcode":"076 31","country_code":"sk","centroid":[21.7492543,48.3993171],"geometry":{"type":"LineString","coordinates":[[21.7,48.3],[21.8,48.4]]}}';
+    private const PLACE = '{"place_id":"1","object_type":"W","object_id":135565007,"osm_key":"highway","osm_value":"residential","importance":0.05,"name":{"name":"Krížna","name:hu":"Kereszt utca","alt_name":5},"address":{"city":"Viničky","city:hu":"Szőlőske","state":"Košický kraj","other":["x"]},"extra":{"surface":"asphalt","lanes":2},"postcode":"076 31","country_code":"sk","centroid":[21.7492543,48.3993171],"geometry":{"type":"LineString","coordinates":[[21.7,48.3],[21.8,48.4]]}}';
 
     public function testReadsTheRecordsOfADump(): void
     {
@@ -55,6 +55,8 @@ final class PhotonDumpReaderTest extends TestCase
         $this->assertSame(['city' => 'Viničky', 'city:hu' => 'Szőlőske', 'state' => 'Košický kraj'], $place->address);
         $this->assertSame('076 31', $place->postcode);
         $this->assertSame('SK', $place->countryCode);
+        // the strings only
+        $this->assertSame(['surface' => 'asphalt'], $place->extra);
         $this->assertEqualsWithDelta(48.3993171, $place->centroid->latitude, \PHP_FLOAT_EPSILON);
         $this->assertEqualsWithDelta(21.7492543, $place->centroid->longitude, \PHP_FLOAT_EPSILON);
     }

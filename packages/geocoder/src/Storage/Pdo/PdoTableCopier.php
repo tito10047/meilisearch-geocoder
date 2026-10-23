@@ -46,11 +46,14 @@ final readonly class PdoTableCopier
      * @return Build the build, in the tables $to
      *
      * @throws BuildNotFoundException when the source tables hold no build
-     * @throws RuntimeException       when reading or writing fails, or the tables $to exist
+     * @throws RuntimeException       when reading or writing fails, the source tables are of another schema version, or the tables $to exist
      */
     public function copy(\PDO $source, TableNames $from, TableNames $to): Build
     {
         $build = (new PdoBuildStorage($source))->read($from)->withTables($to);
+        if (PdoSchema::VERSION !== $build->schemaVersion) {
+            throw new StorageException(\sprintf('The tables %s have the schema version %d; this version of the library reads only %d: import the dumps again.', $from->houseNumbers, $build->schemaVersion, PdoSchema::VERSION));
+        }
 
         $this->storage->create($to);
         try {
@@ -103,7 +106,7 @@ final readonly class PdoTableCopier
 
         try {
             $this->target->beginTransaction();
-            $this->target->exec(\sprintf('INSERT INTO %s (street_key, number, orientation, postcode, lat, lon) SELECT street_key, number, orientation, postcode, lat, lon FROM %s.%s', $to->houseNumbers, self::ATTACHED, $from->houseNumbers));
+            $this->target->exec(\sprintf('INSERT INTO %s (street_key, number, orientation, postcode, lat, lon, suburb, reference) SELECT street_key, number, orientation, postcode, lat, lon, suburb, reference FROM %s.%s', $to->houseNumbers, self::ATTACHED, $from->houseNumbers));
             $this->target->exec(\sprintf('INSERT INTO %s (cc, kind, name, lang, translation) SELECT cc, kind, name, lang, translation FROM %s.%s', $to->translations, self::ATTACHED, $from->translations));
             $this->target->commit();
         } catch (\PDOException $exception) {

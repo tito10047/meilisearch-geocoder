@@ -42,6 +42,13 @@ final class HttpClientFactoryTest extends TestCase
         $this->assertStringContainsString('gzip', $headers['accept-encoding'] ?? '');
     }
 
+    public function testDownloadClientSendsRequests(): void
+    {
+        $headers = $this->echoedHeaders(HttpClientFactory::download(5.0));
+
+        $this->assertArrayHasKey('host', $headers);
+    }
+
     public function testValhallaClientDoesNotWaitForTheConnectionToClose(): void
     {
         $router = new ValhallaRouter(self::$server->url(), HttpClientFactory::valhalla(10.0));

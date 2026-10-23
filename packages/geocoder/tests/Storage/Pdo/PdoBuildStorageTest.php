@@ -89,7 +89,7 @@ final class PdoBuildStorageTest extends TestCase
         $this->assertSame('geo_20261023120000', $this->storage->read($this->live)->indexUid);
         $this->assertEquals($build->withTables($this->live), $this->storage->read($this->live));
         // the indexes of the replaced tables are gone with them
-        $this->assertSame(['geo_house_20261023120000_number', 'geo_house_20261023120000_orientation'], $this->objects('index'));
+        $this->assertSame(['geo_house_20261023120000_number', 'geo_house_20261023120000_orientation', 'geo_house_20261023120000_reference'], $this->objects('index'));
     }
 
     public function testRefusesToPublishAnIncompleteBuild(): void

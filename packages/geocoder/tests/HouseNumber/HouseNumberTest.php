@@ -30,6 +30,38 @@ final class HouseNumberTest extends TestCase
         yield 'trailing slash' => ['12/', null];
     }
 
+    public function testKeepsTheSuburbAndTheReference(): void
+    {
+        $houseNumber = new HouseNumber(new StreetKey(1), '12', null, new Coordinates(0, 0), 'Staré Mesto', '7101722639');
+
+        $this->assertSame('Staré Mesto', $houseNumber->suburb);
+        $this->assertSame('7101722639', $houseNumber->reference);
+        $this->assertTrue(HouseNumber::isValidReference(str_repeat('7', 32)));
+        $this->assertFalse(HouseNumber::isValidReference(str_repeat('7', 33)));
+        $this->assertFalse(HouseNumber::isValidReference(' '));
+    }
+
+    /**
+     * @param array<string, mixed> $arguments
+     */
+    #[DataProvider('provideInvalidParts')]
+    public function testRejectsAnInvalidPart(array $arguments): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        new HouseNumber(new StreetKey(1), '12', null, new Coordinates(0, 0), ...$arguments);
+    }
+
+    /**
+     * @return iterable<string, array{array<string, mixed>}>
+     */
+    public static function provideInvalidParts(): iterable
+    {
+        yield 'empty suburb' => [['suburb' => ' ']];
+        yield 'empty reference' => [['reference' => '']];
+        yield 'reference too long' => [['reference' => str_repeat('7', 33)]];
+    }
+
     public function testRejectsAnEmptyNumber(): void
     {
         $this->expectException(InvalidArgumentException::class);

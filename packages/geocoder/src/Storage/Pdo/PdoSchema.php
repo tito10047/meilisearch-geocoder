@@ -20,8 +20,10 @@ final readonly class PdoSchema
     /**
      * The version of the tables, stored with the metadata of a build: a database or an artifact
      * of another version needs a new import.
+     *
+     * 2: the suburb and the reference of the house numbers.
      */
-    public const VERSION = 1;
+    public const VERSION = 2;
 
     private SqlDialectInterface $dialect;
 
@@ -47,7 +49,7 @@ final readonly class PdoSchema
     {
         $options = $this->dialect->tableOptions();
         $this->execute([
-            \sprintf('CREATE TABLE %s (street_key BIGINT NOT NULL, number VARCHAR(32) NOT NULL, orientation VARCHAR(32) NULL, postcode VARCHAR(16) NULL, lat DOUBLE PRECISION NOT NULL, lon DOUBLE PRECISION NOT NULL)%s', $tables->houseNumbers, $options),
+            \sprintf('CREATE TABLE %s (street_key BIGINT NOT NULL, number VARCHAR(32) NOT NULL, orientation VARCHAR(32) NULL, postcode VARCHAR(16) NULL, lat DOUBLE PRECISION NOT NULL, lon DOUBLE PRECISION NOT NULL, suburb VARCHAR(255) NULL, reference VARCHAR(32) NULL)%s', $tables->houseNumbers, $options),
             \sprintf('CREATE TABLE %s (cc CHAR(2) NOT NULL, kind VARCHAR(8) NOT NULL, name VARCHAR(255) NOT NULL, lang VARCHAR(3) NOT NULL, translation VARCHAR(255) NOT NULL, PRIMARY KEY (cc, kind, name, lang))%s', $tables->translations, $options),
             \sprintf('CREATE TABLE %s (meta_key VARCHAR(64) NOT NULL PRIMARY KEY, meta_value TEXT NOT NULL)%s', $tables->metadata, $options),
         ]);
@@ -63,6 +65,7 @@ final readonly class PdoSchema
         $this->execute([
             \sprintf('CREATE INDEX %1$s_number ON %1$s (street_key, number)', $tables->houseNumbers),
             \sprintf('CREATE INDEX %1$s_orientation ON %1$s (street_key, orientation)', $tables->houseNumbers),
+            \sprintf('CREATE INDEX %1$s_reference ON %1$s (reference)', $tables->houseNumbers),
         ]);
     }
 

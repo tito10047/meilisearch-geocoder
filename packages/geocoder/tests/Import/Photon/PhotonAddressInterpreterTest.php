@@ -64,6 +64,24 @@ final class PhotonAddressInterpreterTest extends TestCase
         $this->assertSame([], $interpreter->regionTranslations(Places::create(address: ['state:hu' => 'Kassai kerület'])));
     }
 
+    public function testSuburbAndCounty(): void
+    {
+        $interpreter = new PhotonAddressInterpreter(['sk', 'hu', 'en']);
+        $place = Places::create(address: ['suburb' => 'Medvedzie', 'suburb:hu' => 'Medvéd', 'suburb:sk' => 'Medvedzie',
+            'county' => 'okres Tvrdošín', 'county:en' => 'District of Tvrdošín', 'county:hu' => 'Turdossini járás', 'village' => 'Tvrdošín']);
+
+        $this->assertSame('Medvedzie', $interpreter->suburb($place));
+        $this->assertSame(['hu' => 'Medvéd'], $interpreter->suburbTranslations($place));
+        $this->assertSame('okres Tvrdošín', $interpreter->county($place));
+        $this->assertSame(['hu' => 'Turdossini járás', 'en' => 'District of Tvrdošín'], $interpreter->countyTranslations($place));
+
+        $none = Places::create(address: ['suburb:hu' => 'Medvéd', 'county:hu' => 'Turdossini járás']);
+        $this->assertSame('', $interpreter->suburb($none));
+        $this->assertSame('', $interpreter->county($none));
+        $this->assertSame([], $interpreter->suburbTranslations($none));
+        $this->assertSame([], $interpreter->countyTranslations($none));
+    }
+
     /**
      * @param array<string, string> $address
      * @param array<string, string> $expected

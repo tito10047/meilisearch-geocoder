@@ -15,6 +15,7 @@ use Tito10047\Geocoder\Import\Photon\PhotonConverter;
 use Tito10047\Geocoder\Index\IndexSettings;
 use Tito10047\Geocoder\Index\TimestampIndexNaming;
 use Tito10047\Geocoder\Storage\Pdo\PdoBuildStorage;
+use Tito10047\Geocoder\Storage\Pdo\PdoSchema;
 use Tito10047\Geocoder\Storage\TableNames;
 use Tito10047\Geocoder\Tests\Fake\FailingConverter;
 use Tito10047\Geocoder\Tests\Fake\FrozenClock;
@@ -50,7 +51,7 @@ final class ImporterTest extends TestCase
         $this->assertEquals((new TableNames())->withSuffix('_20261023120000'), $build->tables);
         $this->assertEquals($this->clock->now(), $build->startedAt);
         $this->assertSame((new IndexSettings())->hash(), $build->settingsHash);
-        $this->assertSame(1, $build->schemaVersion);
+        $this->assertSame(PdoSchema::VERSION, $build->schemaVersion);
         $this->assertEquals(new ImportCounts(places: 4, streets: 13, pois: 4, houseNumbers: 134), $build->counts());
         $this->assertEquals(['SK' => new \DateTimeImmutable('2026-10-17T23:02:06+00:00')], $build->dataTimestamps());
 
@@ -60,7 +61,7 @@ final class ImporterTest extends TestCase
         $this->assertCount(21, $this->indexes->writers[self::BUILD]->documents);
         $this->assertSame('134', $this->value('SELECT COUNT(*) FROM geo_house_20261023120000'));
         $this->assertGreaterThan(0, (int) $this->value('SELECT COUNT(*) FROM geo_name_20261023120000'));
-        $this->assertSame('2', $this->value("SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND tbl_name = 'geo_house_20261023120000'"));
+        $this->assertSame('3', $this->value("SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND tbl_name = 'geo_house_20261023120000'"));
         $this->assertEquals($build, $this->storage->read($build->tables));
         $this->assertNotSame([], $progress->calls);
 
@@ -254,6 +255,22 @@ final class ImporterTest extends TestCase
             $importer->publish($build);
             $this->fail('A build without tables was published.');
         } catch (BuildNotFoundException) {
+        }
+
+        $this->assertSame([self::BUILD], $this->indexes->indexUids());
+    }
+
+    public function testRefusesToPublishABuildOfAnotherSchemaVersion(): void
+    {
+        $importer = $this->importer();
+        $build = $importer->import([self::DUMP]);
+        $this->pdo->exec(\sprintf("UPDATE %s SET meta_value = '1' WHERE meta_key = 'schema_version'", $build->tables->metadata));
+
+        try {
+            $importer->publish($build);
+            $this->fail('A build of another schema version was published.');
+        } catch (RuntimeException $exception) {
+            $this->assertStringContainsString('schema version 1', $exception->getMessage());
         }
 
         $this->assertSame([self::BUILD], $this->indexes->indexUids());

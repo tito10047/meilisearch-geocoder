@@ -54,6 +54,22 @@ final class PdoTableCopierTest extends TestCase
         (new PdoTableCopier($target))->copy(new \PDO('sqlite::memory:'), $this->from, $this->to);
     }
 
+    public function testRefusesSourceTablesOfAnotherSchemaVersion(): void
+    {
+        $source = new \PDO('sqlite::memory:');
+        Builds::store($source, $this->from);
+        $source->exec(\sprintf("UPDATE %s SET meta_value = '1' WHERE meta_key = 'schema_version'", $this->from->metadata));
+        $target = new \PDO('sqlite::memory:');
+
+        try {
+            (new PdoTableCopier($target))->copy($source, $this->from, $this->to);
+            $this->fail('Tables of another schema version were copied.');
+        } catch (StorageException $exception) {
+            $this->assertStringContainsString('schema version 1', $exception->getMessage());
+        }
+        $this->assertFalse((new PdoBuildStorage($target))->exists($this->to));
+    }
+
     public function testDropsTheCopyWhenItFails(): void
     {
         $source = new \PDO('sqlite::memory:');
@@ -83,7 +99,7 @@ final class PdoTableCopierTest extends TestCase
         $targetReader = new PdoTableReader($target);
         $this->assertEquals(iterator_to_array($sourceReader->houseNumbers($this->from), false), iterator_to_array($targetReader->houseNumbers($this->to), false));
         $this->assertEquals(iterator_to_array($sourceReader->translations($this->from), false), iterator_to_array($targetReader->translations($this->to), false));
-        $this->assertSame('2', Sql::value($target, "SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND tbl_name = 'h_1'"));
+        $this->assertSame('3', Sql::value($target, "SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND tbl_name = 'h_1'"));
         // the source is detached
         $this->assertSame('1', Sql::value($target, 'SELECT COUNT(*) FROM pragma_database_list'));
     }

@@ -9,6 +9,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Client\NetworkExceptionInterface;
 use Psr\Http\Message\RequestInterface;
+use Tito10047\Geocoder\Document\Document;
 use Tito10047\Geocoder\Document\DocumentKind;
 use Tito10047\Geocoder\Exception\GeocoderUnavailableException;
 use Tito10047\Geocoder\Exception\InvalidArgumentException;
@@ -148,6 +149,58 @@ final class MeilisearchSearchBackendTest extends TestCase
         yield 'hit not an object' => [['hits' => ['R109166']]];
         yield 'invalid document' => [['hits' => [array_merge(self::HIT, ['kind' => 'x'])]]];
         yield 'document of another index' => [['hits' => [['id' => 1, 'title' => 'Dune']]]];
+    }
+
+    public function testReadsADocument(): void
+    {
+        $document = array_diff_key(self::HIT, ['_rankingScoreDetails' => true]) + ['suburb' => 'Innere Stadt', 'county' => 'Wien'];
+        $http = new FakeHttpClient($this->json($document));
+
+        $found = $this->backend($http, 'geo_test')->document('R109166');
+
+        $this->assertInstanceOf(Document::class, $found);
+        $this->assertSame('R109166', $found->id);
+        $this->assertSame('Innere Stadt', $found->suburb);
+        $this->assertSame('Wien', $found->county);
+        $request = $http->requests[0];
+        $this->assertSame('GET', $request->getMethod());
+        $this->assertSame('/indexes/geo_test/documents/R109166', $request->getUri()->getPath());
+        parse_str($request->getUri()->getQuery(), $query);
+        $this->assertIsString($query['fields'] ?? null);
+        $this->assertContains('county', explode(',', $query['fields']));
+        $this->assertNotContains('names', explode(',', $query['fields']));
+    }
+
+    public function testAMissingDocumentIsNone(): void
+    {
+        $http = new FakeHttpClient($this->json(['message' => 'Document `s1` not found.', 'code' => 'document_not_found'], 404));
+
+        $this->assertNull($this->backend($http)->document('s1'));
+    }
+
+    public function testAnInvalidIdIsNoDocument(): void
+    {
+        $http = new FakeHttpClient($this->json([]));
+
+        $this->assertNull($this->backend($http)->document('s1/../../keys'));
+        $this->assertNull($this->backend($http)->document(''));
+        $this->assertSame([], $http->requests);
+    }
+
+    public function testWrapsTheErrorsOfADocument(): void
+    {
+        $http = new FakeHttpClient($this->json(['message' => 'Index `geo` not found.', 'code' => 'index_not_found'], 404));
+
+        $this->expectException(GeocoderUnavailableException::class);
+
+        $this->backend($http)->document('s1');
+    }
+
+    public function testRejectsAnInvalidDocument(): void
+    {
+        $this->expectException(GeocoderUnavailableException::class);
+
+        $this->backend(new FakeHttpClient($this->json(['id' => 1, 'title' => 'Dune'])))->document('s1');
     }
 
     #[DataProvider('provideInvalidIndexUids')]

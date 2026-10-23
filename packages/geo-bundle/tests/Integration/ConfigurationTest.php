@@ -12,6 +12,7 @@ use Symfony\Component\DependencyInjection\Extension\ConfigurationExtensionInterf
 use Tito10047\GeoBundle\Tests\App\Configs;
 use Tito10047\GeoBundle\Tests\App\TestKernel;
 use Tito10047\GeoBundle\Tito10047GeoBundle;
+use Tito10047\Geocoder\Import\Download\GraphHopperRegionUrlResolver;
 use Tito10047\Geocoder\Import\SelectionRules;
 
 /**
@@ -62,6 +63,11 @@ final class ConfigurationTest extends KernelTestCase
             'poi_rank' => 20,
             'street_rank' => 25,
             'place_dedup_km' => 5.0,
+            'street_excluded_highways' => SelectionRules::DEFAULT_STREET_EXCLUDED_HIGHWAYS,
+            'reference_keys' => SelectionRules::DEFAULT_REFERENCE_KEYS,
+            'regions' => [],
+            'download_url' => GraphHopperRegionUrlResolver::DEFAULT_BASE_URL,
+            'download_http_client' => null,
         ], $geocoder['import']);
         $this->assertSame(['enabled' => 'auto', 'alias' => 'tito10047_geo_address'], $geocoder['ux_autocomplete']);
         $this->assertSame(['enabled' => false, 'max_age' => 3600], $geocoder['photon_api']);
@@ -89,6 +95,11 @@ final class ConfigurationTest extends KernelTestCase
         yield 'languages' => [Configs::geocoder(['import' => ['languages' => ['sk', 'hsb']]]), ['sk', 'hsb'], 'geocoder.import.languages'];
         yield 'place types replace the defaults' => [Configs::geocoder(['import' => ['place_types' => ['city' => 90, 'isolated_dwelling' => 0]]]), ['city' => 90, 'isolated_dwelling' => 0], 'geocoder.import.place_types'];
         yield 'points of interest replace the defaults' => [Configs::geocoder(['import' => ['pois' => ['shop' => ['mall']]]]), ['shop' => ['mall']], 'geocoder.import.pois'];
+        yield 'regions' => [Configs::geocoder(['import' => ['regions' => ['europe/slovakia', 'europe/germany/bayern']]]), ['europe/slovakia', 'europe/germany/bayern'], 'geocoder.import.regions'];
+        yield 'download URL' => [Configs::geocoder(['import' => ['download_url' => 'http://mirror.local/photon']]), 'http://mirror.local/photon', 'geocoder.import.download_url'];
+        yield 'excluded highways replace the defaults' => [Configs::geocoder(['import' => ['street_excluded_highways' => ['bus_stop']]]), ['bus_stop'], 'geocoder.import.street_excluded_highways'];
+        yield 'no highway excluded' => [Configs::geocoder(['import' => ['street_excluded_highways' => []]]), [], 'geocoder.import.street_excluded_highways'];
+        yield 'reference keys replace the defaults' => [Configs::geocoder(['import' => ['reference_keys' => ['CZ' => 'ref:ruian:addr']]]), ['CZ' => 'ref:ruian:addr'], 'geocoder.import.reference_keys'];
         yield 'autocomplete shorthand' => [Configs::geocoder(['ux_autocomplete' => false]), false, 'geocoder.ux_autocomplete.enabled'];
         yield 'autocomplete required' => [Configs::geocoder(['ux_autocomplete' => ['enabled' => true]]), true, 'geocoder.ux_autocomplete.enabled'];
         yield 'Photon API shorthand' => [Configs::geocoder(['photon_api' => true]), true, 'geocoder.photon_api.enabled'];
@@ -151,6 +162,12 @@ final class ConfigurationTest extends KernelTestCase
         yield 'no language' => [Configs::geocoder(['import' => ['languages' => []]]), 'at least 1 element'];
         yield 'negative place rank' => [Configs::geocoder(['import' => ['place_types' => ['city' => -1]]]), 'Should be greater than or equal to 0'];
         yield 'empty points of interest of a key' => [Configs::geocoder(['import' => ['pois' => ['shop' => []]]]), 'at least 1 element'];
+        yield 'invalid region' => [Configs::geocoder(['import' => ['regions' => ['Europe/Slovakia']]]), 'A region is the path of the download server'];
+        yield 'region going up' => [Configs::geocoder(['import' => ['regions' => ['europe/../etc']]]), 'A region is the path of the download server'];
+        yield 'download URL without scheme' => [Configs::geocoder(['import' => ['download_url' => 'download1.graphhopper.com/public']]), 'must be an http(s) URL'];
+        yield 'download client id with @' => [Configs::geocoder(['import' => ['download_http_client' => '@app.psr18']]), 'without the leading "@"'];
+        yield 'reference key of a lower-case country' => [Configs::geocoder(['import' => ['reference_keys' => ['sk' => 'ref:minvskaddress']]]), 'ISO 3166-1 alpha-2 codes in upper case'];
+        yield 'empty excluded highway' => [Configs::geocoder(['import' => ['street_excluded_highways' => ['']]]), 'cannot contain an empty value'];
         yield 'negative dedup distance' => [Configs::geocoder(['import' => ['place_dedup_km' => -0.1]]), 'Should be greater than or equal to 0'];
         yield 'invalid autocomplete mode' => [Configs::geocoder(['ux_autocomplete' => 'always']), 'is not allowed'];
         yield 'invalid autocomplete alias' => [Configs::geocoder(['ux_autocomplete' => ['alias' => 'geo/address']]), 'The alias must be'];

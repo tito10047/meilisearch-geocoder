@@ -20,9 +20,10 @@ use Tito10047\Geocoder\Search\Suggestion;
  * - "type" (the layer): "house" for an address and a point of interest, "street", and for a place
  *   the layer Photon gives its type (see PLACE_LAYERS; an unknown type is a "locality").
  * - "name" except for an address (Photon names only named houses), "housenumber", "street",
- *   "postcode", "city" (not for a town itself), "state" (the region), "country" (named in the language when the catalog
- *   translates it; the local name of a country is not stored) and "countrycode". "county",
- *   "district", "locality" and "extent" are not known.
+ *   "postcode", "district" (the suburb, not for a district itself), "city" (not for a town
+ *   itself), "county", "state" (the region), "country" (named in the language when the catalog
+ *   translates it; the local name of a country is not stored) and "countrycode". "locality" and
+ *   "extent" are not known.
  */
 final readonly class FeatureFactory implements FeatureFactoryInterface
 {
@@ -87,6 +88,9 @@ final readonly class FeatureFactory implements FeatureFactoryInterface
             city: Layer::City === $layer ? null : $suggestion->city,
             state: $suggestion->region,
             country: null === $language ? null : $this->catalog->translate($suggestion->countryCode, NameKind::Country, $suggestion->countryCode, $language),
+            // nor a district one
+            district: Layer::District === $layer ? null : $suggestion->suburb,
+            county: $suggestion->county,
         );
     }
 }

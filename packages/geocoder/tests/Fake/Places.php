@@ -13,6 +13,7 @@ final class Places
     /**
      * @param array<string, string>|null $names
      * @param array<string, string>|null $address
+     * @param array<string, string>      $extra
      */
     public static function create(
         ?string $objectType = 'N',
@@ -27,6 +28,7 @@ final class Places
         string $countryCode = 'SK',
         float $latitude = 48.3996662,
         float $longitude = 21.747595,
+        array $extra = [],
     ): Place {
         return new Place(
             $objectType,
@@ -40,6 +42,7 @@ final class Places
             $postcode,
             $countryCode,
             new Coordinates($latitude, $longitude),
+            $extra,
         );
     }
 }

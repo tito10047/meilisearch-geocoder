@@ -9,6 +9,7 @@ use Tito10047\Geocoder\Document\Document;
 use Tito10047\Geocoder\Document\DocumentKind;
 use Tito10047\Geocoder\Exception\InvalidArgumentException;
 use Tito10047\Geocoder\HouseNumber\HouseNumber;
+use Tito10047\Geocoder\HouseNumber\PdoHouseNumberStore;
 use Tito10047\Geocoder\Search\Backend\SearchHit;
 use Tito10047\Geocoder\Search\Geocoder;
 use Tito10047\Geocoder\Search\Kind;
@@ -18,6 +19,9 @@ use Tito10047\Geocoder\Search\Reranker;
 use Tito10047\Geocoder\Search\RerankerInterface;
 use Tito10047\Geocoder\Search\SearchOptions;
 use Tito10047\Geocoder\Search\Suggestion;
+use Tito10047\Geocoder\Storage\Pdo\PdoBuildStorage;
+use Tito10047\Geocoder\Storage\Pdo\PdoSchema;
+use Tito10047\Geocoder\Storage\TableNames;
 use Tito10047\Geocoder\StreetKey;
 use Tito10047\Geocoder\Tests\Fake\Documents;
 use Tito10047\Geocoder\Tests\Fake\FakeHouseNumberStore;
@@ -360,6 +364,54 @@ final class GeocoderTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
 
         $this->geocoder(new FakeSearchBackend())->suggest("Ko\xC5");
+    }
+
+    /**
+     * "Hlavná 42" over the house numbers stored by the import: the number 42 itself first, then
+     * the conscription/orientation number "606/42" (42 on the street sign), then the conscription
+     * number 42 ("42/7"), then the numbers that only start with 42.
+     */
+    public function testFindsTheOrientationNumberInTheDatabase(): void
+    {
+        $connection = new \PDO('sqlite::memory:', options: [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]);
+        $tables = new TableNames();
+        $storage = new PdoBuildStorage($connection);
+        $storage->create($tables);
+        $writer = $storage->houseNumberWriter($tables);
+        foreach (['420', '42/7', '606/42', '42a', '1/4', '42', '7/420'] as $number) {
+            $writer->write($this->houseNumber($number, null));
+        }
+        $writer->close();
+        (new PdoSchema($connection))->createIndexes($tables);
+        $catalog = new FakeNameCatalog(self::TRANSLATIONS);
+        $geocoder = new Geocoder(new FakeSearchBackend([$this->hlavna()]), new PdoHouseNumberStore($connection, $tables), $catalog, new Reranker(), new LabelFormatter($catalog));
+
+        $suggestions = $geocoder->suggest('Hlavná 42', new SearchOptions(limit: 10));
+
+        $numbers = array_map(static fn (Suggestion $suggestion): ?string => $suggestion->houseNumber, $suggestions);
+        $this->assertSame(['42', '606/42', '42/7', '420', '42a', '7/420', null], $numbers);
+
+        $withoutExact = $geocoder->suggest('Hlavná 606/4', new SearchOptions(limit: 10));
+        $this->assertSame(['606/42', null], array_map(static fn (Suggestion $suggestion): ?string => $suggestion->houseNumber, $withoutExact));
+    }
+
+    public function testGivesTheSuburbTheCountyAndTheReference(): void
+    {
+        $street = Documents::create('s'.self::HLAVNA_KEY, 'Hlavná', 'SK', DocumentKind::Street, 'street', 25000, 'Košice', 'Košický kraj',
+            postcode: '040 01', suburb: 'Staré Mesto', county: 'okres Košice I');
+        $houseNumbers = new FakeHouseNumberStore([
+            new HouseNumber(new StreetKey(self::HLAVNA_KEY), '12', null, new Coordinates(48.72, 21.25), 'Sever', '7101722639'),
+        ]);
+
+        [$address, $streetSuggestion] = $this->geocoder(new FakeSearchBackend([$street]), $houseNumbers)->suggest('Hlavná 12');
+
+        $this->assertSame('Sever', $address->suburb);
+        $this->assertSame('okres Košice I', $address->county);
+        $this->assertSame('7101722639', $address->reference);
+        $this->assertSame('Hlavná 12, Košice, SK', $address->label);
+        $this->assertSame('Staré Mesto', $streetSuggestion->suburb);
+        $this->assertSame('okres Košice I', $streetSuggestion->county);
+        $this->assertNull($streetSuggestion->reference);
     }
 
     private function geocoder(FakeSearchBackend $backend, ?FakeHouseNumberStore $houseNumbers = null, ?RerankerInterface $reranker = null): Geocoder

@@ -232,6 +232,7 @@ final readonly class PhotonDumpReader implements DumpReaderInterface
             \is_string($postcode) ? $postcode : null,
             \is_string($countryCode) ? strtoupper($countryCode) : '',
             $coordinates,
+            $this->strings($place['extra'] ?? null),
         );
     }
 

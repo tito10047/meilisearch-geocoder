@@ -2,6 +2,7 @@
 
 namespace Tito10047\Geocoder\Tests\Import\Photon;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Tito10047\Geocoder\Document\Document;
 use Tito10047\Geocoder\Document\DocumentKind;
@@ -31,7 +32,9 @@ final class PhotonDocumentFactoryTest extends TestCase
             'name' => 'Košice',
             'names' => ['Košice', 'Kaschau', 'Kassa', 'Koszyce'],
             'cities' => [],
+            'suburb' => '',
             'city' => '',
+            'county' => '',
             'region' => 'Košický kraj',
             'cc' => 'SK',
             'postcode' => null,
@@ -87,7 +90,7 @@ final class PhotonDocumentFactoryTest extends TestCase
     {
         $factory = new PhotonDocumentFactory(new SelectionRules());
         $place = Places::create(objectType: 'W', objectId: 1, osmKey: 'highway', osmValue: 'primary', importance: 0.3,
-            names: ['name' => 'Hlavná', 'name:hu' => 'Fő utca'], address: self::KOSICE, postcode: '040 01');
+            names: ['name' => 'Hlavná', 'name:hu' => 'Fő utca'], address: ['suburb' => 'Staré Mesto', 'county' => 'okres Košice I'] + self::KOSICE, postcode: '040 01');
 
         $document = $factory->street($place);
 
@@ -99,7 +102,9 @@ final class PhotonDocumentFactoryTest extends TestCase
             'name' => 'Hlavná',
             'names' => ['Hlavná', 'Fő utca'],
             'cities' => ['Košice', 'Kaschau', 'Kassa'],
+            'suburb' => 'Staré Mesto',
             'city' => 'Košice',
+            'county' => 'okres Košice I',
             'region' => 'Košický kraj',
             'cc' => 'SK',
             'postcode' => null,
@@ -114,7 +119,7 @@ final class PhotonDocumentFactoryTest extends TestCase
     public function testStreetOfAddress(): void
     {
         $factory = new PhotonDocumentFactory(new SelectionRules(streetRank: 30));
-        $place = Places::create(osmKey: 'building', osmValue: 'yes', names: [], houseNumber: '606/42', address: ['street' => 'Hlavná'] + self::KOSICE);
+        $place = Places::create(osmKey: 'building', osmValue: 'yes', names: [], houseNumber: '606/42', address: ['street' => 'Hlavná', 'suburb' => 'Sever', 'county' => 'okres Košice I'] + self::KOSICE);
 
         $document = $factory->streetOfAddress($place);
 
@@ -125,6 +130,8 @@ final class PhotonDocumentFactoryTest extends TestCase
         $this->assertSame([], $document->namesI18n);
         $this->assertNull($document->postcode);
         $this->assertSame(30000, $document->rank);
+        $this->assertSame('Sever', $document->suburb);
+        $this->assertSame('okres Košice I', $document->county);
 
         $named = $factory->streetOfAddress(Places::create(houseNumber: '1', address: ['place' => 'Hatfa', 'village' => 'Viničky']));
         $this->assertSame('Hatfa', $named?->name);
@@ -151,5 +158,51 @@ final class PhotonDocumentFactoryTest extends TestCase
 
         $this->assertNull($factory->houseNumber(Places::create()));
         $this->assertNull($factory->houseNumber(Places::create(houseNumber: ' ')));
+        $this->assertNull($houseNumber->suburb);
+        $this->assertNull($houseNumber->reference);
+    }
+
+    public function testHouseNumberWithSuburbAndReference(): void
+    {
+        $factory = new PhotonDocumentFactory(new SelectionRules());
+        $address = ['street' => 'Hlavná', 'suburb' => 'Staré Mesto'] + self::KOSICE;
+
+        $houseNumber = $factory->houseNumber(Places::create(houseNumber: '606/42', address: $address, extra: ['ref:minvskaddress' => ' 7101722639 ', 'building:levels' => '3']));
+
+        $this->assertSame('Staré Mesto', $houseNumber?->suburb);
+        $this->assertSame('7101722639', $houseNumber->reference);
+    }
+
+    /**
+     * @param array<string, string> $extra
+     */
+    #[DataProvider('provideReferencesLeftOut')]
+    public function testLeavesOutTheReference(string $countryCode, array $extra): void
+    {
+        $factory = new PhotonDocumentFactory(new SelectionRules());
+
+        $houseNumber = $factory->houseNumber(Places::create(houseNumber: '1', address: ['street' => 'Hlavná'] + self::KOSICE, countryCode: $countryCode, extra: $extra));
+
+        $this->assertNull($houseNumber?->reference);
+    }
+
+    /**
+     * @return iterable<string, array{string, array<string, string>}>
+     */
+    public static function provideReferencesLeftOut(): iterable
+    {
+        yield 'none' => ['SK', []];
+        yield 'empty' => ['SK', ['ref:minvskaddress' => ' ']];
+        yield 'too long for the table' => ['SK', ['ref:minvskaddress' => str_repeat('7', 33)]];
+        yield 'the key of another country' => ['CZ', ['ref:minvskaddress' => '7101722639']];
+    }
+
+    public function testFollowsTheReferenceKeys(): void
+    {
+        $factory = new PhotonDocumentFactory(new SelectionRules(referenceKeys: ['CZ' => 'ref:ruian:addr']));
+
+        $houseNumber = $factory->houseNumber(Places::create(houseNumber: '1', address: ['street' => 'Hlavná'] + self::KOSICE, countryCode: 'CZ', extra: ['ref:ruian:addr' => '21705909']));
+
+        $this->assertSame('21705909', $houseNumber?->reference);
     }
 }

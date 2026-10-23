@@ -27,6 +27,10 @@ use Tito10047\Geocoder\HouseNumber\HouseNumberStoreInterface;
 use Tito10047\Geocoder\HouseNumber\PdoHouseNumberStore;
 use Tito10047\Geocoder\Import\ClockInterface;
 use Tito10047\Geocoder\Import\ConverterInterface;
+use Tito10047\Geocoder\Import\Download\DumpDownloaderInterface;
+use Tito10047\Geocoder\Import\Download\GraphHopperRegionUrlResolver;
+use Tito10047\Geocoder\Import\Download\HttpDumpDownloader;
+use Tito10047\Geocoder\Import\Download\RegionUrlResolverInterface;
 use Tito10047\Geocoder\Import\File\ExportAwareConverter;
 use Tito10047\Geocoder\Import\File\FileExporter;
 use Tito10047\Geocoder\Import\File\FileExporterInterface;
@@ -76,6 +80,7 @@ final class ContainerTest extends KernelTestCase
     private const GEOCODER_COMMANDS = [
         'tito10047-geo:geocoder:artifact',
         'tito10047-geo:geocoder:cleanup',
+        'tito10047-geo:geocoder:download',
         'tito10047-geo:geocoder:import',
         'tito10047-geo:geocoder:install-artifact',
         'tito10047-geo:geocoder:publish',
@@ -124,6 +129,9 @@ final class ContainerTest extends KernelTestCase
         yield 'index settings' => ['tito10047_geo.geocoder.index_settings', IndexSettings::class];
         yield 'artifact installer factory' => [ArtifactInstallerFactoryInterface::class, ArtifactInstallerFactory::class];
         yield 'artifact installer' => [ArtifactInstallerInterface::class, ArtifactInstallerInterface::class];
+        yield 'dump downloader' => [DumpDownloaderInterface::class, HttpDumpDownloader::class];
+        yield 'region URL resolver' => [RegionUrlResolverInterface::class, GraphHopperRegionUrlResolver::class];
+        yield 'PSR-18 client of the downloads' => ['tito10047_geo.geocoder.import.download_http_client', ClientInterface::class];
     }
 
     /**
@@ -151,13 +159,16 @@ final class ContainerTest extends KernelTestCase
             'meilisearch' => ['url' => 'http://127.0.0.1:7700', 'index' => 'places'],
             'database' => ['dsn' => Configs::UNREACHABLE_DSN, 'tables' => ['house_numbers' => 'h', 'translations' => 't', 'metadata' => 'm']],
             'search' => ['default_limit' => 7, 'preferred_country' => 'CZ'],
-            'import' => ['languages' => ['sk', 'en'], 'place_types' => ['city' => 99], 'pois' => ['railway' => ['station']], 'poi_rank' => 1, 'street_rank' => 2, 'place_dedup_km' => 0.5, 'dumps_dir' => '/srv/dumps'],
+            'import' => ['languages' => ['sk', 'en'], 'place_types' => ['city' => 99], 'pois' => ['railway' => ['station']], 'poi_rank' => 1, 'street_rank' => 2, 'place_dedup_km' => 0.5, 'dumps_dir' => '/srv/dumps',
+                'street_excluded_highways' => ['bus_stop'], 'reference_keys' => ['CZ' => 'ref:ruian:addr'], 'regions' => ['europe/slovakia'], 'download_url' => 'http://mirror.local/photon'],
         ])]]);
         $container = self::getContainer();
 
         $this->assertEquals(new TableNames('h', 't', 'm'), $container->get('tito10047_geo.geocoder.tables'));
         $this->assertEquals(new SearchOptions(limit: 7, preferredCountry: 'CZ'), $container->get('tito10047_geo.geocoder.search_options'));
-        $this->assertEquals(new SelectionRules(['city' => 99], ['railway' => ['station']], 1, 2, ['sk', 'en'], 0.5), $container->get('tito10047_geo.geocoder.selection_rules'));
+        $this->assertEquals(new SelectionRules(['city' => 99], ['railway' => ['station']], 1, 2, ['sk', 'en'], 0.5, ['bus_stop'], ['CZ' => 'ref:ruian:addr']), $container->get('tito10047_geo.geocoder.selection_rules'));
+        $this->assertEquals(new GraphHopperRegionUrlResolver('http://mirror.local/photon'), $container->get(RegionUrlResolverInterface::class));
+        $this->assertSame(['europe/slovakia'], $container->getParameter('tito10047_geo.geocoder.import.regions'));
         $naming = $container->get(IndexNamingInterface::class);
         $this->assertInstanceOf(IndexNamingInterface::class, $naming);
         $this->assertSame('places', $naming->liveUid());
@@ -266,17 +277,19 @@ final class ContainerTest extends KernelTestCase
         // files only: the export and the installation of artifacts
         $this->assertInstanceOf(FileExporter::class, $container->get(FileExporterInterface::class));
         $this->assertInstanceOf(ArtifactInstallerFactory::class, $container->get(ArtifactInstallerFactoryInterface::class));
-        $this->assertSame(['tito10047-geo:geocoder:import', 'tito10047-geo:geocoder:install-artifact', 'tito10047-geo:geocoder:search'], $this->bundleCommands($kernel));
+        $this->assertSame(['tito10047-geo:geocoder:download', 'tito10047-geo:geocoder:import', 'tito10047-geo:geocoder:install-artifact', 'tito10047-geo:geocoder:search'], $this->bundleCommands($kernel));
     }
 
     public function testExistingPsr18ClientsReplaceTheBuiltOnes(): void
     {
         self::bootKernel(['extension_configs' => ['tito10047_geo' => Configs::geocoder([
             'meilisearch' => ['url' => 'http://127.0.0.1:7700', 'http_client' => 'app.psr18'],
+            'import' => ['download_http_client' => 'app.psr18'],
         ]) + Configs::routing(['http_client' => 'app.psr18'])]]);
         $container = self::getContainer();
 
         $this->assertSame($container->get('app.psr18'), $container->get('tito10047_geo.geocoder.meilisearch.http_client'));
+        $this->assertSame($container->get('app.psr18'), $container->get('tito10047_geo.geocoder.import.download_http_client'));
         $this->assertSame($container->get('app.psr18'), $container->get('tito10047_geo.routing.http_client'));
     }
 

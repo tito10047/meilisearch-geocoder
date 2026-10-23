@@ -37,7 +37,7 @@ interface ImporterInterface
      *
      * @throws InvalidArgumentException when the index uid is not one of a build
      * @throws BuildNotFoundException   when the index or the tables of the build do not exist (any more)
-     * @throws RuntimeException         when the index or the tables cannot be published
+     * @throws RuntimeException         when the build is of another schema version, or the index or the tables cannot be published
      */
     public function publish(Build $build): Build;
 

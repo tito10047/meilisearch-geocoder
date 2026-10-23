@@ -15,7 +15,7 @@ use Tito10047\Geocoder\StreetKey;
  * the prefix is then matched on them with LOWER() … LIKE, which is case-insensitive on every
  * database (PostgreSQL's LIKE is not) and needs no collation-dependent range trick.
  */
-final readonly class PdoHouseNumberStore implements HouseNumberStoreInterface
+final readonly class PdoHouseNumberStore implements HouseNumberStoreInterface, HouseNumberReferenceStoreInterface
 {
     private const ESCAPE = '!';
 
@@ -44,7 +44,7 @@ final readonly class PdoHouseNumberStore implements HouseNumberStoreInterface
         // exact first: the number itself, then the orientation number ("42" of "606/42", the one on
         // the street signs in Czechia and Slovakia), then the conscription number ("606/…"), then prefixes
         $sql = \sprintf(
-            "SELECT number, postcode, lat, lon FROM %1\$s WHERE street_key = ? AND (LOWER(number) LIKE ? ESCAPE '%3\$s' OR LOWER(orientation) LIKE ? ESCAPE '%3\$s')"
+            "SELECT street_key, number, postcode, lat, lon, suburb, reference FROM %1\$s WHERE street_key = ? AND (LOWER(number) LIKE ? ESCAPE '%3\$s' OR LOWER(orientation) LIKE ? ESCAPE '%3\$s')"
             ." ORDER BY CASE WHEN LOWER(number) = ? THEN 0 WHEN LOWER(orientation) = ? THEN 1 WHEN LOWER(number) LIKE ? ESCAPE '%3\$s' THEN 2 ELSE 3 END,"
             .' LENGTH(number), LOWER(number) LIMIT %2$d',
             $this->tables->houseNumbers,
@@ -52,28 +52,18 @@ final readonly class PdoHouseNumberStore implements HouseNumberStoreInterface
             self::ESCAPE,
         );
 
-        try {
-            $statement = $this->connection->prepare($sql);
-            if (false === $statement) {
-                throw $this->unavailable($this->connection->errorInfo());
-            }
-            $statement->bindValue(1, $streetKey->value, \PDO::PARAM_INT);
-            $statement->bindValue(2, $prefix);
-            $statement->bindValue(3, $prefix);
-            $statement->bindValue(4, $number);
-            $statement->bindValue(5, $number);
-            $statement->bindValue(6, $this->escape($number).'/%');
-            if (!$statement->execute()) {
-                throw $this->unavailable($statement->errorInfo());
-            }
-            $rows = $statement->fetchAll(\PDO::FETCH_ASSOC);
-        } catch (\PDOException $e) {
-            throw new GeocoderUnavailableException(\sprintf('The house numbers cannot be read from the table "%s": %s', $this->tables->houseNumbers, $e->getMessage()), 0, $e);
-        }
+        $rows = $this->rows($sql, [
+            [$streetKey->value, \PDO::PARAM_INT],
+            [$prefix, \PDO::PARAM_STR],
+            [$prefix, \PDO::PARAM_STR],
+            [$number, \PDO::PARAM_STR],
+            [$number, \PDO::PARAM_STR],
+            [$this->escape($number).'/%', \PDO::PARAM_STR],
+        ]);
 
         $houseNumbers = [];
         foreach ($rows as $row) {
-            $houseNumber = $this->houseNumber($streetKey, $row);
+            $houseNumber = $this->houseNumber($row);
             $houseNumbers[$houseNumber->number] ??= $houseNumber;
             if (\count($houseNumbers) === $limit) {
                 break;
@@ -81,6 +71,40 @@ final readonly class PdoHouseNumberStore implements HouseNumberStoreInterface
         }
 
         return array_values($houseNumbers);
+    }
+
+    public function findByReference(string $reference): ?HouseNumber
+    {
+        // the same house may be several OSM objects: any of them
+        $sql = \sprintf('SELECT street_key, number, postcode, lat, lon, suburb, reference FROM %s WHERE reference = ? LIMIT 1', $this->tables->houseNumbers);
+        $rows = $this->rows($sql, [[$reference, \PDO::PARAM_STR]]);
+
+        return [] === $rows ? null : $this->houseNumber($rows[0]);
+    }
+
+    /**
+     * @param list<array{int|string, int}> $parameters the values and their PDO types
+     *
+     * @return list<array<array-key, mixed>>
+     */
+    private function rows(string $sql, array $parameters): array
+    {
+        try {
+            $statement = $this->connection->prepare($sql);
+            if (false === $statement) {
+                throw $this->unavailable($this->connection->errorInfo());
+            }
+            foreach ($parameters as $index => [$value, $type]) {
+                $statement->bindValue($index + 1, $value, $type);
+            }
+            if (!$statement->execute()) {
+                throw $this->unavailable($statement->errorInfo());
+            }
+
+            return array_values($statement->fetchAll(\PDO::FETCH_ASSOC));
+        } catch (\PDOException $e) {
+            throw new GeocoderUnavailableException(\sprintf('The house numbers cannot be read from the table "%s": %s', $this->tables->houseNumbers, $e->getMessage()), 0, $e);
+        }
     }
 
     /**
@@ -94,26 +118,42 @@ final readonly class PdoHouseNumberStore implements HouseNumberStoreInterface
     /**
      * @param array<array-key, mixed> $row
      */
-    private function houseNumber(StreetKey $streetKey, array $row): HouseNumber
+    private function houseNumber(array $row): HouseNumber
     {
+        $streetKey = $row['street_key'] ?? null;
         $number = $row['number'] ?? null;
         $postcode = $row['postcode'] ?? null;
         $latitude = $row['lat'] ?? null;
         $longitude = $row['lon'] ?? null;
-        if (!\is_scalar($number) || null !== $postcode && !\is_scalar($postcode) || !is_numeric($latitude) || !is_numeric($longitude)) {
-            throw new GeocoderUnavailableException(\sprintf('The table "%s" holds an invalid house number of the street %d.', $this->tables->houseNumbers, $streetKey->value));
+        $suburb = $row['suburb'] ?? null;
+        $reference = $row['reference'] ?? null;
+        if (!is_numeric($streetKey) || !\is_scalar($number) || !is_numeric($latitude) || !is_numeric($longitude)
+            || null !== $postcode && !\is_scalar($postcode) || null !== $suburb && !\is_scalar($suburb) || null !== $reference && !\is_scalar($reference)) {
+            throw new GeocoderUnavailableException(\sprintf('The table "%s" holds an invalid house number.', $this->tables->houseNumbers));
         }
 
         try {
             return new HouseNumber(
-                $streetKey,
+                new StreetKey((int) $streetKey),
                 (string) $number,
-                null === $postcode || '' === (string) $postcode ? null : (string) $postcode,
+                $this->optional($postcode),
                 new Coordinates((float) $latitude, (float) $longitude),
+                $this->optional($suburb),
+                $this->optional($reference),
             );
         } catch (InvalidArgumentException $e) {
-            throw new GeocoderUnavailableException(\sprintf('The table "%s" holds an invalid house number of the street %d: %s', $this->tables->houseNumbers, $streetKey->value, $e->getMessage()), 0, $e);
+            throw new GeocoderUnavailableException(\sprintf('The table "%s" holds an invalid house number of the street %s: %s', $this->tables->houseNumbers, (string) $streetKey, $e->getMessage()), 0, $e);
         }
+    }
+
+    /**
+     * A nullable column: an empty value is none.
+     *
+     * @param scalar|null $value
+     */
+    private function optional(mixed $value): ?string
+    {
+        return null === $value || '' === (string) $value ? null : (string) $value;
     }
 
     /**

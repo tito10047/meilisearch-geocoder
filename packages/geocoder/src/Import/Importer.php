@@ -165,6 +165,9 @@ final readonly class Importer implements ImporterInterface
         if ($stored->indexUid !== $uid) {
             throw new BuildNotFoundException(\sprintf('The tables %s hold the build %s, not %s.', $tables->houseNumbers, $stored->indexUid, $uid));
         }
+        if ($stored->schemaVersion !== $this->storage->schemaVersion()) {
+            throw new RuntimeException(\sprintf('The build %s has the schema version %d; this version of the library uses %d: import the dumps again.', $uid, $stored->schemaVersion, $this->storage->schemaVersion()));
+        }
     }
 
     /**

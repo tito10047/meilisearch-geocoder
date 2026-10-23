@@ -36,7 +36,7 @@ final class PdoBuildMetadataTest extends TestCase
             'data_timestamp.SK' => '2026-10-16T08:00:00+00:00',
             'dumps' => '[{"dump":"slovakia.jsonl.zst","data_timestamp":"2026-10-17T23:02:06+00:00","countries":["SK"],"counts":{"places":10,"streets":20,"pois":3,"house_numbers":2}},{"dump":"austria.jsonl.zst","data_timestamp":"2026-10-16T08:00:00+00:00","countries":["AT","SK"],"counts":{"places":1,"streets":2,"pois":3,"house_numbers":0}}]',
             'index_uid' => 'geo_20261023120000',
-            'schema_version' => '1',
+            'schema_version' => '2',
             'settings_hash' => Builds::build($this->tables)->settingsHash,
             'started_at' => '2026-10-23T12:00:00+00:00',
         ], $this->rows());

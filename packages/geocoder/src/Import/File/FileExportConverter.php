@@ -15,6 +15,7 @@ use Tito10047\Geocoder\Import\ImportCounts;
 use Tito10047\Geocoder\Import\ImportProgressInterface;
 use Tito10047\Geocoder\Name\TranslationWriterInterface;
 use Tito10047\Geocoder\Storage\Pdo\PdoBuildStorage;
+use Tito10047\Geocoder\Storage\Pdo\PdoSchema;
 use Tito10047\Geocoder\Storage\Pdo\PdoTableReader;
 
 /**
@@ -63,6 +64,9 @@ final readonly class FileExportConverter implements ConverterInterface
             $build = (new PdoBuildStorage($pdo))->read($tables);
         } catch (BuildNotFoundException $exception) {
             throw new InvalidArgumentException(\sprintf('"%s" is not a complete export: %s', $dump, $exception->getMessage()), 0, $exception);
+        }
+        if (PdoSchema::VERSION !== $build->schemaVersion) {
+            throw new InvalidArgumentException(\sprintf('The export "%s" has the schema version %d; this version of the library reads only %d: export the dumps again.', $dump, $build->schemaVersion, PdoSchema::VERSION));
         }
 
         $counts = ['places' => 0, 'streets' => 0, 'pois' => 0, 'houseNumbers' => 0];

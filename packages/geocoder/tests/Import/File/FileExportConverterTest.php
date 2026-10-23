@@ -97,6 +97,17 @@ final class FileExportConverterTest extends TestCase
         (new FileExportConverter())->convert($this->export, new InMemoryDocumentWriter(), new InMemoryHouseNumberWriter(), new InMemoryTranslationWriter());
     }
 
+    public function testRejectsAnExportOfAnotherSchemaVersion(): void
+    {
+        $pdo = new \PDO('sqlite:'.$this->export.'/geocoder.sqlite');
+        $pdo->exec("UPDATE geo_meta SET meta_value = '1' WHERE meta_key = 'schema_version'");
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('has the schema version 1');
+
+        (new FileExportConverter())->convert($this->export, new InMemoryDocumentWriter(), new InMemoryHouseNumberWriter(), new InMemoryTranslationWriter());
+    }
+
     public function testRejectsALineThatIsNotADocument(): void
     {
         file_put_contents($this->export.'/documents.ndjson', "\n{\"id\":\"N1\"}\n", \FILE_APPEND);
