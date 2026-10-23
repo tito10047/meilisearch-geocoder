@@ -97,7 +97,8 @@ return static function (ContainerConfigurator $container): void {
         // remembers translations: forgotten between the requests of a long-running worker, and after a publication
         ->set('tito10047_geo.geocoder.name_catalog', PdoNameCatalog::class)
             ->args([service('tito10047_geo.geocoder.connection'), service('tito10047_geo.geocoder.tables')])
-            ->tag('kernel.reset', ['method' => 'reset'])
+            // a decorator of the catalog (e.g. a test fake or an application cache) may have no reset()
+            ->tag('kernel.reset', ['method' => 'reset', 'on_invalid' => 'ignore'])
         ->alias(NameCatalogInterface::class, 'tito10047_geo.geocoder.name_catalog')
 
         ->set('tito10047_geo.geocoder.name_normalizer', NameNormalizer::class)

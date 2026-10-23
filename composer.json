@@ -31,6 +31,7 @@
     },
     "require-dev": {
         "friendsofphp/php-cs-fixer": "^3.92",
+        "geocoder-php/common-http": "^4.6",
         "geocoder-php/photon-provider": "^0.10",
         "phpstan/extension-installer": "^1.4",
         "phpstan/phpstan": "^2.1",
